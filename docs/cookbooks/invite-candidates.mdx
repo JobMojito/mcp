@@ -1,0 +1,129 @@
+---
+title: "Invite candidates"
+description: "Generate signed interview links or send branded email invitations for an interview."
+---
+
+Once you have an interview (`interview_def_set_id` from
+[Create an interview](/docs/cookbooks/create-an-interview)), there are two ways to get
+candidates in:
+
+| Goal | Use | MCP tool |
+| --- | --- | --- |
+| Get interview **URLs** back, or send the **email** invite chain | `POST /job-interview-register-users` | `register_users_for_interview` |
+| Invite people to the merchant (candidates, mentors, teammates) | `POST /invite-users` | `invite_users` |
+
+## Generate links or send invitations
+
+`POST /job-interview-register-users` handles both, switched by `type`:
+
+- `type: "url"` — generates a public interview URL (with an embedded JWT) per
+  user. You redirect/send it yourself. No email is sent.
+- `type: "invitation"` — also subscribes the user to JobMojito's email chain
+  (invitation, reminders, and completion notifications).
+
+<Steps>
+  <Step title="Build the user list">
+    Each user needs `name` and `email`; `external_id` is optional (your own id,
+    echoed back).
+  </Step>
+  <Step title="Call the endpoint">
+    Required fields: `interview_id`, `type`, `hide_menu`, and `users`.
+
+    <CodeGroup>
+    ```bash Get URLs (type: url)
+    curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-register-users \
+      -H "Authorization: Bearer $SUPABASE_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "interview_id": "9c1b…e4f2",
+        "type": "url",
+        "hide_menu": false,
+        "users": [
+          { "name": "Peter Parker", "email": "peter@parker.com", "external_id": "abcd" },
+          { "name": "MJ Watson", "email": "mj@example.com" }
+        ]
+      }'
+    ```
+
+    ```bash Send email invites (type: invitation)
+    curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-register-users \
+      -H "Authorization: Bearer $SUPABASE_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "interview_id": "9c1b…e4f2",
+        "type": "invitation",
+        "hide_menu": false,
+        "users": [
+          { "name": "Peter Parker", "email": "peter@parker.com" }
+        ]
+      }'
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Read the per-user result">
+    The response is an array mirroring your input, with an `interview_url`,
+    `profile_interview_id`, and a `result` per user (`ok` or `Error: …`).
+
+    ```json
+    [
+      {
+        "name": "Peter Parker",
+        "email": "peter@parker.com",
+        "external_id": "abcd",
+        "interview_url": "https://…",
+        "profile_interview_id": "19bd…bae4",
+        "result": "ok"
+      }
+    ]
+    ```
+  </Step>
+</Steps>
+
+### Fields
+
+<ParamField body="interview_id" type="string" required>The interview's `interview_def_set_id`.</ParamField>
+<ParamField body="type" type="string" required>`url` (just return links) or `invitation` (also send the email chain).</ParamField>
+<ParamField body="hide_menu" type="boolean" required>Hide the interview portal menu items for these candidates.</ParamField>
+<ParamField body="users" type="array" required>Each item: `name` (required), `email` (required), `external_id` (optional).</ParamField>
+
+<Warning>
+  Candidate invitations consume merchant interview credits. Each user is
+  processed independently — one failing user returns an `Error: …` result for
+  that row while the others still succeed.
+</Warning>
+
+## Alternative: invite to the merchant
+
+`POST /invite-users` invites people to the merchant and can attach candidates to
+an interview. It also supports `mentor`, `merchant`, and `merchant_owner` types.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://cool.jobmojito.com/functions/v1/invite-users \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "users": [
+      { "name": "Peter Parker", "email": "peter@parker.com",
+        "type": "candidate", "interview_id": "9c1b…e4f2" }
+    ],
+    "message_from_recruiter": "We'd love you to complete this short interview."
+  }'
+```
+</CodeGroup>
+
+For `type: "candidate"`, `interview_id` is required. Optional: `force_invite`
+(resend pending invites), `mojito_language_code` (defaults `en`), and
+`message_from_recruiter`. Each user comes back with a `result` such as `Invited`,
+`Activated`, `Skipped`, or `Error: …`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Review results" icon="clipboard-check" href="/docs/cookbooks/review-results">
+    Track who finished and read their scored transcripts.
+  </Card>
+  <Card title="Pre-screen candidates" icon="filter" href="/docs/cookbooks/pre-screen-candidates">
+    Score résumés before spending interview credits.
+  </Card>
+</CardGroup>

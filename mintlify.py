@@ -1,22 +1,23 @@
-"""Federate the Mintlify developer-docs MCP into this server.
+"""Developer-docs search via the Mintlify MCP.
 
 developer.jobmojito.com is a Mintlify site whose hosted MCP exposes a semantic
-`search` tool and a `query_docs_filesystem` tool over the docs (including the
-imported OpenAPI reference). Mintlify supports OAuth **client-credentials**, so
-this server can connect headlessly and re-expose those tools to end users.
+search tool over the docs (including the imported OpenAPI reference). Rather than
+mounting that MCP as a proxy (which would also surface its skill resource and a
+separate search tool), we call its search tool directly from inside this server's
+unified ``search_documentation`` tool.
 
-Flow (https://www.mintlify.com/docs/ai/model-context-protocol):
-  POST {site}/authed/mcp/oauth/token
-       grant_type=client_credentials&client_id=...&client_secret=...
-    -> { access_token, expires_in, refresh_token, ... }
-  then connect to {site}/authed/mcp with Authorization: Bearer <access_token>.
-
-The access token is cached and refreshed automatically on expiry.
+Endpoints:
+  * Public:  {site}/mcp                 — no credentials.
+  * Authed:  {site}/authed/mcp          — OAuth client-credentials. The token is
+             obtained from {site}/authed/mcp/oauth/token via
+             grant_type=client_credentials and cached/refreshed automatically.
+             (Requires "Enable MCP Server" in the Mintlify dashboard.)
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Generator
 
@@ -108,24 +109,82 @@ def build_auth() -> MintlifyClientCredentialsAuth:
     )
 
 
-def build_proxy():
-    """Build a FastMCP proxy for the Mintlify developer-docs MCP (lazy connect).
+def is_enabled() -> bool:
+    """True when a Mintlify developer-docs MCP endpoint is configured."""
+    return bool(settings.developer_docs_mcp_url)
 
-    Uses client-credentials auth only for an authenticated (`/authed/`) endpoint;
-    the public `/mcp` endpoint is mounted without credentials.
+
+# Cache the site-specific search tool name (e.g. search_job_mojito_developer_agent).
+_search_tool_name: str | None = None
+
+_MD_LINK = re.compile(r"\[(?P<title>[^\]]{2,200})\]\((?P<url>https?://[^)\s]+)\)")
+_BARE_URL = re.compile(r"https?://[^\s)\]]+")
+
+
+def _result_text(result) -> str:
+    """Extract text from a FastMCP CallToolResult."""
+    blocks = getattr(result, "content", None) or []
+    parts = [getattr(b, "text", "") for b in blocks if getattr(b, "text", "")]
+    if parts:
+        return "\n".join(parts)
+    data = getattr(result, "data", None) or getattr(result, "structured_content", None)
+    return "" if data is None else str(data)
+
+
+def _parse_items(text: str, limit: int) -> list[dict]:
+    """Best-effort extraction of {title, url} pairs from search result text."""
+    items: list[dict] = []
+    seen: set[str] = set()
+    for m in _MD_LINK.finditer(text):
+        url = m.group("url").strip()
+        if url in seen:
+            continue
+        seen.add(url)
+        items.append({"title": m.group("title").strip(), "url": url, "source": "developer"})
+        if len(items) >= limit:
+            return items
+    if not items:  # fall back to bare URLs
+        for m in _BARE_URL.finditer(text):
+            url = m.group(0)
+            if url in seen:
+                continue
+            seen.add(url)
+            items.append({"title": url, "url": url, "source": "developer"})
+            if len(items) >= limit:
+                break
+    return items
+
+
+async def search_developer_docs(query: str, limit: int = 8) -> dict:
+    """Run the Mintlify developer-docs semantic search and return results.
+
+    Returns {"items": [{title,url,source}], "text": <raw result snippet>}.
+    Never raises — returns empty items on any error so the unified search can
+    still serve help-center results.
     """
+    if not is_enabled():
+        return {"items": [], "text": ""}
+
+    from fastmcp import Client
     from fastmcp.client.transports import StreamableHttpTransport
 
-    # Non-deprecated proxy API (FastMCP 3.x), with a fallback for older builds.
-    try:
-        from fastmcp.server import create_proxy
-        from fastmcp.server.providers.proxy import ProxyClient
-    except ImportError:  # pragma: no cover - older FastMCP
-        from fastmcp import FastMCP
-        from fastmcp.server.proxy import ProxyClient
-
-        create_proxy = FastMCP.as_proxy  # type: ignore[assignment]
-
+    global _search_tool_name
     auth = build_auth() if settings.developer_docs_uses_auth else None
     transport = StreamableHttpTransport(url=settings.developer_docs_mcp_url, auth=auth)
-    return create_proxy(ProxyClient(transport), name="JobMojito Developer Docs")
+    try:
+        async with Client(transport) as client:
+            if _search_tool_name is None:
+                tools = await client.list_tools()
+                for t in tools:
+                    name = t.name.lower()
+                    if "search" in name and "filesystem" not in name:
+                        _search_tool_name = t.name
+                        break
+            if not _search_tool_name:
+                return {"items": [], "text": ""}
+            result = await client.call_tool(_search_tool_name, {"query": query})
+        text = _result_text(result)
+        return {"items": _parse_items(text, limit), "text": text}
+    except Exception as exc:
+        logger.warning("Mintlify developer-docs search failed: %s", exc)
+        return {"items": [], "text": "", "error": str(exc)}

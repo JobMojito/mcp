@@ -1,22 +1,23 @@
-"""Documentation tools — read JobMojito docs live, single-source.
+"""Documentation tools — read JobMojito docs live, single entry point.
 
 Two tools are exposed:
 
-* ``search_documentation(query, ...)`` — searches a lightweight index built from
-  the developer docs ``llms.txt`` (every article, API doc, table and schema page)
-  and the Featurebase help center, returning the best-matching pages.
+* ``search_documentation(query, ...)`` — ONE call searches both doc sources in
+  parallel and returns merged, source-labeled results:
+    - developer docs (developer.jobmojito.com) via the Mintlify MCP's semantic
+      search when configured, else a keyword index built from its ``llms.txt``;
+    - help center (help.jobmojito.com) via the Featurebase REST API when a key is
+      set, else public-HTML scraping.
 * ``get_documentation(url)`` — fetches the clean content of a single doc page on
-  demand (the ``.md`` variant for developer docs).
+  demand (the ``.md`` variant for developer docs; Featurebase article body for help).
 
-Nothing is copied into this repo: docs are authored once on the two platforms
-and read live here, with a short in-memory TTL cache to keep things fast.
-
-If/when you provide hosted MCP endpoints for the doc platforms, these tools can
-be complemented by proxy-mounting (see README) — but they work standalone.
+Nothing is copied into this repo: docs are authored once on the two platforms and
+read live here, with a short in-memory TTL cache to keep things fast.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -26,6 +27,7 @@ from urllib.parse import urlparse
 import httpx
 
 import featurebase
+import mintlify
 from config import settings
 
 logger = logging.getLogger("jobmojito_mcp.docs")
@@ -193,6 +195,45 @@ def _score(entry: DocEntry, query_tokens: list[str]) -> float:
     return score
 
 
+def _rank(entries: list[DocEntry], query: str, limit: int) -> list[dict]:
+    """Keyword-rank index entries and return result dicts."""
+    query_tokens = _tokenize(query)
+    scored = [(e, _score(e, query_tokens)) for e in entries]
+    scored = [pair for pair in scored if pair[1] > 0]
+    scored.sort(key=lambda p: p[1], reverse=True)
+    return [
+        {
+            "title": e.title,
+            "url": e.url,
+            "source": e.source,
+            "section": e.section,
+            "description": e.description,
+        }
+        for e, _ in scored[:limit]
+    ]
+
+
+async def _noop_list() -> list[dict]:
+    return []
+
+
+async def _noop_dict() -> dict:
+    return {"items": [], "text": ""}
+
+
+async def _search_help(query: str, limit: int) -> list[dict]:
+    entries = [e for e in await _build_index() if e.source == "help"]
+    return _rank(entries, query, limit)
+
+
+async def _search_developer(query: str, limit: int) -> dict:
+    """Developer-docs search: live Mintlify semantic search, or llms.txt fallback."""
+    if mintlify.is_enabled():
+        return await mintlify.search_developer_docs(query, limit)
+    entries = [e for e in await _build_index() if e.source == "developer"]
+    return {"items": _rank(entries, query, limit), "text": ""}
+
+
 def _allowed_doc_host(url: str) -> bool:
     host = urlparse(url).netloc
     allowed = {
@@ -219,50 +260,53 @@ def register(mcp) -> None:
         tags={"documentation"},
     )
     async def search_documentation(query: str, source: str = "all", limit: int = 8) -> dict:
-        """Search JobMojito documentation and return the most relevant pages.
+        """Search ALL JobMojito documentation. This is the single entry point.
 
-        Covers the help center (help.jobmojito.com — recruiter, candidate,
-        administrator, and integration guides), and developer docs
-        (developer.jobmojito.com) unless a dedicated developer-docs search tool
-        is connected (e.g. `search_job_mojito_developer_agent`), which should be
-        preferred for API reference, schemas, and code examples. Use this to find
-        how a feature, endpoint, field, or workflow works, then call
-        `get_documentation` with a returned URL to read the full page.
+        One call searches both documentation sources in parallel and returns a
+        merged, source-labeled list — you do not need to choose a source or call
+        a separate tool:
+          • "developer" — developer.jobmojito.com: API reference, request/response
+            schemas, tables, webhooks, code examples, integration guides.
+          • "help" — help.jobmojito.com: recruiter, candidate, and administrator
+            product guides (how the platform behaves for end users).
+
+        Use this whenever you need to understand how a feature, endpoint, field,
+        or workflow works — including before calling an action tool you're unsure
+        about. Then call `get_documentation(url)` with a returned URL to read the
+        full page.
 
         Args:
             query: Natural-language search query or keywords.
-            source: "all" (default), "developer", or "help".
-            limit: Max number of results (1-25).
+            source: "all" (default), "developer", or "help" to restrict the search.
+            limit: Max results per source (1-25).
         """
         limit = max(1, min(int(limit), 25))
         src = (source or "all").lower()
-        entries = await _build_index()
-        if src in {"developer", "help"}:
-            entries = [e for e in entries if e.source == src]
+        want_help = src in {"all", "help"}
+        want_dev = src in {"all", "developer"}
 
-        query_tokens = _tokenize(query)
-        scored = [(e, _score(e, query_tokens)) for e in entries]
-        scored = [pair for pair in scored if pair[1] > 0]
-        scored.sort(key=lambda p: p[1], reverse=True)
+        help_task = _search_help(query, limit) if want_help else _noop_list()
+        dev_task = _search_developer(query, limit) if want_dev else _noop_dict()
+        help_results, dev_result = await asyncio.gather(help_task, dev_task)
 
-        results = [
-            {
-                "title": e.title,
-                "url": e.url,
-                "source": e.source,
-                "section": e.section,
-                "description": e.description,
-            }
-            for e, _ in scored[:limit]
-        ]
-        return {
+        results: list[dict] = []
+        for item in dev_result.get("items", []):
+            results.append({**item, "source": "developer"})
+        results.extend(help_results)
+
+        out: dict = {
             "query": query,
             "source": src,
             "result_count": len(results),
-            "indexed_pages": len(entries),
             "results": results,
             "next_step": "Call get_documentation(url) with a result URL to read full content.",
         }
+        # Include the raw developer-search snippet when structured items weren't
+        # parseable, so the model still gets the content.
+        dev_text = dev_result.get("text") or ""
+        if dev_text and not dev_result.get("items"):
+            out["developer_docs_snippet"] = dev_text[:4000]
+        return out
 
     @mcp.tool(
         annotations={"readOnlyHint": True, "openWorldHint": True},
@@ -280,18 +324,12 @@ def register(mcp) -> None:
             max_chars: Truncate content to this many characters (default 20000).
         """
         url = url.strip()
-        if not _allowed_doc_host(url):
-            return {
-                "error": "URL not allowed. Only developer.jobmojito.com and "
-                "help.jobmojito.com documentation pages can be fetched.",
-                "url": url,
-            }
-
         max_chars = max(500, min(int(max_chars), 80000))
 
-        # Help center via Featurebase REST API (clean structured body).
-        help_host = urlparse(settings.help_docs_base_url).netloc
-        if featurebase.is_enabled() and urlparse(url).netloc == help_host:
+        # Help center via Featurebase REST API: resolve the article id from the
+        # index by URL (works regardless of the host — Featurebase canonical URLs
+        # use feedback.jobmojito.com, not help.jobmojito.com).
+        if featurebase.is_enabled():
             article_id = await _find_help_article_id(url)
             if article_id:
                 article = await featurebase.get_article(article_id)
@@ -304,7 +342,13 @@ def register(mcp) -> None:
                         "truncated": len(text) > max_chars,
                         "content": text[:max_chars],
                     }
-            # else fall through to plain HTML fetch
+
+        if not _allowed_doc_host(url):
+            return {
+                "error": "URL not allowed and not a known help-center article. Use a "
+                "URL returned by search_documentation.",
+                "url": url,
+            }
 
         # Prefer the clean markdown variant for developer docs.
         fetch_url = url

@@ -1,0 +1,72 @@
+---
+title: "Manage a knowledge base"
+description: "Upload documents so interviews can ask grounded, knowledge-based questions."
+---
+
+A knowledge base lets interviews ask questions grounded in your own documents
+(product manuals, policies, process docs). Upload documents to a knowledge base
+store, then reference that store when creating an interview.
+
+| Step | Endpoint | MCP tool |
+| --- | --- | --- |
+| Upload a document | `POST /knowledge-base-document-upload` | `upload_knowledge_base_document` |
+
+## Upload a document
+
+The endpoint accepts either a `multipart/form-data` upload (binary file) or
+`application/json` (base64-encoded file). Both require a
+`knowledge_base_store_id`.
+
+<CodeGroup>
+```bash multipart/form-data
+curl -X POST https://cool.jobmojito.com/functions/v1/knowledge-base-document-upload \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -F "knowledge_base_store_id=STORE_UUID" \
+  -F "name=onboarding-policy.pdf" \
+  -F "file=@./onboarding-policy.pdf"
+```
+
+```bash application/json (base64)
+curl -X POST https://cool.jobmojito.com/functions/v1/knowledge-base-document-upload \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "knowledge_base_store_id": "STORE_UUID",
+    "name": "onboarding-policy.pdf",
+    "file": "JVBERi0xLjQKJ…(base64)…"
+  }'
+```
+</CodeGroup>
+
+<ParamField body="knowledge_base_store_id" type="string" required>The store to add the document to.</ParamField>
+<ParamField body="file" type="string | binary" required>The document — a binary upload (multipart) or a base64 string (JSON).</ParamField>
+<ParamField body="name" type="string">Document name including extension. For multipart uploads it falls back to the uploaded file's name.</ParamField>
+
+The response returns `knowledge_base_id` for the created record. The document is
+then queued for processing (parsing + indexing) asynchronously.
+
+## Use the knowledge base in an interview
+
+Once documents are processed, reference the store when you
+[create an interview](/docs/cookbooks/create-an-interview):
+
+- **Whole interview** — set `knowledge_base_store_id` on `job-interview-create`
+  or `job-interview-create-from-array`.
+- **Per question** — set `knowledge_base_id` on an individual item in the
+  `questions` array (Option B) so only that question is grounded in the store.
+
+<Tip>
+  Use knowledge-base grounding with `interview_type: "process-verification-from-knowledge-base"`
+  to verify a candidate's understanding of your documented processes.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Create an interview" icon="plus" href="/docs/cookbooks/create-an-interview">
+    Reference your store to ask grounded questions.
+  </Card>
+  <Card title="Review results" icon="clipboard-check" href="/docs/cookbooks/review-results">
+    See how candidates performed on knowledge-based questions.
+  </Card>
+</CardGroup>

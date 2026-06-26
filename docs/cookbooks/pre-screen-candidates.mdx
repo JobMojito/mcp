@@ -1,0 +1,108 @@
+---
+title: "Pre-screen candidates"
+description: "Score a résumé against a position before inviting the candidate to a full interview."
+---
+
+Pre-screening scores a candidate's résumé (and optional form answers) against a
+position, returning an AI recommendation. It's two steps: define the
+pre-screening position, then submit candidates.
+
+| Step | Endpoint | MCP tool |
+| --- | --- | --- |
+| Create/update a pre-screening position | `POST /pre-screening-create` | `upsert_pre_screening` |
+| Screen a candidate (plain text résumé) | `POST /job-interview-pre-screening-api-resume-text` | `pre_screen_resume_text` |
+| Screen a candidate (uploaded file) | `POST /job-interview-pre-screening-api-resume-binary` | `pre_screen_resume_binary` |
+
+## 1. Create the pre-screening position
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://cool.jobmojito.com/functions/v1/pre-screening-create \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "position_name": "Senior Backend Engineer",
+    "position_location": "Remote (EU)",
+    "position_country_code": "DE",
+    "mojito_language_code": "en",
+    "type": "resume",
+    "status": "active",
+    "position_description": "Backend role: Python, async APIs, AWS.",
+    "candidate_expectations": "5+ yrs Python, cloud, SQL."
+  }'
+```
+</CodeGroup>
+
+When creating, `position_name`, `position_location`, `position_country_code`,
+and `mojito_language_code` are required. `type` is `resume`, `form`, or
+`resume_with_form`. To **update** an existing position, pass
+`update_position_def_set_id` instead and only the fields you want to change.
+
+The response returns `position_def_set_id` (use it to screen candidates) and
+`interview_pre_screening_id`.
+
+## 2. Screen a candidate
+
+Submit the candidate against the `position_id` (the `position_def_set_id` from
+step 1). Required: `position_id`, `candidate_name`, `candidate_email`,
+`candidate_country_code`, `candidate_resume`.
+
+<CodeGroup>
+```bash Plain-text résumé
+curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-pre-screening-api-resume-text \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "position_id": "POSITION_DEF_SET_UUID",
+    "candidate_name": "Peter Parker",
+    "candidate_email": "peter@parker.com",
+    "candidate_country_code": "US",
+    "candidate_resume": "Full plaintext résumé here…",
+    "candidate_linkedin_url": "https://linkedin.com/in/peterparker",
+    "form": {
+      "education": "masters",
+      "languages": [{ "code": "en", "level": "native" }],
+      "residency": "US"
+    }
+  }'
+```
+</CodeGroup>
+
+For a binary file (PDF/DOCX), use
+`job-interview-pre-screening-api-resume-binary` with the same identity fields and
+the file payload instead of `candidate_resume`.
+
+### Reading the result
+
+A completed screen returns:
+
+<ParamField body="recommendation" type="string">`ai_accept`, `ai_reject`, or `recruiter_action`.</ParamField>
+<ParamField body="pre_screening_score" type="number">AI match score for the candidate against the position.</ParamField>
+<ParamField body="resume_ai_analysis" type="string">AI summary of the résumé vs. the role.</ParamField>
+<ParamField body="resume_ai_technical_experience" type="number">AI-estimated years of relevant experience.</ParamField>
+<ParamField body="profile_interview_id" type="string">Use this to follow up — e.g. invite to a full interview.</ParamField>
+
+<Note>
+  If the candidate isn't in a screenable state, you'll still get HTTP 200 with a
+  short `{ "decision_status": …, "message": … }` payload instead of a full result.
+</Note>
+
+## Shortcut: pre-screen + interview in one call
+
+To screen a candidate **and** get a ready interview link back in a single
+request, use
+[`POST /job-interview-create-for-candidate-with-token`](/docs/cookbooks/create-an-interview#option-c-one-call-per-candidate-returns-a-link)
+(`create_interview_for_candidate`). It resolves the position, runs pre-screening,
+and returns a tokenised `interview_url` plus a `status` like `ai_accept` or
+`recruiter_action`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Invite candidates" icon="user-plus" href="/docs/cookbooks/invite-candidates">
+    Invite the candidates who passed screening.
+  </Card>
+  <Card title="Review results" icon="clipboard-check" href="/docs/cookbooks/review-results">
+    Filter results by the `pre-screening` step to see screening outcomes.
+  </Card>
+</CardGroup>

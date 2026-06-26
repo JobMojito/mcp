@@ -1,0 +1,160 @@
+---
+title: "Create an interview"
+description: "Generate an AI interview from a job position, from your own questions, or in one shot for a candidate."
+---
+
+There are three ways to create an interview, depending on how much you want
+JobMojito to generate for you:
+
+| You provide | Use | MCP tool |
+| --- | --- | --- |
+| A job description → AI generates questions | `POST /job-interview-create` | `create_interview` |
+| Your own list of questions | `POST /job-interview-create-from-array` | `create_interview_from_questions` |
+| A candidate + position, get a ready link back | `POST /job-interview-create-for-candidate-with-token` | `create_interview_for_candidate` |
+
+<Note>
+  You'll need an `interview_template_id`. List your available templates with
+  `GET /merchant-avatar-list` (MCP tool `list_avatars`) and pick one.
+</Note>
+
+## Option A — from a job position (AI-generated questions)
+
+JobMojito writes the description, questions, and candidate expectations for you.
+
+<Steps>
+  <Step title="Choose a template">
+    Call `GET /merchant-avatar-list` and note an `interview_template_id`.
+  </Step>
+  <Step title="Create the interview">
+    Send the position details. The required fields are `name`, `location`,
+    `interview_template_id`, `mojito_language_code`, `status`, `type`, and
+    `visibility`.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-create \
+      -H "Authorization: Bearer $SUPABASE_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Senior Backend Engineer",
+        "location": "Remote (EU)",
+        "interview_template_id": "TEMPLATE_UUID",
+        "mojito_language_code": "en",
+        "status": "active",
+        "type": "interview",
+        "visibility": "merchant_invite",
+        "interview_type": "pre-screening",
+        "seniority_level": "senior",
+        "interview_length": 8,
+        "description": "Backend role focused on Python, async APIs, and AWS.",
+        "candidate_expectations": "5+ yrs Python, REST/async, cloud, SQL."
+      }'
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Capture the interview id">
+    The response returns `interview_def_set_id` — keep it; you'll use it to
+    invite candidates and review results.
+
+    ```json
+    { "interview_def_set_id": "9c1b…e4f2" }
+    ```
+  </Step>
+</Steps>
+
+### Key fields
+
+<ParamField body="name" type="string" required>Interview / position name.</ParamField>
+<ParamField body="location" type="string" required>Job location.</ParamField>
+<ParamField body="interview_template_id" type="string" required>Template to base the interview on (from `merchant-avatar-list`).</ParamField>
+<ParamField body="mojito_language_code" type="string" required>Interview language, e.g. `en`, `de`, `fr`, `es`. (See the full list in the API reference.)</ParamField>
+<ParamField body="status" type="string" required>`draft` (not yet live) or `active` (published and runnable).</ParamField>
+<ParamField body="type" type="string" required>`interview` (AI-scored, hiring recommendation), `coaching` (practice, not scored for hiring), or `assessment` (skills test).</ParamField>
+<ParamField body="visibility" type="string" required>`merchant_public` (listed), `merchant_invite` (invite-only), or `merchant_unlisted` (direct link only).</ParamField>
+<ParamField body="interview_type" type="string">Style of interview, e.g. `pre-screening`, `second-interview`, `strength-based-interview`. Shapes the generated questions. Defaults to `pre-screening`.</ParamField>
+<ParamField body="interview_length" type="number">Number of questions to generate (max 40).</ParamField>
+<ParamField body="seniority_level" type="string">`entry-level` … `executive`. Auto-detected from the description when omitted.</ParamField>
+<ParamField body="description / candidate_expectations" type="string">Free text folded into AI question generation.</ParamField>
+
+## Option B — from your own questions
+
+Supply an ordered `questions` array. Same required interview fields as Option A,
+plus a `description`.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-create-from-array \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Support Specialist",
+    "location": "Remote",
+    "interview_template_id": "TEMPLATE_UUID",
+    "mojito_language_code": "en",
+    "description": "Customer support screening",
+    "status": "active",
+    "type": "interview",
+    "visibility": "merchant_invite",
+    "questions": [
+      { "question": "Tell me about a time you de-escalated an angry customer.", "duration": 120 },
+      { "question": "How do you prioritize a full support queue?", "duration": 90 },
+      { "question": "Rate your written English.", "is_multiple_choice": true,
+        "question_alternatives": ["Native", "Fluent", "Intermediate"] }
+    ]
+  }'
+```
+</CodeGroup>
+
+Each `questions` item requires `question` (the text). Useful per-question flags:
+`duration` (seconds), `is_without_scoring`, `is_multiple_choice`,
+`question_alternatives`, `is_conditional` + `conditional_question_main_id` (for
+follow-ups), and `knowledge_base_id` (ask grounded questions — see
+[Manage a knowledge base](/docs/cookbooks/manage-knowledge-base)).
+
+Returns `interview_def_set_id`.
+
+## Option C — one call per candidate (returns a link)
+
+Create the position (or reuse one), enrol a candidate, run pre-screening, and get
+a tokenised interview URL back — all in one request.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://cool.jobmojito.com/functions/v1/job-interview-create-for-candidate-with-token \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "candidate_name": "Peter Parker",
+    "candidate_email": "peter@parker.com",
+    "candidate_country_code": "US",
+    "candidate_resume": "Full plaintext résumé here…",
+    "position_name": "Senior Backend Engineer",
+    "position_location": "Remote (EU)",
+    "position_country_code": "DE",
+    "mojito_language_code": "en"
+  }'
+```
+</CodeGroup>
+
+If you already have a position, pass `position_def_set_id` instead of the
+`position_*` fields. The response includes `status` (e.g. `ai_accept`,
+`recruiter_action`, `ai_reject`), `interview_url`, and the created
+`interview_def_set_id` / `position_def_set_id`.
+
+<Tip>
+  Need to publish, archive, or unpublish later? Use `POST /job-interview-set-state`
+  (`set_interview_state`) with the `position_id` and a `status` of `active`,
+  `draft`, `archived`, or `deleted`. Retrieve a definition with
+  `POST /job-interview-get` (`get_interview_definition`).
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Invite candidates" icon="user-plus" href="/docs/cookbooks/invite-candidates">
+    Turn your new interview into links or email invitations.
+  </Card>
+  <Card title="Review results" icon="clipboard-check" href="/docs/cookbooks/review-results">
+    Read transcripts, scores, and export reports once candidates finish.
+  </Card>
+</CardGroup>

@@ -130,6 +130,33 @@ def test_developer_docs_federation_off_when_url_empty():
     assert settings.developer_docs_uses_auth is False
 
 
+def test_mintlify_parse_items():
+    from mintlify import _parse_items
+
+    text = (
+        "Here are results:\n"
+        "[Create interview](https://developer.jobmojito.com/create-interview)\n"
+        "[Webhooks](https://developer.jobmojito.com/creating-webhooks)\n"
+    )
+    items = _parse_items(text, limit=8)
+    urls = {i["url"] for i in items}
+    assert "https://developer.jobmojito.com/create-interview" in urls
+    assert all(i["source"] == "developer" for i in items)
+    assert len(items) == 2
+
+
+def test_docs_rank():
+    from docs_tools import DocEntry, _rank
+
+    entries = [
+        DocEntry(title="Creating webhooks", url="u1", source="developer",
+                 description="set up webhooks"),
+        DocEntry(title="Avatars", url="u2", source="developer", description="templates"),
+    ]
+    ranked = _rank(entries, "how to create a webhook", limit=5)
+    assert ranked and ranked[0]["url"] == "u1"
+
+
 def test_mintlify_token_caching():
     import time
 
