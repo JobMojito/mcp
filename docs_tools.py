@@ -375,3 +375,5 @@ def register(mcp) -> None:
             "truncated": truncated,
             "content": content[:max_chars],
         }
+
+    logger.info("Registered documentation tools: search_documentation, get_documentation")

@@ -38,6 +38,14 @@ pre-screening, knowledge bases, analytics) on the JobMojito platform, plus searc
 the documentation. Every action runs as the signed-in user via Supabase OAuth, so
 results respect that user's own permissions.
 
+AUTHENTICATION (required for EVERY tool):
+You must be signed in via Supabase OAuth to use ANY tool — including
+`search_documentation` and `get_documentation`. There is no anonymous access. If a
+tool call returns an authentication error (e.g. 401 / invalid_token), it means you
+are not signed in: tell the user to connect/authorize this server (log in through
+the Supabase login prompt) and then retry. Do not attempt to bypass or work around
+authentication.
+
 HOW TO USE THIS SERVER (read this before calling tools):
 1. To understand how something works — an endpoint, a field, a workflow, what an
    input means, or what a tool will do — call `search_documentation` FIRST, then
@@ -163,7 +171,18 @@ def build_server() -> FastMCP:
         settings.oauth_consent_path,
     )
 
-    logger.info("JobMojito MCP server built successfully.")
+    api_ops = sum(
+        1
+        for item in spec.get("paths", {}).values()
+        if isinstance(item, dict)
+        for method in item
+        if method.lower() in {"get", "post", "put", "patch", "delete"}
+    )
+    logger.info(
+        "JobMojito MCP server built successfully: %d API tools + 2 documentation "
+        "tools (search_documentation, get_documentation).",
+        api_ops,
+    )
     return mcp
 
 

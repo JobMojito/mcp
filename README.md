@@ -141,26 +141,42 @@ match your Supabase OAuth Server settings.
 
 ---
 
-## Deploy to Prefect Horizon
+## Authentication model
 
-1. Push this repo to GitHub.
-2. Go to [horizon.prefect.io](https://horizon.prefect.io), sign in with GitHub,
-   and select this repository.
-3. Configure the server:
-   - **Entrypoint:** `server.py:mcp`
-   - **Dependencies:** auto-detected from `requirements.txt`
-   - **Horizon Authentication:** leave **off** — this server handles end-user
-     auth itself via Supabase. (Turn it on only if you additionally want to
-     restrict to your Horizon org.)
-4. Add environment variables (from `.env.example`): `SUPABASE_PROJECT_URL`,
-   `BASE_URL` (your `https://<name>.fastmcp.app` URL), `SUPABASE_ANON_KEY` if the
-   Edge Functions need it, `FEATUREBASE_API_KEY` for help-center docs, and
-   `DEVELOPER_DOCS_MCP_CLIENT_ID` / `DEVELOPER_DOCS_MCP_CLIENT_SECRET` for the
-   Mintlify developer-docs federation. (Set these as **secrets**, not plain vars.)
-5. **Deploy.** You get a URL like `https://<name>.fastmcp.app/mcp`. Horizon
-   redeploys on every push to `main` and builds previews for PRs.
+**Every tool requires the user to be signed in via Supabase OAuth** — including
+`search_documentation` and `get_documentation`. There is no anonymous access.
+Keep `ENABLE_AUTH=true` in any real deployment; the signed-in user's token is
+forwarded to the JobMojito API so calls respect that user's permissions.
 
-Because the OpenAPI spec is fetched live at startup, each redeploy/restart picks
+> ⚠️ **Hosting constraint — not Prefect Horizon's managed gateway.** Horizon
+> fronts your server with its own gateway that terminates auth and connects to a
+> *trusted* backend. It does **not** carry the end-user's Supabase token to your
+> backend, so a Supabase-protected server returns `401 invalid_token` to the
+> gateway and **no tool is callable** (`Unknown tool`). Horizon's gateway is
+> all-or-nothing and uses its own OAuth, which can't be Supabase. So this
+> server must be hosted where **MCP clients connect directly to it** (your
+> `SupabaseProvider` is the entry/auth layer). Horizon is only suitable here if
+> you run it open (`ENABLE_AUTH=false`), which drops per-user Supabase identity.
+
+## Deploy (direct hosting)
+
+Host on any platform that runs the FastMCP HTTP server and exposes `/mcp`
+publicly — e.g. Render, Fly.io, Railway, Google Cloud Run, or a VM. Clients
+connect straight to your URL and do the Supabase OAuth there.
+
+1. Start command: `fastmcp run server.py:mcp --transport http --port $PORT`
+   (or `python server.py`). Dependencies come from `requirements.txt`.
+2. Set environment variables / secrets: `ENABLE_AUTH=true`,
+   `SUPABASE_PROJECT_URL`, `BASE_URL` (your public `https://…` URL, no trailing
+   `/mcp`), `SUPABASE_ANON_KEY` if the Edge Functions need it,
+   `FEATUREBASE_API_KEY` for help-center docs, and `DEVELOPER_DOCS_MCP_CLIENT_ID` /
+   `DEVELOPER_DOCS_MCP_CLIENT_SECRET` only if you switch developer docs to the
+   authenticated Mintlify endpoint.
+3. Point your MCP client (Claude/ChatGPT) at `https://<your-host>/mcp`. On
+   connect it discovers the Supabase OAuth metadata and prompts the user to log
+   in; after that, all tools work.
+
+Because the OpenAPI spec is fetched live at startup, each restart/redeploy picks
 up the latest JobMojito API automatically.
 
 ---
