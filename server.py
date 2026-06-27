@@ -19,6 +19,7 @@ import os
 import re
 
 from fastmcp import FastMCP
+from mcp.types import Icon
 
 try:  # FastMCP 3.x location
     from fastmcp.server.providers.openapi import MCPType, RouteMap
@@ -174,11 +175,11 @@ def build_server() -> FastMCP:
         version="1.0.0",
         website_url="https://www.jobmojito.com",
         icons=[
-            {
-                "src": "https://www.jobmojito.com/favicon.ico",
-                "mimeType": "image/x-icon",
-                "sizes": ["any"],
-            }
+            Icon(
+                src="https://www.jobmojito.com/favicon.ico",
+                mimeType="image/x-icon",
+                sizes=["any"],
+            )
         ],
         instructions=INSTRUCTIONS,
         auth=auth,
