@@ -56,6 +56,23 @@ async def test_all_tools_present():
 
 
 @pytest.mark.asyncio
+async def test_admin_ui_link_tool():
+    import server
+
+    names = await _tool_names(server.mcp)
+    assert "get_admin_ui_link" in names
+
+
+def test_build_admin_url():
+    from ui_links import build_admin_url
+
+    assert build_admin_url("candidate", "abc 123").endswith("/candidates/abc%20123")
+    assert build_admin_url("interview", "i1").endswith("/interviews/i1")
+    assert build_admin_url("result", "r1").endswith("/results/r1")
+    assert build_admin_url("bogus", "x") is None
+
+
+@pytest.mark.asyncio
 async def test_workflow_prompts_present():
     import server
 

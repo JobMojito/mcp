@@ -27,6 +27,7 @@ except ImportError:  # FastMCP 2.x fallback
 
 import docs_tools
 import prompts
+import ui_links
 from config import settings
 from naming import IGNORED_PATHS, description_hint_for
 from openapi_loader import load_openapi_spec
@@ -66,6 +67,7 @@ HOW TO USE THIS SERVER (read this before calling tools):
 
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
+• Admin UI links: get_admin_ui_link (open a candidate/interview/result in the app)
 • Interview (create/manage): create_interview, create_interview_from_questions,
   get_interview_definition, set_interview_state, generate_interview_url,
   get_interview_result_details, request_another_interview_attempt,
@@ -194,6 +196,9 @@ def build_server() -> FastMCP:
     # which also avoids exposing the Mintlify skill resource.
     docs_tools.register(mcp)
 
+    # Admin UI deep-link tool (candidate / interview / result).
+    ui_links.register(mcp)
+
     # User-invocable workflow prompts (cookbook starters).
     prompts.register(mcp)
     logger.info(
@@ -225,8 +230,8 @@ def build_server() -> FastMCP:
         if method.lower() in {"get", "post", "put", "patch", "delete"}
     )
     logger.info(
-        "JobMojito MCP server built successfully: %d API tools + 2 documentation "
-        "tools (search_documentation, get_documentation).",
+        "JobMojito MCP server built successfully: %d API tools + documentation "
+        "tools (search_documentation, get_documentation) + get_admin_ui_link.",
         api_ops,
     )
     return mcp

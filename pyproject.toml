@@ -29,4 +29,5 @@ py-modules = [
     "featurebase",
     "mintlify",
     "prompts",
+    "ui_links",
 ]
