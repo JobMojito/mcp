@@ -96,10 +96,18 @@ def _build_auth():
     from fastmcp.server.auth.providers.supabase import SupabaseProvider
 
     logger.info(
-        "Configuring Supabase OAuth (project=%s, alg=%s)",
+        "Configuring Supabase OAuth (project=%s, alg=%s, base_url=%s)",
         settings.supabase_project_url,
         settings.supabase_jwt_algorithm,
+        settings.base_url,
     )
+    if "localhost" in settings.base_url or "127.0.0.1" in settings.base_url:
+        logger.warning(
+            "BASE_URL is %s — for a deployed server this MUST be the public URL "
+            "(e.g. https://<name>.fastmcp.app), or OAuth discovery/token validation "
+            "will fail with 401 invalid_token.",
+            settings.base_url,
+        )
     return SupabaseProvider(
         project_url=settings.supabase_project_url,
         base_url=settings.base_url,
@@ -190,5 +198,9 @@ mcp = build_server()
 
 
 if __name__ == "__main__":
-    # Local dev convenience. Horizon ignores this block and serves `mcp` directly.
-    mcp.run(transport="http", host="0.0.0.0", port=8000)
+    # Local dev convenience (honors $PORT). Horizon ignores this block and serves
+    # the `mcp` object directly via its own runner.
+    import os
+
+    port = int(os.environ.get("PORT", "8000"))
+    mcp.run(transport="http", host="0.0.0.0", port=port)

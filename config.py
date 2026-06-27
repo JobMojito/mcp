@@ -67,7 +67,14 @@ class Settings:
 
     @property
     def cache_path(self) -> Path:
-        return DATA_DIR / "openapi.cache.json"
+        # Runtime cache must be writable; containers often have a read-only app
+        # dir. Default to a temp dir, overridable via OPENAPI_CACHE_PATH.
+        import tempfile
+
+        override = os.environ.get("OPENAPI_CACHE_PATH")
+        if override:
+            return Path(override)
+        return Path(tempfile.gettempdir()) / "jobmojito_openapi.cache.json"
 
     @property
     def federate_developer_docs(self) -> bool:

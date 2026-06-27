@@ -124,7 +124,7 @@ Steps:
    - **Site URL:** `https://app.jobmojito.com`
    - **Authorization Path:** `/oauth/consent`
 2. Env: `SUPABASE_PROJECT_URL=https://momsbvnltsydezmoesqt.supabase.co`,
-   `BASE_URL=<this server's https URL>`,
+   `BASE_URL=https://jobmojito.fastmcp.app` (public base, no `/mcp`),
    `SUPABASE_JWT_ALGORITHM=ES256` (switch to `RS256` if your JWKS shows RSA keys).
 3. If the JobMojito Edge Functions require an `apikey` header, set `SUPABASE_ANON_KEY`.
 
@@ -145,39 +145,46 @@ match your Supabase OAuth Server settings.
 
 **Every tool requires the user to be signed in via Supabase OAuth** — including
 `search_documentation` and `get_documentation`. There is no anonymous access.
-Keep `ENABLE_AUTH=true` in any real deployment; the signed-in user's token is
-forwarded to the JobMojito API so calls respect that user's permissions.
+Keep `ENABLE_AUTH=true`; the signed-in user's token is forwarded to the JobMojito
+API so calls respect that user's permissions.
 
-> ⚠️ **Hosting constraint — not Prefect Horizon's managed gateway.** Horizon
-> fronts your server with its own gateway that terminates auth and connects to a
-> *trusted* backend. It does **not** carry the end-user's Supabase token to your
-> backend, so a Supabase-protected server returns `401 invalid_token` to the
-> gateway and **no tool is callable** (`Unknown tool`). Horizon's gateway is
-> all-or-nothing and uses its own OAuth, which can't be Supabase. So this
-> server must be hosted where **MCP clients connect directly to it** (your
-> `SupabaseProvider` is the entry/auth layer). Horizon is only suitable here if
-> you run it open (`ENABLE_AUTH=false`), which drops per-user Supabase identity.
+## Deploy to Prefect Horizon
 
-## Deploy (direct hosting)
+1. Push this repo to GitHub.
+2. At [horizon.prefect.io](https://horizon.prefect.io), sign in with GitHub and
+   select this repo.
+3. Configure:
+   - **Entrypoint:** `server.py:mcp`
+   - **Dependencies:** auto-detected from `requirements.txt`
+   - **Horizon Authentication:** **off** — this server provides its own Supabase
+     OAuth, so let it be the auth layer.
+4. Set environment variables / secrets:
+   - `ENABLE_AUTH=true`
+   - `BASE_URL=https://jobmojito.fastmcp.app` — **critical.** This must be the
+     server's **public base URL, with no `/mcp` and no trailing slash**. It's what
+     `SupabaseProvider` advertises as the OAuth resource; if it's left at the
+     `http://localhost:8000` default, clients get `401 invalid_token`. The startup
+     log prints `base_url=…` and warns if it's localhost.
+   - `SUPABASE_PROJECT_URL=https://momsbvnltsydezmoesqt.supabase.co`
+   - `SUPABASE_ANON_KEY` if the Edge Functions need the `apikey` header.
+   - `FEATUREBASE_API_KEY` for help-center docs.
+5. **Deploy.** Your MCP endpoint is `https://jobmojito.fastmcp.app/mcp`. Horizon
+   redeploys on every push to `main`.
 
-Host on any platform that runs the FastMCP HTTP server and exposes `/mcp`
-publicly — e.g. Render, Fly.io, Railway, Google Cloud Run, or a VM. Clients
-connect straight to your URL and do the Supabase OAuth there.
+### Testing the login
 
-1. Start command: `fastmcp run server.py:mcp --transport http --port $PORT`
-   (or `python server.py`). Dependencies come from `requirements.txt`.
-2. Set environment variables / secrets: `ENABLE_AUTH=true`,
-   `SUPABASE_PROJECT_URL`, `BASE_URL` (your public `https://…` URL, no trailing
-   `/mcp`), `SUPABASE_ANON_KEY` if the Edge Functions need it,
-   `FEATUREBASE_API_KEY` for help-center docs, and `DEVELOPER_DOCS_MCP_CLIENT_ID` /
-   `DEVELOPER_DOCS_MCP_CLIENT_SECRET` only if you switch developer docs to the
-   authenticated Mintlify endpoint.
-3. Point your MCP client (Claude/ChatGPT) at `https://<your-host>/mcp`. On
-   connect it discovers the Supabase OAuth metadata and prompts the user to log
-   in; after that, all tools work.
+A `401` on `initialize` is the **normal first step** of MCP OAuth — the client is
+meant to read the discovery metadata and run the Supabase login. Horizon's
+**Inspector / ChatMCP do not perform that login**, so they'll show a bare 401.
+Test by adding `https://jobmojito.fastmcp.app/mcp` as a **custom connector in
+Claude.ai**, which runs the full OAuth flow and prompts the Supabase login.
 
-Because the OpenAPI spec is fetched live at startup, each restart/redeploy picks
-up the latest JobMojito API automatically.
+Make sure the Supabase side is configured (or the flow 401s regardless): OAuth
+Server enabled + Dynamic Client Registration on; Site URL `https://app.jobmojito.com`
++ Authorization Path `/oauth/consent`; and that consent page hosted on the app.
+
+Because the OpenAPI spec is fetched live at startup, each redeploy picks up the
+latest JobMojito API automatically.
 
 ---
 
