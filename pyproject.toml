@@ -28,4 +28,5 @@ py-modules = [
     "docs_tools",
     "featurebase",
     "mintlify",
+    "prompts",
 ]

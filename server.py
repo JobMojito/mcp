@@ -15,6 +15,8 @@ user's Supabase JWT is forwarded to the JobMojito API on every tool call.
 from __future__ import annotations
 
 import logging
+import os
+import re
 
 from fastmcp import FastMCP
 
@@ -24,8 +26,9 @@ except ImportError:  # FastMCP 2.x fallback
     from fastmcp.server.openapi import MCPType, RouteMap
 
 import docs_tools
+import prompts
 from config import settings
-from naming import description_hint_for
+from naming import IGNORED_PATHS, description_hint_for
 from openapi_loader import load_openapi_spec
 from upstream import build_api_client
 
@@ -64,9 +67,9 @@ HOW TO USE THIS SERVER (read this before calling tools):
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
 • Interview (create/manage): create_interview, create_interview_from_questions,
-  create_interview_for_candidate, get_interview_definition, set_interview_state,
-  generate_interview_url, get_interview_result_details,
-  request_another_interview_attempt, invite_users, register_users_for_interview
+  get_interview_definition, set_interview_state, generate_interview_url,
+  get_interview_result_details, request_another_interview_attempt,
+  register_users_for_interview
 • Interview reports: generate_interview_report
 • Pre-screening: upsert_pre_screening, pre_screen_resume_text,
   pre_screen_resume_binary
@@ -76,7 +79,7 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 
 Typical flows:
 - "Set up an interview for a role" → (optionally search_documentation for field
-  meanings) → create_interview → generate_interview_url / invite_users.
+  meanings) → create_interview → generate_interview_url / register_users_for_interview.
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
 - "Screen a résumé" → upsert_pre_screening → pre_screen_resume_text/binary.
@@ -141,28 +144,63 @@ def _customize_component(route, component) -> None:
         component.tags.add(tag)
 
 
+def _ignored_paths() -> set[str]:
+    """Endpoints excluded from the MCP: built-in list + IGNORED_TOOL_PATHS env."""
+    paths = set(IGNORED_PATHS)
+    extra = os.environ.get("IGNORED_TOOL_PATHS", "")
+    paths |= {p.strip() for p in extra.split(",") if p.strip()}
+    return paths
+
+
 def build_server() -> FastMCP:
     spec = load_openapi_spec()
     client = build_api_client()
     auth = _build_auth()
 
+    ignored = _ignored_paths()
+    # Exclude ignored endpoints first, then map everything else to a Tool.
+    route_maps = [
+        RouteMap(pattern=rf"^{re.escape(p)}$", mcp_type=MCPType.EXCLUDE)
+        for p in sorted(ignored)
+    ] + [RouteMap(mcp_type=MCPType.TOOL)]
+
     mcp = FastMCP.from_openapi(
         openapi_spec=spec,
         client=client,
+        # --- Branding (reported to clients in the MCP `initialize` response) ---
         name="JobMojito",
+        version="1.0.0",
+        website_url="https://www.jobmojito.com",
+        icons=[
+            {
+                "src": "https://www.jobmojito.com/favicon.ico",
+                "mimeType": "image/x-icon",
+                "sizes": ["any"],
+            }
+        ],
         instructions=INSTRUCTIONS,
         auth=auth,
-        # Decision: expose every endpoint (incl. GET lists) as Tools.
-        route_maps=[RouteMap(mcp_type=MCPType.TOOL)],
+        # Expose every endpoint (incl. GET lists) as Tools, except ignored ones.
+        route_maps=route_maps,
         mcp_component_fn=_customize_component,
         tags={"jobmojito"},
     )
+    if ignored:
+        logger.info("Excluded %d endpoint(s) from tools: %s", len(ignored), ", ".join(sorted(ignored)))
 
     # Documentation tools (live, single-source). A single `search_documentation`
     # tool queries the help center (Featurebase) and developer docs (Mintlify
     # semantic search) in parallel — no separate developer-docs tool is mounted,
     # which also avoids exposing the Mintlify skill resource.
     docs_tools.register(mcp)
+
+    # User-invocable workflow prompts (cookbook starters).
+    prompts.register(mcp)
+    logger.info(
+        "Registered workflow prompts: create_interview, review_candidate, "
+        "screen_resume, invite_candidates."
+    )
+
     if settings.developer_docs_mcp_url:
         logger.info(
             "Developer-docs search via Mintlify at %s (%s).",
@@ -181,8 +219,8 @@ def build_server() -> FastMCP:
 
     api_ops = sum(
         1
-        for item in spec.get("paths", {}).values()
-        if isinstance(item, dict)
+        for path, item in spec.get("paths", {}).items()
+        if isinstance(item, dict) and path not in ignored
         for method in item
         if method.lower() in {"get", "post", "put", "patch", "delete"}
     )

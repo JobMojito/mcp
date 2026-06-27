@@ -110,6 +110,14 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
 }
 
 
+# Endpoints to exclude from the MCP entirely (never exposed as tools).
+# Extend at deploy time with the IGNORED_TOOL_PATHS env var (comma-separated).
+IGNORED_PATHS: set[str] = {
+    "/invite-users",  # invites admin/merchant users — not for general agent use
+    "/job-interview-create-for-candidate-with-token",  # candidate-token one-shot flow
+}
+
+
 def operation_id_for(method: str, path: str) -> str | None:
     """Return the curated operationId/tool-name for a route, or None if unknown."""
     meta = TOOL_META.get((method.upper(), path))
