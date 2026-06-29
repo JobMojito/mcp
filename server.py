@@ -65,18 +65,20 @@ HOW TO USE THIS SERVER (read this before calling tools):
 4. Only call an action tool once you know which one you need and what inputs it
    expects. Prefer the read-only "Merchant lists" tools to look things up before
    creating or changing anything.
-5. Merchant setup: many endpoints accept a `merchant_id`. If a tool needs a
-   `merchant_id` and none has been selected yet, run `setup` first — it renders a
-   merchant picker so the user can configure which merchant to act as (for clients
-   without UI, use `list_my_merchants` instead). After the user picks one, pass
-   `merchant_id=<chosen id>` on every subsequent call — omit it to use the user's
-   own account. Run `setup` again whenever the user wants to switch merchants.
+5. JobMojito configuration: many endpoints accept a `merchant_id`. If a tool needs
+   a `merchant_id` and none has been selected yet, run `jobmojito_configuration`
+   first — it shows a searchable merchant picker so the user can choose which
+   merchant to act as (for clients without UI, use `list_my_merchants`, which
+   accepts a `search` filter). After the user picks one, pass `merchant_id=<chosen
+   id>` on every subsequent call — omit it to use the user's own account. Run
+   `jobmojito_configuration` again whenever the user wants to switch merchants.
 
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
 • Admin UI links: get_admin_ui_link (open a candidate/interview/result in the app)
-• Setup / merchants: setup (configure which merchant to act as — run when a
-  merchant_id is needed but none is selected), list_my_merchants (text equivalent)
+• Configuration / merchants: jobmojito_configuration (searchable picker to choose
+  which merchant to act as — run when a merchant_id is needed but none is selected),
+  list_my_merchants (text equivalent, supports a `search` filter)
 • Interview (create/manage): create_interview, create_interview_from_questions,
   get_interview_definition, set_interview_state, generate_interview_url,
   get_interview_result_details, request_another_interview_attempt,

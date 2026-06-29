@@ -70,8 +70,8 @@ async def test_merchant_selection_tools():
 
     names = await _tool_names(server.mcp)
     assert "list_my_merchants" in names
-    assert "setup" in names  # merchant picker MCP App
-    assert "choose" not in names  # replaced by setup
+    assert "jobmojito_configuration" in names  # searchable merchant picker MCP App
+    assert "setup" not in names and "choose" not in names  # renamed
 
 
 def test_relax_nullable_schemas():
