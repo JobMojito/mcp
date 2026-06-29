@@ -40,21 +40,55 @@ def _pick(d: dict, keys: tuple[str, ...]) -> str | None:
     return None
 
 
-async def _fetch_sub_merchants() -> list[dict]:
-    """Fetch sub-merchants via the JobMojito API (forwards the user's token)."""
-    async with build_api_client() as client:
-        resp = await client.get("/merchant-sub-merchant-list")
-        resp.raise_for_status()
-        payload = resp.json()
-    data = payload.get("data") if isinstance(payload, dict) else payload
+async def _fetch_sub_merchants(
+    search: str = "", page_size: int = 1000, max_total: int = 5000
+) -> list[dict]:
+    """Fetch sub-merchants via the JobMojito API (forwards the user's token).
+
+    Paginates through ALL sub-merchants (the endpoint defaults to ~50/page), up to
+    ``max_total``, so the picker can search the full list — not just the first
+    page. ``search`` is sent server-side (best effort, as ``filter_text``) and also
+    applied client-side as a fallback in case the endpoint ignores it.
+    """
+    q = (search or "").strip()
     out: list[dict] = []
-    for item in data or []:
-        if not isinstance(item, dict):
-            continue
-        mid = _pick(item, _ID_KEYS)
-        if not mid:
-            continue
-        out.append({"merchant_id": mid, "name": _pick(item, _NAME_KEYS) or mid})
+    offset = 0
+    async with build_api_client() as client:
+        while len(out) < max_total:
+            params: dict = {"limit": page_size, "offset": offset}
+            if q:
+                # Send both names: `filter_text` (OpenAPI) and `in_filter_text`
+                # (Supabase RPC convention) so server-side filtering works
+                # regardless of which the endpoint expects. A client-side filter
+                # below is the fallback if neither is honored.
+                params["filter_text"] = q
+                params["in_filter_text"] = q
+            resp = await client.get("/merchant-sub-merchant-list", params=params)
+            resp.raise_for_status()
+            payload = resp.json()
+            data = (payload.get("data") if isinstance(payload, dict) else payload) or []
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                mid = _pick(item, _ID_KEYS)
+                if mid:
+                    out.append({"merchant_id": mid, "name": _pick(item, _NAME_KEYS) or mid})
+
+            page = payload.get("pagination") if isinstance(payload, dict) else None
+            if page is not None:
+                if not page.get("has_more"):
+                    break
+                offset = (page.get("offset", offset) or offset) + (
+                    page.get("limit", page_size) or page_size
+                )
+            elif len(data) < page_size:
+                break
+            else:
+                offset += page_size
+
+    if q:  # client-side fallback filter
+        ql = q.lower()
+        out = [m for m in out if ql in m["name"].lower()]
     return out
 
 
@@ -64,24 +98,24 @@ async def _fetch_sub_merchants() -> list[dict]:
 try:
     from fastmcp.apps.app import FastMCPApp
     from prefab_ui.actions import SetState
-    from prefab_ui.actions.mcp import SendMessage
+    from prefab_ui.actions.mcp import CallTool, SendMessage
     from prefab_ui.app import PrefabApp
     from prefab_ui.components import (
         H3,
+        Button,
         Card,
         CardContent,
         CardHeader,
         Column,
-        Combobox,
-        ComboboxOption,
         Field,
         FieldContent,
         FieldDescription,
         FieldTitle,
+        Input,
         Muted,
     )
-    from prefab_ui.components.control_flow import If
-    from prefab_ui.rx import STATE
+    from prefab_ui.components.control_flow import ForEach, If
+    from prefab_ui.rx import RESULT, STATE
 
     _APPS_AVAILABLE = True
 except Exception as _exc:  # pragma: no cover - fastmcp[apps] not installed
@@ -96,10 +130,24 @@ except Exception as _exc:  # pragma: no cover - fastmcp[apps] not installed
 if _APPS_AVAILABLE:
 
     class JobMojitoConfiguration(FastMCPApp):
-        """MCP App exposing a `jobmojito_configuration` tool (settings form)."""
+        """MCP App exposing a `jobmojito_configuration` tool (settings form).
+
+        The "Sub merchant" field uses type-and-click server search: the user types
+        a name, clicks Search, and the UI calls a backend tool that filters
+        server-side (so it scales past one page); matches render as clickable rows.
+        """
 
         def __init__(self) -> None:
             super().__init__("JobMojito configuration")
+
+            @self.tool()
+            async def search_merchants(query: str = "") -> list[dict]:
+                """Backend: server-side sub-merchant search (called by the UI's Search button)."""
+                subs = await _fetch_sub_merchants(search=query)
+                return [
+                    {"merchant_id": m["merchant_id"], "name": m["name"]}
+                    for m in subs[:50]
+                ]
 
             @self.ui()
             async def jobmojito_configuration() -> PrefabApp:
@@ -107,31 +155,11 @@ if _APPS_AVAILABLE:
 
                 Run this FIRST whenever a tool needs a `merchant_id` and none has
                 been selected yet, or when the user wants to switch merchants. The
-                user picks a sub-merchant from a searchable list; afterwards, pass
+                user searches sub-merchants by name and picks one; afterwards, pass
                 `merchant_id=<chosen id>` on every JobMojito call (omit it for the
                 user's own account). After calling this, STOP and wait for the
                 user's selection.
                 """
-                try:
-                    subs = await _fetch_sub_merchants()
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("jobmojito_configuration: merchant fetch failed: %s", exc)
-                    subs = []
-
-                # The selected combobox value lands in STATE.sub_merchant ("own"
-                # for the user's own account, otherwise the merchant_id). onChange
-                # sends that value back so the model knows what to use.
-                on_select = [
-                    SendMessage(
-                        "JobMojito merchant selected (sub_merchant='"
-                        + STATE.sub_merchant
-                        + "'). Use merchant_id=<that value> on every subsequent "
-                        "JobMojito call. If the value is 'own', use my own account "
-                        "and OMIT merchant_id."
-                    ),
-                    SetState("decided", True),
-                ]
-
                 with Card(css_class="max-w-lg mx-auto") as view:
                     with CardHeader():
                         H3("JobMojito configuration")
@@ -139,38 +167,65 @@ if _APPS_AVAILABLE:
                         # One labeled field per setting. Add more Field blocks
                         # below as configuration grows (e.g. default language).
                         with Column(gap=4, css_class="w-full"):
-                            # --- Field: Sub merchant (searchable) ---
+                            # --- Field: Sub merchant (type-and-click search) ---
                             with Field():
                                 FieldTitle("Sub merchant")
                                 FieldDescription(
-                                    "Search and choose which merchant to act as."
+                                    "Use your own account, or search by name and "
+                                    "pick a sub-merchant."
                                 )
                                 with FieldContent():
-                                    if not subs:
-                                        Muted(
-                                            "Only your own account is available — "
-                                            "nothing to select."
+                                    with Column(gap=2, css_class="w-full"):
+                                        Button(
+                                            "Your own account (default)",
+                                            variant="outline",
+                                            css_class="w-full justify-start",
+                                            on_click=[
+                                                SendMessage(
+                                                    "Use my own JobMojito account — "
+                                                    "omit merchant_id on calls."
+                                                ),
+                                                SetState("decided", True),
+                                            ],
                                         )
-                                    else:
-                                        with Combobox(
-                                            name="sub_merchant",
-                                            placeholder="Select a merchant…",
-                                            searchPlaceholder="Search merchants…",
-                                            onChange=on_select,
-                                        ):
-                                            ComboboxOption(
-                                                "Your own account (default)",
-                                                value="own",
+                                        Input(
+                                            name="q",
+                                            placeholder="Search merchants by name…",
+                                        )
+                                        Button(
+                                            "Search",
+                                            variant="default",
+                                            on_click=[
+                                                CallTool(
+                                                    search_merchants,
+                                                    arguments={"query": STATE.q},
+                                                    onSuccess=[
+                                                        SetState("results", RESULT)
+                                                    ],
+                                                ),
+                                            ],
+                                        )
+                                        with ForEach("results") as item:
+                                            Button(
+                                                item.name,
+                                                variant="outline",
+                                                css_class="w-full justify-start",
+                                                on_click=[
+                                                    SendMessage(
+                                                        "Use JobMojito merchant_id="
+                                                        + item.merchant_id
+                                                        + " on all calls."
+                                                    ),
+                                                    SetState("decided", True),
+                                                ],
                                             )
-                                            for m in subs:
-                                                ComboboxOption(
-                                                    m["name"], value=m["merchant_id"]
-                                                )
                                         with If(STATE.decided):
                                             Muted("Merchant selected.")
                             # --- Future fields go here ---
 
-                return PrefabApp(view=view, state={"decided": False, "sub_merchant": ""})
+                return PrefabApp(
+                    view=view, state={"decided": False, "q": "", "results": []}
+                )
 
 
 def register(mcp) -> None:
@@ -194,14 +249,10 @@ def register(mcp) -> None:
             search: Optional case-insensitive filter on sub-merchant name.
         """
         try:
-            subs = await _fetch_sub_merchants()
+            subs = await _fetch_sub_merchants(search=search)
         except Exception as exc:
             logger.warning("list_my_merchants failed: %s", exc)
             return {"error": f"Could not list merchants: {exc}"}
-
-        q = (search or "").strip().lower()
-        if q:
-            subs = [m for m in subs if q in m["name"].lower()]
 
         choices = [{"merchant_id": None, "name": "Your own account (default)"}] + subs
         if not subs:
