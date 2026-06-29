@@ -62,6 +62,58 @@ def inject_operation_ids(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _allow_null(prop: dict[str, Any]) -> None:
+    """Make a single property schema accept null (it stays the same type otherwise)."""
+    t = prop.get("type")
+    if isinstance(t, str):
+        if t != "null":
+            prop["type"] = [t, "null"]
+    elif isinstance(t, list):
+        if "null" not in t:
+            prop["type"] = [*t, "null"]
+    # OpenAPI 3.0 sites also honor this; harmless under 3.1.
+    if "type" in prop:
+        prop["nullable"] = True
+
+
+def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
+    """Allow null on every typed property in the spec.
+
+    The JobMojito API returns null for many fields the OpenAPI declares as
+    non-nullable (e.g. external_id, emoji, slug). With output validation on, that
+    triggers "None is not of type 'string'". Marking those fields nullable makes
+    the generated tool schemas accurate (field names + types preserved) AND lets
+    real responses validate. ``required`` arrays are left untouched, so inputs
+    still require their fields.
+    """
+    relaxed = 0
+
+    def walk(node: Any) -> None:
+        nonlocal relaxed
+        if isinstance(node, dict):
+            props = node.get("properties")
+            if isinstance(props, dict):
+                for ps in props.values():
+                    if isinstance(ps, dict) and ("type" in ps):
+                        _allow_null(ps)
+                        relaxed += 1
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(spec.get("paths", {}))
+    walk(spec.get("components", {}))
+    logger.info("Relaxed %d schema properties to be nullable.", relaxed)
+    return spec
+
+
+def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
+    """Inject curated operationIds and relax nullable response fields."""
+    return relax_nullable_schemas(inject_operation_ids(spec))
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         if path.exists():
@@ -107,19 +159,19 @@ def load_openapi_spec() -> dict[str, Any]:
     """
     spec = _fetch_live()
     if spec is not None:
-        spec = inject_operation_ids(spec)
+        spec = _prepare(spec)
         _write_cache(spec)
         return spec
 
     cached = _read_json(settings.cache_path)
     if cached is not None:
         logger.warning("Using cached OpenAPI spec (live fetch unavailable).")
-        return inject_operation_ids(cached)
+        return _prepare(cached)
 
     snapshot = _read_json(settings.snapshot_path)
     if snapshot is not None:
         logger.warning("Using committed OpenAPI snapshot (no live/cache available).")
-        return inject_operation_ids(snapshot)
+        return _prepare(snapshot)
 
     raise RuntimeError(
         "Could not load the JobMojito OpenAPI spec from live URL, cache, or "

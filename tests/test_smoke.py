@@ -70,7 +70,38 @@ async def test_merchant_selection_tools():
 
     names = await _tool_names(server.mcp)
     assert "list_my_merchants" in names
-    assert "choose" in names  # Choice prefab picker for UI clients
+    assert "setup" in names  # merchant picker MCP App
+    assert "choose" not in names  # replaced by setup
+
+
+def test_relax_nullable_schemas():
+    import jsonschema
+
+    from openapi_loader import relax_nullable_schemas
+
+    spec = {
+        "paths": {},
+        "components": {
+            "schemas": {
+                "Item": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "tags": {"type": "array", "items": {"type": "string"}},
+                    },
+                }
+            }
+        },
+    }
+    relaxed = relax_nullable_schemas(spec)
+    item = relaxed["components"]["schemas"]["Item"]
+    name_type = item["properties"]["name"]["type"]
+    assert "null" in name_type and "string" in name_type
+    # `required` is untouched (inputs still require their fields).
+    assert item["required"] == ["name"]
+    # The real-world failure ("None is not of type 'string'") now validates.
+    jsonschema.validate(None, {"type": name_type})
 
 
 def test_build_admin_url():
