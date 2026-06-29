@@ -27,6 +27,7 @@ except ImportError:  # FastMCP 2.x fallback
     from fastmcp.server.openapi import MCPType, RouteMap
 
 import docs_tools
+import merchants
 import ui_links
 from config import settings
 from naming import IGNORED_PATHS, description_hint_for
@@ -64,10 +65,15 @@ HOW TO USE THIS SERVER (read this before calling tools):
 4. Only call an action tool once you know which one you need and what inputs it
    expects. Prefer the read-only "Merchant lists" tools to look things up before
    creating or changing anything.
+5. Merchant selection: many endpoints accept a `merchant_id`. If the user may act
+   across multiple merchants, call `list_my_merchants` first; have the user pick
+   one (use the `choose` picker if available), then pass `merchant_id=<chosen id>`
+   on every subsequent call — omit it to use the user's own account.
 
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
 • Admin UI links: get_admin_ui_link (open a candidate/interview/result in the app)
+• Merchants: list_my_merchants (pick which merchant to act as; then pass merchant_id)
 • Interview (create/manage): create_interview, create_interview_from_questions,
   get_interview_definition, set_interview_state, generate_interview_url,
   get_interview_result_details, request_another_interview_attempt,
@@ -195,6 +201,9 @@ def build_server() -> FastMCP:
 
     # Admin UI deep-link tool (candidate / interview / result).
     ui_links.register(mcp)
+
+    # Merchant selection (list_my_merchants + clickable picker for UI clients).
+    merchants.register(mcp)
 
     if settings.developer_docs_mcp_url:
         logger.info(

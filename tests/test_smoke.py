@@ -64,6 +64,15 @@ async def test_admin_ui_link_tool():
     assert "get_admin_ui_link" in names
 
 
+@pytest.mark.asyncio
+async def test_merchant_selection_tools():
+    import server
+
+    names = await _tool_names(server.mcp)
+    assert "list_my_merchants" in names
+    assert "choose" in names  # Choice prefab picker for UI clients
+
+
 def test_build_admin_url():
     from ui_links import build_admin_url
 

@@ -1,5 +1,5 @@
 # JobMojito MCP server dependencies
 # Prefect Horizon auto-installs these from requirements.txt at deploy time.
-fastmcp>=3.4,<4
+fastmcp[apps]>=3.4,<4
 httpx>=0.27
 python-dotenv>=1.0
