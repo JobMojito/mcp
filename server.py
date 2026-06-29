@@ -189,6 +189,11 @@ def build_server() -> FastMCP:
         route_maps=route_maps,
         mcp_component_fn=_customize_component,
         tags={"jobmojito"},
+        # The JobMojito OpenAPI declares some fields as non-nullable strings that
+        # actually return null (e.g. external_id, emoji). Strict output-schema
+        # validation would reject those ("None is not of type 'string'"), so relax
+        # it — the raw JSON still passes through to the client.
+        validate_output=False,
     )
     if ignored:
         logger.info("Excluded %d endpoint(s) from tools: %s", len(ignored), ", ".join(sorted(ignored)))
