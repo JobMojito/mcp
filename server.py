@@ -27,7 +27,6 @@ except ImportError:  # FastMCP 2.x fallback
     from fastmcp.server.openapi import MCPType, RouteMap
 
 import docs_tools
-import prompts
 import ui_links
 from config import settings
 from naming import IGNORED_PATHS, description_hint_for
@@ -74,8 +73,6 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   get_interview_result_details, request_another_interview_attempt,
   register_users_for_interview
 • Interview reports: generate_interview_report
-• Pre-screening: upsert_pre_screening, pre_screen_resume_text,
-  pre_screen_resume_binary
 • Knowledge base: upload_knowledge_base_document
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics
@@ -85,7 +82,6 @@ Typical flows:
   meanings) → create_interview → generate_interview_url / register_users_for_interview.
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
-- "Screen a résumé" → upsert_pre_screening → pre_screen_resume_text/binary.
 """
 
 
@@ -199,13 +195,6 @@ def build_server() -> FastMCP:
 
     # Admin UI deep-link tool (candidate / interview / result).
     ui_links.register(mcp)
-
-    # User-invocable workflow prompts (cookbook starters).
-    prompts.register(mcp)
-    logger.info(
-        "Registered workflow prompts: create_interview, review_candidate, "
-        "screen_resume, invite_candidates."
-    )
 
     if settings.developer_docs_mcp_url:
         logger.info(

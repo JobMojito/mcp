@@ -115,6 +115,9 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
 IGNORED_PATHS: set[str] = {
     "/invite-users",  # invites admin/merchant users — not for general agent use
     "/job-interview-create-for-candidate-with-token",  # candidate-token one-shot flow
+    "/pre-screening-create",  # pre-screening management — excluded
+    "/job-interview-pre-screening-api-resume-text",  # pre-screening — excluded
+    "/job-interview-pre-screening-api-resume-binary",  # pre-screening — excluded
 }
 
 

@@ -27,15 +27,16 @@ EXPECTED_API_TOOLS = {
     "request_another_interview_attempt", "generate_interview_url",
     "get_interview_result_details", "register_users_for_interview",
     "create_interview", "create_interview_from_questions",
-    "upsert_pre_screening",
-    "pre_screen_resume_text", "pre_screen_resume_binary",
     "upload_knowledge_base_document", "list_interviews", "list_candidates",
     "list_interview_results", "list_avatars", "list_sub_merchants",
     "get_merchant_analytics",
 }
 EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
 # Endpoints intentionally excluded from the MCP (must NOT appear as tools).
-IGNORED_TOOLS = {"invite_users", "create_interview_for_candidate"}
+IGNORED_TOOLS = {
+    "invite_users", "create_interview_for_candidate",
+    "upsert_pre_screening", "pre_screen_resume_text", "pre_screen_resume_binary",
+}
 
 
 async def _tool_names(mcp) -> set[str]:
@@ -50,7 +51,7 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 19
+    assert len(EXPECTED_API_TOOLS) == 16
     # Ignored endpoints must not be exposed.
     assert not (IGNORED_TOOLS & names), f"ignored tools leaked: {IGNORED_TOOLS & names}"
 
@@ -70,20 +71,6 @@ def test_build_admin_url():
     assert build_admin_url("interview", "i1").endswith("/interviews/i1")
     assert build_admin_url("result", "r1").endswith("/results/r1")
     assert build_admin_url("bogus", "x") is None
-
-
-@pytest.mark.asyncio
-async def test_workflow_prompts_present():
-    import server
-
-    prompts = await server.mcp.list_prompts()
-    names = {p.name for p in prompts}
-    assert {
-        "create_interview",
-        "review_candidate",
-        "screen_resume",
-        "invite_candidates",
-    } <= names, f"missing prompts: {names}"
 
 
 def test_llms_txt_parser():
