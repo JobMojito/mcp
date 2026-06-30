@@ -203,6 +203,14 @@ def build_server() -> FastMCP:
     if ignored:
         logger.info("Excluded %d endpoint(s) from tools: %s", len(ignored), ", ".join(sorted(ignored)))
 
+    # Server-side tool-call logging (name + arg keys + outcome/timing). Helps
+    # diagnose app-level failures incl. output-schema validation (-32602). It does
+    # NOT see transport-layer 400/404s (missing/expired Mcp-Session-Id), which are
+    # rejected before any tool runs.
+    from middleware import ToolCallLoggingMiddleware
+
+    mcp.add_middleware(ToolCallLoggingMiddleware())
+
     # Documentation tools (live, single-source). A single `search_documentation`
     # tool queries the help center (Featurebase) and developer docs (Mintlify
     # semantic search) in parallel — no separate developer-docs tool is mounted,

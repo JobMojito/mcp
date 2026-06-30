@@ -30,4 +30,5 @@ py-modules = [
     "mintlify",
     "ui_links",
     "merchants",
+    "middleware",
 ]
