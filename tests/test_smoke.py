@@ -108,8 +108,8 @@ def test_build_admin_url():
     from ui_links import build_admin_url
 
     assert build_admin_url("candidate", "abc 123").endswith("/candidates/abc%20123")
-    assert build_admin_url("interview", "i1").endswith("/interviews/i1")
-    assert build_admin_url("result", "r1").endswith("/results/r1")
+    assert build_admin_url("interview", "i1").endswith("/interview_creator/i1")
+    assert build_admin_url("result", "r1").endswith("/interview_results/result/r1")
     assert build_admin_url("bogus", "x") is None
 
 
