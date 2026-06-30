@@ -65,13 +65,14 @@ HOW TO USE THIS SERVER (read this before calling tools):
 4. Only call an action tool once you know which one you need and what inputs it
    expects. Prefer the read-only "Merchant lists" tools to look things up before
    creating or changing anything.
-5. JobMojito configuration: many endpoints accept a `merchant_id`. If a tool needs
-   a `merchant_id` and none has been selected yet, run `jobmojito_configuration`
-   first — it shows a searchable merchant picker so the user can choose which
-   merchant to act as (for clients without UI, use `list_my_merchants`, which
-   accepts a `search` filter). After the user picks one, pass `merchant_id=<chosen
-   id>` on every subsequent call — omit it to use the user's own account. Run
-   `jobmojito_configuration` again whenever the user wants to switch merchants.
+5. JobMojito configuration / merchant selection: whenever the user wants to
+   choose, switch, or set a merchant — or a tool needs a `merchant_id` and none is
+   selected — ALWAYS call `jobmojito_configuration`. It renders an interactive
+   searchable picker. Do NOT list merchants as text or ask the user to type a
+   name; render the picker and wait for their selection. Only use
+   `list_my_merchants` (text) if the client cannot render UI. After the user picks,
+   pass `merchant_id=<chosen id>` on every subsequent call — omit it for the user's
+   own account.
 
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
