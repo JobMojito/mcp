@@ -71,6 +71,13 @@ def _allow_null(prop: dict[str, Any]) -> None:
     elif isinstance(t, list):
         if "null" not in t:
             prop["type"] = [*t, "null"]
+    # If the field constrains values to an enum, null must also be a legal member —
+    # otherwise widening `type` to allow null isn't enough and a null value still
+    # fails the enum check ("None is not one of [...]"). Matters for nullable enum
+    # RESPONSE fields (e.g. status / recommendation).
+    enum = prop.get("enum")
+    if isinstance(enum, list) and None not in enum:
+        prop["enum"] = [*enum, None]
     # OpenAPI 3.0 sites also honor this; harmless under 3.1.
     if "type" in prop:
         prop["nullable"] = True

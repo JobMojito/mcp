@@ -9,7 +9,7 @@ confirmed against your actual admin routes):
 
     ADMIN_UI_BASE_URL        (default: SITE_URL, i.e. https://app.jobmojito.com)
     ADMIN_UI_CANDIDATE_PATH  (default: /candidates/{id})
-    ADMIN_UI_INTERVIEW_PATH  (default: /interviews/{id})
+    ADMIN_UI_INTERVIEW_PATH  (default: /interview_creator/{id})
     ADMIN_UI_RESULT_PATH     (default: /interview_results/result/{id})
 
 `{id}` is replaced with the (URL-encoded) entity id.
@@ -30,7 +30,7 @@ def _base() -> str:
 def _entity_paths() -> dict[str, str]:
     return {
         "candidate": os.environ.get("ADMIN_UI_CANDIDATE_PATH", "/candidates/{id}"),
-        "interview": os.environ.get("ADMIN_UI_INTERVIEW_PATH", "/interviews/{id}"),
+        "interview": os.environ.get("ADMIN_UI_INTERVIEW_PATH", "/interview_creator/{id}"),
         "result": os.environ.get("ADMIN_UI_RESULT_PATH", "/interview_results/result/{id}"),
     }
 

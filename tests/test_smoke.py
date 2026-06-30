@@ -104,6 +104,92 @@ def test_relax_nullable_schemas():
     jsonschema.validate(None, {"type": name_type})
 
 
+def test_real_spec_nullable_string_fields():
+    """Regression guard for the 3.0-`nullable` trap.
+
+    The JobMojito spec is tagged OpenAPI 3.1.0 but declares fields like `emoji`
+    and `billing_single_position_end_at` as `type: "string"` + `nullable: true`
+    (a 3.0-ism that JSON Schema ignores under 3.1). The API returns null for
+    them, which—without relaxing—raises "None is not of type 'string'". This
+    asserts relax_nullable_schemas turns every occurrence into a `[..., "null"]`
+    union on the committed snapshot, so the whole error class stays fixed.
+    """
+    import json
+    from pathlib import Path
+
+    from openapi_loader import relax_nullable_schemas
+
+    snapshot = Path(__file__).resolve().parent.parent / "data" / "openapi.snapshot.json"
+    if not snapshot.exists():
+        pytest.skip("openapi snapshot not present")
+
+    spec = json.loads(snapshot.read_text(encoding="utf-8"))
+    targets = {"emoji", "billing_single_position_end_at"}
+
+    def occurrences(node):
+        found = []
+        if isinstance(node, dict):
+            props = node.get("properties")
+            if isinstance(props, dict):
+                for name in targets:
+                    ps = props.get(name)
+                    if isinstance(ps, dict) and "type" in ps:
+                        found.append((name, ps["type"]))
+            for value in node.values():
+                found += occurrences(value)
+        elif isinstance(node, list):
+            for value in node:
+                found += occurrences(value)
+        return found
+
+    before = occurrences(spec)
+    # Sanity: the snapshot really does contain these typed fields.
+    assert {n for n, _ in before} == targets, f"snapshot changed: found {before}"
+
+    relaxed = relax_nullable_schemas(spec)
+    after = occurrences(relaxed)
+    for name, type_ in after:
+        assert isinstance(type_, list) and "null" in type_, (
+            f"{name} not null-accepting after relax: {type_!r}"
+        )
+
+
+def test_relax_nullable_enum_allows_null():
+    """A nullable enum field must accept null on BOTH type and enum checks.
+
+    Widening `type` to include "null" isn't enough: jsonschema validates `enum`
+    independently, so a null value fails ("None is not one of [...]") unless null
+    is also added to the enum. Guards nullable enum RESPONSE fields.
+    """
+    import jsonschema
+
+    from openapi_loader import relax_nullable_schemas
+
+    spec = {
+        "paths": {},
+        "components": {
+            "schemas": {
+                "R": {
+                    "type": "object",
+                    "properties": {
+                        "recommendation": {
+                            "type": "string",
+                            "enum": ["ai_accept", "ai_reject"],
+                            "nullable": True,
+                        }
+                    },
+                }
+            }
+        },
+    }
+    relaxed = relax_nullable_schemas(spec)
+    field = relaxed["components"]["schemas"]["R"]["properties"]["recommendation"]
+    assert "null" in field["type"]
+    assert None in field["enum"]
+    # The real-world failure ("None is not one of [...]") now validates.
+    jsonschema.validate(None, {"type": field["type"], "enum": field["enum"]})
+
+
 def test_build_admin_url():
     from ui_links import build_admin_url
 
