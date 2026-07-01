@@ -29,7 +29,7 @@ EXPECTED_API_TOOLS = {
     "create_interview", "create_interview_from_questions",
     "upload_knowledge_base_document", "list_interviews", "list_candidates",
     "list_interview_results", "list_avatars", "list_sub_merchants",
-    "get_merchant_analytics",
+    "get_merchant_analytics", "get_merchant_status",
 }
 EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
 # Endpoints intentionally excluded from the MCP (must NOT appear as tools).
@@ -51,17 +51,21 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 16
+    assert len(EXPECTED_API_TOOLS) == 17
     # Ignored endpoints must not be exposed.
     assert not (IGNORED_TOOLS & names), f"ignored tools leaked: {IGNORED_TOOLS & names}"
 
 
 @pytest.mark.asyncio
-async def test_admin_ui_link_tool():
+async def test_no_admin_ui_link_tool():
+    """The admin-link tool was removed; instructions point to the docs guide."""
     import server
 
     names = await _tool_names(server.mcp)
-    assert "get_admin_ui_link" in names
+    assert "get_admin_ui_link" not in names
+    # Instructions must link the identifiers/admin-links guide (which carries the
+    # id-field map and the admin URL patterns) rather than embedding it inline.
+    assert "mcp/identifiers" in server.INSTRUCTIONS
 
 
 @pytest.mark.asyncio
@@ -188,15 +192,6 @@ def test_relax_nullable_enum_allows_null():
     assert None in field["enum"]
     # The real-world failure ("None is not one of [...]") now validates.
     jsonschema.validate(None, {"type": field["type"], "enum": field["enum"]})
-
-
-def test_build_admin_url():
-    from ui_links import build_admin_url
-
-    assert build_admin_url("candidate", "abc 123").endswith("/candidates/abc%20123")
-    assert build_admin_url("interview", "i1").endswith("/interview_creator/i1")
-    assert build_admin_url("result", "r1").endswith("/interview_results/result/r1")
-    assert build_admin_url("bogus", "x") is None
 
 
 def test_llms_txt_parser():

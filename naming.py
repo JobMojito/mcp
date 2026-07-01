@@ -24,7 +24,7 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "Generate an interview result report (HTML/PDF/JSON) for a completed interview.",
     ),
     # --- Interview ---
-    ("POST", "/job-interview-get"): (
+    ("GET", "/job-interview-get"): (
         "get_interview_definition",
         "Get the definition/configuration of an interview (position).",
     ),
@@ -40,7 +40,7 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "generate_interview_url",
         "Generate a signed public interview URL/token.",
     ),
-    ("POST", "/job-interview-details"): (
+    ("GET", "/job-interview-details"): (
         "get_interview_result_details",
         "Get full interview result details including transcript and scores.",
     ),
@@ -106,6 +106,11 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/merchant-analytics"): (
         "get_merchant_analytics",
         "Get the merchant's daily event analytics.",
+    ),
+    ("GET", "/merchant-status"): (
+        "get_merchant_status",
+        "Get a merchant status snapshot: credit balances, subscription, pending-work "
+        "counts, candidate/result totals, and invitation headroom.",
     ),
 }
 

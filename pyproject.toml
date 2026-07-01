@@ -28,7 +28,6 @@ py-modules = [
     "docs_tools",
     "featurebase",
     "mintlify",
-    "ui_links",
     "merchants",
     "middleware",
 ]

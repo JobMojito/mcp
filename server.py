@@ -28,7 +28,6 @@ except ImportError:  # FastMCP 2.x fallback
 
 import docs_tools
 import merchants
-import ui_links
 from config import settings
 from naming import IGNORED_PATHS, description_hint_for
 from openapi_loader import load_openapi_spec
@@ -39,17 +38,16 @@ logger = logging.getLogger("jobmojito_mcp")
 
 INSTRUCTIONS = """\
 JobMojito MCP server — manage AI-powered hiring (interviews, candidates,
-pre-screening, knowledge bases, analytics) on the JobMojito platform, plus search
-the documentation. Every action runs as the signed-in user via Supabase OAuth, so
-results respect that user's own permissions.
+invitations, pre-screening, knowledge bases, analytics) on the JobMojito platform,
+plus search the documentation. Every action runs as the signed-in user, so results
+respect that user's own permissions.
 
 AUTHENTICATION (required for EVERY tool):
-You must be signed in via Supabase OAuth to use ANY tool — including
+The user must have authorized this server to use ANY tool — including
 `search_documentation` and `get_documentation`. There is no anonymous access. If a
-tool call returns an authentication error (e.g. 401 / invalid_token), it means you
-are not signed in: tell the user to connect/authorize this server (log in through
-the Supabase login prompt) and then retry. Do not attempt to bypass or work around
-authentication.
+tool call returns an authentication error (e.g. 401 / invalid_token), the
+connection isn't authorized: tell the user to connect/authorize this server and
+then retry. Do not attempt to bypass or work around authentication.
 
 HOW TO USE THIS SERVER (read this before calling tools):
 1. To understand how something works — an endpoint, a field, a workflow, what an
@@ -74,24 +72,34 @@ HOW TO USE THIS SERVER (read this before calling tools):
    pass `merchant_id=<chosen id>` on every subsequent call — omit it for the user's
    own account.
 
+IDENTIFIERS & ADMIN LINKS:
+Ids are easy to mix up — the same interview is `interview_def_set_id` (on create),
+`position_id` (get/set-state), and `interview_id` (register/token); results use
+`interview_result_id`, NOT the result row's `id`. There is no link-building tool.
+For the full id-to-field map, where each id comes from, and admin link patterns,
+read the guide: get_documentation("https://developer.jobmojito.com/mcp/identifiers").
+
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
-• Admin UI links: get_admin_ui_link (open a candidate/interview/result in the app)
 • Configuration / merchants: jobmojito_configuration (searchable picker to choose
   which merchant to act as — run when a merchant_id is needed but none is selected),
   list_my_merchants (text equivalent, supports a `search` filter)
 • Interview (create/manage): create_interview, create_interview_from_questions,
-  get_interview_definition, set_interview_state, generate_interview_url,
-  get_interview_result_details, request_another_interview_attempt,
-  register_users_for_interview
-• Interview reports: generate_interview_report
+  get_interview_definition, set_interview_state, request_another_interview_attempt
+• Invitations: register_users_for_interview (register candidates for an interview
+  and get their personal interview links), generate_interview_url (create a signed
+  interview link to share)
+• Results & reports: get_interview_result_details, generate_interview_report
 • Knowledge base: upload_knowledge_base_document
 • Merchant lists (read-only): list_interviews, list_candidates,
-  list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics
+  list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics,
+  get_merchant_status
 
 Typical flows:
 - "Set up an interview for a role" → (optionally search_documentation for field
   meanings) → create_interview → generate_interview_url / register_users_for_interview.
+- "Invite candidates to an interview" → register_users_for_interview (per-candidate
+  links) or generate_interview_url (one shareable link).
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
 """
@@ -217,9 +225,6 @@ def build_server() -> FastMCP:
     # which also avoids exposing the Mintlify skill resource.
     docs_tools.register(mcp)
 
-    # Admin UI deep-link tool (candidate / interview / result).
-    ui_links.register(mcp)
-
     # Merchant selection (list_my_merchants + clickable picker for UI clients).
     merchants.register(mcp)
 
@@ -248,7 +253,7 @@ def build_server() -> FastMCP:
     )
     logger.info(
         "JobMojito MCP server built successfully: %d API tools + documentation "
-        "tools (search_documentation, get_documentation) + get_admin_ui_link.",
+        "tools (search_documentation, get_documentation).",
         api_ops,
     )
     return mcp
