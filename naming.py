@@ -54,7 +54,9 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("POST", "/job-interview-create"): (
         "create_interview",
-        "Create a new interview and auto-generate its question sequence from position data.",
+        "Create a new interview and auto-generate its question sequence from "
+        "position data. The `interview_template_id` you pass also sets the "
+        "modality (voice-only vs realtime/pre-recorded avatar) — see `list_avatars`.",
     ),
     ("POST", "/job-interview-create-from-array"): (
         "create_interview_from_questions",
@@ -97,7 +99,14 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", "/merchant-avatar-list"): (
         "list_avatars",
-        "List available merchant avatar templates.",
+        "List available avatar/voice templates. Each item's `type` decides the "
+        "interview modality: `interactive_elevenlabs` = voice-only (no video "
+        "avatar); `interactive_heygen` = realtime interactive avatar (video); "
+        "`offline_heygen` = pre-recorded, non-interactive avatar. An item's `id` is "
+        "the `interview_template_id` you pass to the create-interview tools, so pick "
+        "the template whose type matches the experience you want. Note: "
+        "`offline_elai` and `offline_synthesia` are legacy integrations that may "
+        "still appear here but cannot be used to create new interviews.",
     ),
     ("GET", "/merchant-sub-merchant-list"): (
         "list_sub_merchants",

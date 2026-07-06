@@ -43,7 +43,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Supabase JWT access token, passed as `Authorization: Bearer <token>`."
+        "description": "Supabase JWT — `Authorization: Bearer <token>`."
       }
     },
     "schemas": {
@@ -301,7 +301,7 @@
           "merchant_id": {
             "type": "string",
             "nullable": true,
-            "description": "Merchant id. Only honored for admin or sub-merchant callers; otherwise taken from the JWT.",
+            "description": "Merchant id. Admin / sub-merchant callers only; otherwise taken from your token.",
             "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
           },
           "knowledge_base_store_id": {
@@ -1154,13 +1154,238 @@
           "is_multistage": {
             "type": "boolean",
             "description": "True when the id resolved to a multi-stage position rather than a single interview."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived",
+              "deleted",
+              "preparing",
+              "completed"
+            ],
+            "description": "Lifecycle status of the interview/position."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted",
+              "sub_item"
+            ],
+            "description": "Who can see and access the interview/position."
+          },
+          "stage": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "Interest",
+              "Application submitted",
+              "Interview 1st planned",
+              "Interview 1st completed",
+              "Interview 2nd planned",
+              "Interview 2nd completed",
+              "Interview 3rd planned",
+              "Interview 3rd completed",
+              "Offer negotiations",
+              "Hired",
+              "Rejected",
+              "Offer declined",
+              "Other"
+            ],
+            "description": "Hiring-pipeline stage. Null for multi-stage positions."
+          },
+          "type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "coaching",
+              "interview",
+              "persona",
+              "public_avatar",
+              "assessment"
+            ],
+            "description": "Interview type. Null for multi-stage positions."
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Caller-supplied external code/reference."
+          },
+          "interview_location": {
+            "type": "string",
+            "nullable": true,
+            "description": "Location (create field `location`)."
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL."
+          },
+          "merchant_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Owning merchant id."
+          },
+          "interview_template_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Interview template id. For multi-stage positions this is the first interview step's template."
+          },
+          "interview_template_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "offline_elai",
+              "offline_synthesia",
+              "interactive_heygen",
+              "offline_heygen",
+              "interactive_elevenlabs"
+            ],
+            "description": "Type of the linked interview template. `interactive_elevenlabs` is voice-only; the others (`interactive_heygen`, `offline_heygen`, `offline_elai`, `offline_synthesia`) are avatar-based. Null when the template could not be resolved."
+          },
+          "is_voice_only": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Convenience flag derived from interview_template_type: true when voice-only (`interactive_elevenlabs`), false when avatar-based, null when the template type could not be resolved."
+          },
+          "knowledge_base_store_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Linked knowledge base store id. Null for multi-stage positions."
+          },
+          "mojito_language_code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Platform (mojito) language code.",
+            "example": "en"
+          },
+          "speech_language_code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Azure speech language code. Null for multi-stage positions."
+          },
+          "speech_language_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Azure speech language display name. Null for multi-stage positions."
+          },
+          "recording": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_first_5_answers",
+              "audio_all",
+              "video_all",
+              "video_first_5_answers"
+            ],
+            "description": "Per-answer recording mode. Null for multi-stage positions."
+          },
+          "recording_full_session": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_first_5_answers",
+              "audio_all",
+              "video_all",
+              "video_first_5_answers"
+            ],
+            "description": "Full-session recording mode. Null for multi-stage positions."
+          },
+          "type_credit": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "resume_check",
+              "interview_coach_starter",
+              "interview_coach_contributor",
+              "interview_coach_manager",
+              "cover_letter"
+            ],
+            "description": "Credit bucket the interview draws from. Null for multi-stage positions."
+          },
+          "result_view": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "minimal",
+              "advanced",
+              "full",
+              "full_expand_scores",
+              "minimal_with_score",
+              "none"
+            ],
+            "description": "Result view level. Null for multi-stage positions."
+          },
+          "candidate_video_introduction": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hidden",
+              "optional",
+              "required"
+            ],
+            "description": "Whether a candidate video introduction is hidden/optional/required. Null for multi-stage positions."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short description."
+          },
+          "interview_description_long": {
+            "type": "string",
+            "nullable": true,
+            "description": "Long description (create field `description_long`)."
+          },
+          "candidate_expectations": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text candidate expectations. Null for multi-stage positions."
+          },
+          "candidate_expectations_json": {
+            "nullable": true,
+            "description": "Structured candidate expectations JSON. Null for multi-stage positions."
+          },
+          "result_scoring": {
+            "nullable": true,
+            "description": "Resolved result-scoring config. Null for multi-stage positions."
+          },
+          "creation_parameters": {
+            "nullable": true,
+            "description": "The creation parameters recorded at build time (interview_type, interview_tone, interview_length, additional_context, include_rapport_question, include_closing_prompt, knowledge_base_store_id, seniority_level)."
           }
         },
         "required": [
           "name",
           "created_at",
           "updated_at",
-          "is_multistage"
+          "is_multistage",
+          "status",
+          "visibility",
+          "stage",
+          "type",
+          "code",
+          "interview_location",
+          "cover_image_url",
+          "merchant_id",
+          "interview_template_id",
+          "interview_template_type",
+          "is_voice_only",
+          "knowledge_base_store_id",
+          "mojito_language_code",
+          "speech_language_code",
+          "speech_language_name",
+          "recording",
+          "recording_full_session",
+          "type_credit",
+          "result_view",
+          "candidate_video_introduction",
+          "description",
+          "interview_description_long",
+          "candidate_expectations"
         ]
       },
       "JobInterviewSetStateResponse": {
@@ -3186,7 +3411,7 @@
             "type": "string",
             "nullable": true,
             "format": "uuid",
-            "description": "Target merchant id. Required when calling with a service-role key. For admins / sub-merchant users it overrides the JWT merchant.",
+            "description": "Target merchant id. Required with a service-role key; for admins / sub-merchant users it overrides the token's merchant.",
             "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
           },
           "mojito_language_code": {
@@ -3963,7 +4188,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "get_interview_definition"
       }
     },
     "/job-interview-set-state": {
@@ -4173,7 +4399,7 @@
           "Interviews"
         ],
         "summary": "List interview definitions",
-        "description": "Paginated list of a merchant's interview definitions (the admin-portal interview list), scoped to the merchant from the JWT or the optional merchant_id override. Capped at 1000 records per page.",
+        "description": "Paginated list of a merchant's interview definitions (the admin-portal interview list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page.",
         "security": [
           {
             "bearerAuth": []
@@ -4184,7 +4410,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -4449,7 +4675,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "get_interview_result_details"
       }
     },
     "/job-interview-pdf": {
@@ -4592,7 +4819,7 @@
           "Results"
         ],
         "summary": "List interview results",
-        "description": "Paginated list of a merchant's interview results (the admin-portal results list), scoped to the merchant from the JWT or the optional merchant_id override. Capped at 1000 records per page.",
+        "description": "Paginated list of a merchant's interview results (the admin-portal results list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page.",
         "security": [
           {
             "bearerAuth": []
@@ -4603,7 +4830,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -4816,7 +5043,7 @@
           "Results"
         ],
         "summary": "Get daily event analytics",
-        "description": "Daily event-count time-series for a merchant over a date range (the admin-portal analytics events graph), scoped to the merchant from the JWT or the optional merchant_id override. Optionally drilled to a single interview. Capped at 1000 records per page. Note: only day/event combinations with a non-zero count are returned — any day/event pair absent from the response should be treated as a count of 0 by the caller.",
+        "description": "Daily event-count time-series for a merchant over a date range (the admin-portal analytics events graph), scoped to your token's merchant (or a merchant_id override). Optionally drilled to a single interview. Capped at 1000 records per page. Note: only day/event combinations with a non-zero count are returned — any day/event pair absent from the response should be treated as a count of 0 by the caller.",
         "security": [
           {
             "bearerAuth": []
@@ -4827,7 +5054,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -4954,7 +5181,7 @@
           "Candidates"
         ],
         "summary": "List candidates",
-        "description": "Paginated list of a merchant's candidates (the admin-portal candidates list), scoped to the merchant from the JWT or the optional merchant_id override. Capped at 1000 records per page.",
+        "description": "Paginated list of a merchant's candidates (the admin-portal candidates list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page.",
         "security": [
           {
             "bearerAuth": []
@@ -4965,7 +5192,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -5524,7 +5751,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -5644,7 +5871,7 @@
           "Admin"
         ],
         "summary": "List avatar templates",
-        "description": "Paginated list of a merchant's avatar templates (the admin-portal avatars list), scoped to the merchant from the JWT or the optional merchant_id override. Capped at 1000 records per page.",
+        "description": "Paginated list of a merchant's avatar templates (the admin-portal avatars list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page.",
         "security": [
           {
             "bearerAuth": []
@@ -5655,7 +5882,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -5831,7 +6058,7 @@
           "Admin"
         ],
         "summary": "Get merchant status",
-        "description": "Status snapshot for a merchant: interview-credit balances, subscription type/status, pending-work counts (undecided / ongoing / uncredited interviews), candidate & result totals with 14-day history, and invitation headroom. Scoped to the merchant from the JWT, or to the merchant_id query param when the caller is an admin or sub-merchant operator. The response also echoes the caller identity resolved from the JWT — profile_id and default_merchant_id — alongside the effective merchant_id.",
+        "description": "Status snapshot for a merchant: interview-credit balances, subscription type/status, pending-work counts (undecided / ongoing / uncredited interviews), candidate & result totals with 14-day history, and invitation headroom. Scoped to your token's merchant (or a merchant_id override for admins / sub-merchant operators). Also echoes the caller's profile_id and default_merchant_id from the token, plus the effective merchant_id.",
         "security": [
           {
             "bearerAuth": []
@@ -5842,7 +6069,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional merchant to scope the results to. Honoured only when the caller is an admin or a sub-merchant operator; otherwise the merchant from the JWT is always used.",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
               "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
             },
             "required": false,
@@ -5901,7 +6128,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "get_merchant_status"
       }
     }
   }
