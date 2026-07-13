@@ -1,5 +1,6 @@
 # JobMojito MCP server dependencies
 # Prefect Horizon auto-installs these from requirements.txt at deploy time.
-fastmcp[apps]>=3.4,<4
+# 3.4.3 shipped a Host/Origin guard that 421s direct/reverse-proxy deploys; 3.4.4 reverts it.
+fastmcp[apps]>=3.4.4,<4
 httpx>=0.27
 python-dotenv>=1.0
