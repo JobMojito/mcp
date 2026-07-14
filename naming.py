@@ -62,9 +62,19 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "create_interview_from_questions",
         "Create a new interview from an explicit array of questions.",
     ),
+    # NOTE: excluded from the MCP surface via IGNORED_PATHS below — HTTP only.
+    # The curated name is kept here so it's ready if it's ever un-ignored.
     ("POST", "/job-interview-create-for-candidate-with-token"): (
         "create_interview_for_candidate",
         "Create an interview for a specific candidate and return an access-token URL.",
+    ),
+    ("POST", "/persona-create"): (
+        "create_persona",
+        "Create a role-play persona: an avatar that plays a defined role in a "
+        "free-form conversation instead of a scored Q&A interview. Set "
+        "`persona_role_avatar`/`persona_role_user` for the roles and `opening_line` "
+        "for the avatar's first spoken line (defaults to a generic 'Hello'). "
+        "Coaching-platform feature.",
     ),
     # --- Pre-screening ---
     ("POST", "/pre-screening-create"): (
@@ -120,6 +130,12 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "get_merchant_status",
         "Get a merchant status snapshot: credit balances, subscription, pending-work "
         "counts, candidate/result totals, and invitation headroom.",
+    ),
+    ("GET", "/platform-languages-list"): (
+        "list_languages",
+        "List supported platform (mojito) languages: the `code` to pass as "
+        "`mojito_language_code`, English/local names, SVG flag URL, per-interface "
+        "enablement flags, and Azure speech accents.",
     ),
 }
 

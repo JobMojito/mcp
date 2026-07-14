@@ -241,6 +241,17 @@
             "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
             "example": "full"
           },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "slower",
+              "normal",
+              "faster"
+            ],
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "example": "normal"
+          },
           "candidate_video_introduction": {
             "type": "string",
             "nullable": true,
@@ -286,6 +297,22 @@
             "description": "Maximum interview duration in minutes used to scope question generation.",
             "example": 30
           },
+          "max_followups": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Maximum number of AI follow-up questions. 0 disables follow-ups; presets are 0-3 (none/low/normal/high) and custom values start at 4; null uses the template default (Normal).",
+            "example": 2
+          },
+          "questions_random_subset": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0.01,
+            "maximum": 0.9,
+            "description": "Ask only a random subset of the questions, expressed as a fraction between 0.01 and 0.9 (e.g. 0.5 = 50%). null asks all questions.",
+            "example": 0.5
+          },
           "code": {
             "type": "string",
             "nullable": true,
@@ -297,6 +324,48 @@
             "nullable": true,
             "description": "Cover image URL.",
             "example": "https://example.com/cover.png"
+          },
+          "interview_department": {
+            "type": "string",
+            "nullable": true,
+            "description": "Department the position belongs to.",
+            "example": "Engineering"
+          },
+          "interview_salary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salary range shown for the position.",
+            "example": "$80k - $100k"
+          },
+          "interview_available_till": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date/time after which the interview is no longer available to candidates. null keeps it always available.",
+            "example": "2026-12-31"
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "hiring_for_company": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
+            "example": "undisclosed"
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags stored on the interview.",
+            "example": [
+              "engineering",
+              "remote"
+            ]
           },
           "merchant_id": {
             "type": "string",
@@ -376,6 +445,18 @@
             "nullable": true,
             "description": "Reserved flag passed through to generation."
           },
+          "required_pronunciation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Require pronunciation assessment (restricts to pronunciation-capable languages). Defaults to false.",
+            "example": false
+          },
+          "result_enable_edit_transcript": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Allow editing the transcript on the result view. Defaults to true.",
+            "example": true
+          },
           "custom_scoring": {
             "type": "object",
             "nullable": true,
@@ -383,6 +464,54 @@
               "nullable": true
             },
             "description": "Custom result-scoring overrides merged with defaults and template overrides."
+          },
+          "pdf_export_auto_config": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "mojito_language_code": {
+                "type": "string",
+                "description": "Report language code (platform-languages.json code).",
+                "example": "en"
+              },
+              "contact_details": {
+                "type": "boolean",
+                "description": "Include candidate contact details."
+              },
+              "ai_recruiter_assessment": {
+                "type": "boolean",
+                "description": "Include the AI recruiter assessment."
+              },
+              "ai_scoring_rubric": {
+                "type": "boolean",
+                "description": "Include the AI scoring rubric."
+              },
+              "analytics": {
+                "type": "boolean",
+                "description": "Include analytics."
+              },
+              "files": {
+                "type": "boolean",
+                "description": "Include uploaded candidate files."
+              },
+              "transcript": {
+                "type": "boolean",
+                "description": "Include the interview transcript."
+              },
+              "answer_recording": {
+                "type": "boolean",
+                "description": "Include per-answer recordings."
+              },
+              "session_recording": {
+                "type": "boolean",
+                "description": "Include the full-session recording."
+              },
+              "group_by_question": {
+                "type": "boolean",
+                "description": "Group transcript answers by expected question."
+              }
+            },
+            "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
           }
         },
         "required": [
@@ -538,10 +667,30 @@
           "candidate_expectations_json": {
             "type": "object",
             "nullable": true,
-            "additionalProperties": {
-              "nullable": true
+            "properties": {
+              "weak": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Baseline requirements every viable candidate should meet (table stakes)."
+              },
+              "moderate": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Requirements expected of a solid, competent candidate."
+              },
+              "strong": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "High-bar requirements only standout candidates clear."
+              }
             },
-            "description": "Per-question candidate expectations object."
+            "description": "Per-question candidate expectations, bucketed by requirement level (weak/moderate/strong). Extra keys are preserved."
           }
         },
         "required": [
@@ -721,6 +870,17 @@
             "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
             "example": "full"
           },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "slower",
+              "normal",
+              "faster"
+            ],
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "example": "normal"
+          },
           "candidate_video_introduction": {
             "type": "string",
             "nullable": true,
@@ -747,6 +907,14 @@
             "nullable": true,
             "description": "Fraction of questions to randomly ask, between 0.01 and 0.9."
           },
+          "max_followups": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Maximum number of AI follow-up questions. 0 disables follow-ups; presets are 0-3 (none/low/normal/high) and custom values start at 4; null uses the template default (Normal).",
+            "example": 2
+          },
           "code": {
             "type": "string",
             "nullable": true,
@@ -756,6 +924,107 @@
             "type": "string",
             "nullable": true,
             "description": "Cover image URL."
+          },
+          "interview_department": {
+            "type": "string",
+            "nullable": true,
+            "description": "Department the position belongs to.",
+            "example": "Engineering"
+          },
+          "interview_salary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salary range shown for the position.",
+            "example": "$80k - $100k"
+          },
+          "interview_available_till": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date/time after which the interview is no longer available to candidates. null keeps it always available.",
+            "example": "2026-12-31"
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant."
+          },
+          "hiring_for_company": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
+            "example": "undisclosed"
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags stored on the interview.",
+            "example": [
+              "engineering",
+              "remote"
+            ]
+          },
+          "required_pronunciation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Require pronunciation assessment (restricts to pronunciation-capable languages). Defaults to false.",
+            "example": false
+          },
+          "result_enable_edit_transcript": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Allow editing the transcript on the result view. Defaults to true.",
+            "example": true
+          },
+          "pdf_export_auto_config": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "mojito_language_code": {
+                "type": "string",
+                "description": "Report language code (platform-languages.json code).",
+                "example": "en"
+              },
+              "contact_details": {
+                "type": "boolean",
+                "description": "Include candidate contact details."
+              },
+              "ai_recruiter_assessment": {
+                "type": "boolean",
+                "description": "Include the AI recruiter assessment."
+              },
+              "ai_scoring_rubric": {
+                "type": "boolean",
+                "description": "Include the AI scoring rubric."
+              },
+              "analytics": {
+                "type": "boolean",
+                "description": "Include analytics."
+              },
+              "files": {
+                "type": "boolean",
+                "description": "Include uploaded candidate files."
+              },
+              "transcript": {
+                "type": "boolean",
+                "description": "Include the interview transcript."
+              },
+              "answer_recording": {
+                "type": "boolean",
+                "description": "Include per-answer recordings."
+              },
+              "session_recording": {
+                "type": "boolean",
+                "description": "Include the full-session recording."
+              },
+              "group_by_question": {
+                "type": "boolean",
+                "description": "Group transcript answers by expected question."
+              }
+            },
+            "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
           },
           "knowledge_base_store_id": {
             "type": "string",
@@ -780,10 +1049,30 @@
           "candidate_expectations_json": {
             "type": "object",
             "nullable": true,
-            "additionalProperties": {
-              "nullable": true
+            "properties": {
+              "weak": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Baseline requirements every viable candidate should meet (table stakes)."
+              },
+              "moderate": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Requirements expected of a solid, competent candidate."
+              },
+              "strong": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "High-bar requirements only standout candidates clear."
+              }
             },
-            "description": "Pre-generated candidate expectations object; auto-generated when omitted for type=interview."
+            "description": "Pre-generated candidate expectations, bucketed by requirement level (weak/moderate/strong); auto-generated when omitted for type=interview. Extra keys are preserved."
           },
           "custom_scoring": {
             "type": "object",
@@ -1120,6 +1409,134 @@
             "type": "boolean",
             "nullable": true,
             "description": "Set true when the interview will be embedded as an iframe on an external page. Ensures an embed key exists and returns embed_id/embed_signing_key, used to authenticate/sign the iframe embed."
+          },
+          "interview_department": {
+            "type": "string",
+            "nullable": true,
+            "description": "Department the position belongs to.",
+            "example": "Engineering"
+          },
+          "interview_salary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salary range shown for the position.",
+            "example": "$80k - $100k"
+          },
+          "interview_available_till": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date/time after which the interview is no longer available to candidates. null keeps it always available.",
+            "example": "2026-12-31"
+          },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "slower",
+              "normal",
+              "faster"
+            ],
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "example": "normal"
+          },
+          "max_followups": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Maximum number of AI follow-up questions. 0 disables follow-ups; presets are 0-3 (none/low/normal/high) and custom values start at 4; null uses the template default (Normal).",
+            "example": 2
+          },
+          "questions_random_subset": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0.01,
+            "maximum": 0.9,
+            "description": "Ask only a random subset of the questions, expressed as a fraction between 0.01 and 0.9 (e.g. 0.5 = 50%). null asks all questions.",
+            "example": 0.5
+          },
+          "required_pronunciation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Require pronunciation assessment (restricts to pronunciation-capable languages). Defaults to false.",
+            "example": false
+          },
+          "result_enable_edit_transcript": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Allow editing the transcript on the result view. Defaults to true.",
+            "example": true
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags stored on the interview.",
+            "example": [
+              "engineering",
+              "remote"
+            ]
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant."
+          },
+          "hiring_for_company": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
+            "example": "undisclosed"
+          },
+          "pdf_export_auto_config": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "mojito_language_code": {
+                "type": "string",
+                "description": "Report language code (platform-languages.json code).",
+                "example": "en"
+              },
+              "contact_details": {
+                "type": "boolean",
+                "description": "Include candidate contact details."
+              },
+              "ai_recruiter_assessment": {
+                "type": "boolean",
+                "description": "Include the AI recruiter assessment."
+              },
+              "ai_scoring_rubric": {
+                "type": "boolean",
+                "description": "Include the AI scoring rubric."
+              },
+              "analytics": {
+                "type": "boolean",
+                "description": "Include analytics."
+              },
+              "files": {
+                "type": "boolean",
+                "description": "Include uploaded candidate files."
+              },
+              "transcript": {
+                "type": "boolean",
+                "description": "Include the interview transcript."
+              },
+              "answer_recording": {
+                "type": "boolean",
+                "description": "Include per-answer recordings."
+              },
+              "session_recording": {
+                "type": "boolean",
+                "description": "Include the full-session recording."
+              },
+              "group_by_question": {
+                "type": "boolean",
+                "description": "Group transcript answers by expected question."
+              }
+            },
+            "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
           }
         },
         "required": [
@@ -1127,6 +1544,274 @@
           "candidate_email",
           "candidate_country_code",
           "candidate_resume"
+        ]
+      },
+      "PersonaCreateResponse": {
+        "type": "object",
+        "properties": {
+          "interview_def_set_id": {
+            "type": "string",
+            "description": "Id of the newly created persona definition set.",
+            "example": "00000000-0000-0000-0000-000000000000"
+          },
+          "embed_id": {
+            "type": "string",
+            "description": "Embed id, present only when is_embedded=true."
+          },
+          "embed_signing_key": {
+            "type": "string",
+            "description": "Embed signing key, present only when is_embedded=true."
+          }
+        },
+        "required": [
+          "interview_def_set_id"
+        ],
+        "description": "Id of the created persona. Includes embed_id/embed_signing_key when is_embedded=true."
+      },
+      "PersonaCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Persona / session name.",
+            "example": "Difficult customer role-play"
+          },
+          "interview_template_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "Id of the interview template (avatar) the persona uses.",
+            "example": "baa3bf7c-6926-46fd-9005-16738a31f72d"
+          },
+          "mojito_language_code": {
+            "type": "string",
+            "enum": [
+              "ar",
+              "bg",
+              "zh",
+              "hr",
+              "cs",
+              "da",
+              "nl",
+              "en",
+              "fil",
+              "fi",
+              "fr",
+              "de",
+              "el",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ms",
+              "no",
+              "pl",
+              "pt",
+              "br",
+              "ro",
+              "ru",
+              "sk",
+              "es",
+              "sv",
+              "ta",
+              "th",
+              "tr",
+              "uk",
+              "vi"
+            ],
+            "description": "Platform language code used for the conversation. Must be one of the platform-languages.json codes.",
+            "example": "en"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active"
+            ],
+            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it..",
+            "example": "active"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted"
+            ],
+            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "example": "merchant_public"
+          },
+          "persona_role_avatar": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The role the AI avatar plays. Example: 'is to act as a happy customer responding to questions'.",
+            "example": "is to act as a happy customer responding to questions"
+          },
+          "persona_role_user": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The role the candidate (mentee) plays. Example: 'is to be a sales person trying to sell an additional product to the customer'.",
+            "example": "is to be a sales person trying to sell an additional product to the customer"
+          },
+          "persona_avatar_who_is": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who the avatar represents (background/identity of the persona)."
+          },
+          "persona_avatar_knowledge": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the avatar knows — facts/context the avatar can draw on during the conversation."
+          },
+          "persona_avatar_end_conditions": {
+            "type": "string",
+            "nullable": true,
+            "description": "Conditions under which the avatar should end the session."
+          },
+          "opening_line": {
+            "type": "string",
+            "nullable": true,
+            "description": "The avatar's opening line — the FIRST thing it says out loud when the session starts, before the candidate has said anything. This is a literal spoken line, NOT a description: write the exact words the avatar should say, in character and consistent with persona_role_avatar. For an escalated scenario it should already convey that state (e.g. an angry customer opens angrily). If omitted, the platform inserts a generic default (\"Hello\"), which is usually a weak opener — set this for anything other than a neutral greeting.",
+            "example": "Oh, finally — someone actually comes over! I've been waiting for ages. Are you going to help me or not?"
+          },
+          "candidate_expectations": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2100,
+            "description": "Mentee assessment goals — free-text describing what the candidate is expected to achieve (max 2100 chars)."
+          },
+          "recording": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_first_5_answers",
+              "audio_all",
+              "video_all",
+              "video_first_5_answers"
+            ],
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "example": "video_all"
+          },
+          "recording_full_session": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_all",
+              "video_all"
+            ],
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "example": "video_all"
+          },
+          "result_view": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "none",
+              "minimal",
+              "minimal_with_score",
+              "advanced",
+              "full",
+              "full_expand_scores"
+            ],
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "example": "full"
+          },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "slower",
+              "normal",
+              "faster"
+            ],
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "example": "normal"
+          },
+          "candidate_video_introduction": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "optional",
+              "required"
+            ],
+            "description": "Whether a candidate video introduction is optional or required.",
+            "example": "optional"
+          },
+          "max_duration": {
+            "type": "number",
+            "nullable": true,
+            "description": "Maximum conversation duration in seconds. Defaults to 1200 (20 min) when omitted.",
+            "example": 1200
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional external code/reference for the persona.",
+            "example": "my code"
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL.",
+            "example": "https://example.com/cover.png"
+          },
+          "interview_location": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional location label shown for the session.",
+            "example": "remote"
+          },
+          "merchant_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Merchant id. Admin / sub-merchant callers only; otherwise taken from your token.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this persona. Must be a merchant/merchant_owner/admin profile of the same merchant."
+          },
+          "welcome_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom welcome message shown to the candidate."
+          },
+          "thank_you_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom thank-you message shown after the session."
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags stored on the persona.",
+            "example": [
+              "sales",
+              "role-play"
+            ]
+          },
+          "is_embedded": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Set true when the persona will be embedded as an iframe on an external page. Provisions an embed key and returns embed_id / embed_signing_key.",
+            "example": false
+          }
+        },
+        "required": [
+          "name",
+          "interview_template_id",
+          "mojito_language_code",
+          "status",
+          "visibility",
+          "persona_role_avatar",
+          "persona_role_user"
         ]
       },
       "JobInterviewGetResponse": {
@@ -1638,7 +2323,7 @@
                 "nullable": true
               }
             ],
-            "description": "When true (or the string \"true\"), mints a test token that can take a draft/unpublished interview and flags the result as a test."
+            "description": "When true (or the string \"true\"), mints a test token that can take a draft/unpublished interview and flags the result as a test. For a DRAFT interview it also recompiles the definition (interview_recalc_definition) first, so the test session includes the current questions/welcome. This makes it a single-call \"trigger interview test\"."
           }
         },
         "required": [
@@ -2560,6 +3245,96 @@
               }
             },
             "description": "Daily event counts for the requested range, ordered by day ascending. Only day/event combinations with a non-zero count are returned; missing combinations should be treated as 0 by the caller."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "MerchantCreditsUsedResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Analytics event id."
+                },
+                "event_date": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "When the credit-consuming event occurred (ISO 8601).",
+                  "example": "2026-01-15T09:30:00.000Z"
+                },
+                "event": {
+                  "type": "string",
+                  "description": "Billable event type that consumed the credit (e.g. interview, interview_reviewing, interview_failed, interview_incomplete, pre_screening, candidate_report_translation, candidate_kyc, public_avatar, interview_simulation).",
+                  "example": "interview"
+                },
+                "credit_amount": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "Number of credits deducted by this event, surfaced from stats.credit_amount for convenience. Null when the amount is absent.",
+                  "example": 1
+                },
+                "stats": {
+                  "nullable": true,
+                  "description": "Event stats JSON. Contains credit_amount (the credits consumed by this event) plus event-specific fields."
+                },
+                "candidate_name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Candidate display name from the linked profile interview, when available."
+                },
+                "profile_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "format": "uuid",
+                  "description": "Underlying person (profile) id, when linked."
+                },
+                "profile_interview_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "format": "uuid",
+                  "description": "Candidate enrolment (profile interview) id, when linked."
+                },
+                "object_uuid": {
+                  "type": "string",
+                  "nullable": true,
+                  "format": "uuid",
+                  "description": "Primary object the event refers to (e.g. the interview result / attempt)."
+                },
+                "parent_object_uuid": {
+                  "type": "string",
+                  "nullable": true,
+                  "format": "uuid",
+                  "description": "Parent object of the event (e.g. the interview definition), when applicable."
+                }
+              },
+              "required": [
+                "id",
+                "event_date",
+                "event",
+                "credit_amount",
+                "candidate_name",
+                "profile_id",
+                "profile_interview_id",
+                "object_uuid",
+                "parent_object_uuid"
+              ],
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "Credit-consuming analytics events for the merchant, most recent first. Each row is one billable event; the credits it consumed are in stats.credit_amount."
           },
           "pagination": {
             "$ref": "#/components/schemas/Pagination"
@@ -3895,6 +4670,109 @@
         "additionalProperties": {
           "nullable": true
         }
+      },
+      "LanguageAccent": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Azure speech locale code for the accent/regional variant.",
+            "example": "en-US"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable accent name.",
+            "example": "English (United States)"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "PlatformLanguage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Mojito platform language code. Pass this as `mojito_language_code` when creating interviews / personas.",
+            "example": "en"
+          },
+          "name_english": {
+            "type": "string",
+            "description": "Language name in English.",
+            "example": "English"
+          },
+          "name_local": {
+            "type": "string",
+            "description": "Language name written in the language itself.",
+            "example": "English"
+          },
+          "flag_image": {
+            "type": "string",
+            "description": "URL to an SVG flag image for the language (same source the app UI renders).",
+            "example": "https://cdn.jsdelivr.net/npm/country-flag-emoji-json@2.0.0/dist/images/US.svg"
+          },
+          "flag_emoji": {
+            "type": "string",
+            "description": "Flag emoji for the language.",
+            "example": "🇺🇸"
+          },
+          "flag_unicode": {
+            "type": "string",
+            "description": "Unicode code points for the flag emoji.",
+            "example": "U+1F1FA U+1F1F8"
+          },
+          "coaching_interface": {
+            "type": "boolean",
+            "description": "Whether this language is enabled on the coaching (consumer) interface.",
+            "example": true
+          },
+          "interview_interface": {
+            "type": "boolean",
+            "description": "Whether this language is enabled on the interview interface.",
+            "example": true
+          },
+          "admin_interface": {
+            "type": "boolean",
+            "description": "Whether this language is enabled on the admin interface.",
+            "example": true
+          },
+          "accents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LanguageAccent"
+            },
+            "description": "Azure speech regional accents / variants available for this language, each with its locale `code` and `name`."
+          }
+        },
+        "required": [
+          "code",
+          "name_english",
+          "name_local",
+          "flag_image",
+          "flag_emoji",
+          "flag_unicode",
+          "coaching_interface",
+          "interview_interface",
+          "admin_interface",
+          "accents"
+        ]
+      },
+      "PlatformLanguagesListResponse": {
+        "type": "object",
+        "properties": {
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformLanguage"
+            },
+            "description": "Supported platform languages, sorted by English name."
+          }
+        },
+        "required": [
+          "languages"
+        ]
       }
     },
     "parameters": {}
@@ -4109,6 +4987,72 @@
           }
         },
         "operationId": "create_interview_for_candidate"
+      }
+    },
+    "/persona-create": {
+      "post": {
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "Create a new persona (role-play avatar)",
+        "description": "Creates a new persona definition — an AI avatar that plays a defined role in a free-form conversation instead of running a scored Q&A interview. No AI question/description generation runs; the persona role fields are the configuration. The session runs as: a welcome message → the avatar's OPENING LINE (the first thing it says, set via `opening_line`) → the candidate replies and the free-form role-play begins → a closing message. Because there is no question list, `opening_line` is how the avatar starts the scene — set it to a concrete in-character line; if omitted it defaults to a generic \"Hello\". Provisions the default conversational steps and optionally an embed key. Personas are a coaching-platform feature — only available on the coaching portal, not the standard interview portal.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persona created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaCreateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (missing required field, invalid enum value, out-of-range number, or unresolved template/language id).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (includes authorization failures and unhandled exceptions).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/job-interview-get": {
@@ -5087,7 +6031,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional interview definition id to drill the event counts down to a single interview."
+              "description": "Optional interview (interview_def_set) or position (position_def_set) id to drill the event counts down. The type is detected automatically: a position aggregates the daily counts across every interview that makes up the position; an interview filters to that single definition."
             },
             "required": false,
             "name": "interview_id",
@@ -5173,6 +6117,121 @@
           }
         },
         "operationId": "get_merchant_analytics"
+      }
+    },
+    "/merchant-analytics-credits-used": {
+      "get": {
+        "tags": [
+          "Results"
+        ],
+        "summary": "Get merchant credit usage",
+        "description": "Per-event credit-usage ledger for a merchant: every billable analytics event (interview, pre-screening, public avatar, simulation, …) that consumed credits, ordered most recent first. Scoped to your token's merchant, or a merchant_id override for admins / sub-merchant operators. The credits consumed by each event are in stats.credit_amount. Capped at 1000 records per page.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional interview (interview_def_set) or position (position_def_set) id to drill the credit-usage ledger down to a single interview or position. The type is detected automatically: for a position the response combines pre-screening and interview-result credits across the whole position; for an interview it returns that interview's credit events (including simulations and report translations)."
+            },
+            "required": false,
+            "name": "interview_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50,
+              "description": "Maximum number of records to return (1–1000).",
+              "example": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of records to skip from the start of the result set.",
+              "example": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of credit-usage events with pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantCreditsUsedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not permitted to read this merchant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/merchant-candidate-list": {
@@ -6130,6 +7189,52 @@
           }
         },
         "operationId": "get_merchant_status"
+      }
+    },
+    "/platform-languages-list": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List platform languages",
+        "description": "Returns all supported platform (mojito) languages: the mojito language code, English and local names, and an SVG flag image URL. Use the `code` as `mojito_language_code` when creating interviews or personas.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list of platform languages.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformLanguagesListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
