@@ -126,6 +126,10 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "get_merchant_analytics",
         "Get the merchant's daily event analytics.",
     ),
+    ("GET", "/merchant-analytics-credits-used"): (
+        "get_merchant_credit_usage",
+        "Get the merchant's credit usage.",
+    ),
     ("GET", "/merchant-status"): (
         "get_merchant_status",
         "Get a merchant status snapshot: credit balances, subscription, pending-work "
