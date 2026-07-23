@@ -350,10 +350,44 @@
             "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
           },
           "hiring_for_company": {
-            "type": "string",
+            "type": "object",
             "nullable": true,
-            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
-            "example": "undisclosed"
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true,
+                "description": "End-employer name. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or the client's company name.",
+                "example": "Unimo Enterprises"
+              },
+              "description": {
+                "type": "string",
+                "nullable": true,
+                "description": "Short description of the end employer, used as background context by the agent.",
+                "example": "Unimo Enterprises is a leading logistics and supply chain solutions provider."
+              },
+              "location": {
+                "type": "string",
+                "nullable": true,
+                "description": "Primary location of the end employer.",
+                "example": "Sri Lanka"
+              },
+              "sector": {
+                "type": "string",
+                "nullable": true,
+                "description": "Industry / sector of the end employer.",
+                "example": "Logistics and Supply Chain"
+              },
+              "company_size": {
+                "type": "string",
+                "nullable": true,
+                "description": "Approximate headcount of the end employer.",
+                "example": "100-200"
+              }
+            },
+            "description": "Who the position is really for. Omit/null (or an object with name null/blank) when hiring for yourself; { name: 'undisclosed' } for an unnamed external client; or { name: '<company>' } plus optional description/location/sector/company_size for a named client. Stored in creation_parameters.hiring_for_company.",
+            "example": {
+              "name": "undisclosed"
+            }
           },
           "tags": {
             "type": "array",
@@ -949,10 +983,44 @@
             "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant."
           },
           "hiring_for_company": {
-            "type": "string",
+            "type": "object",
             "nullable": true,
-            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
-            "example": "undisclosed"
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true,
+                "description": "End-employer name. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or the client's company name.",
+                "example": "Unimo Enterprises"
+              },
+              "description": {
+                "type": "string",
+                "nullable": true,
+                "description": "Short description of the end employer, used as background context by the agent.",
+                "example": "Unimo Enterprises is a leading logistics and supply chain solutions provider."
+              },
+              "location": {
+                "type": "string",
+                "nullable": true,
+                "description": "Primary location of the end employer.",
+                "example": "Sri Lanka"
+              },
+              "sector": {
+                "type": "string",
+                "nullable": true,
+                "description": "Industry / sector of the end employer.",
+                "example": "Logistics and Supply Chain"
+              },
+              "company_size": {
+                "type": "string",
+                "nullable": true,
+                "description": "Approximate headcount of the end employer.",
+                "example": "100-200"
+              }
+            },
+            "description": "Who the position is really for. Omit/null (or an object with name null/blank) when hiring for yourself; { name: 'undisclosed' } for an unnamed external client; or { name: '<company>' } plus optional description/location/sector/company_size for a named client. Stored in creation_parameters.hiring_for_company.",
+            "example": {
+              "name": "undisclosed"
+            }
           },
           "tags": {
             "type": "array",
@@ -1485,10 +1553,44 @@
             "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant."
           },
           "hiring_for_company": {
-            "type": "string",
+            "type": "object",
             "nullable": true,
-            "description": "Who the position is for. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or pass the client's company name. Stored in creation_parameters.hiring_for_company.",
-            "example": "undisclosed"
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true,
+                "description": "End-employer name. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or the client's company name.",
+                "example": "Unimo Enterprises"
+              },
+              "description": {
+                "type": "string",
+                "nullable": true,
+                "description": "Short description of the end employer, used as background context by the agent.",
+                "example": "Unimo Enterprises is a leading logistics and supply chain solutions provider."
+              },
+              "location": {
+                "type": "string",
+                "nullable": true,
+                "description": "Primary location of the end employer.",
+                "example": "Sri Lanka"
+              },
+              "sector": {
+                "type": "string",
+                "nullable": true,
+                "description": "Industry / sector of the end employer.",
+                "example": "Logistics and Supply Chain"
+              },
+              "company_size": {
+                "type": "string",
+                "nullable": true,
+                "description": "Approximate headcount of the end employer.",
+                "example": "100-200"
+              }
+            },
+            "description": "Who the position is really for. Omit/null (or an object with name null/blank) when hiring for yourself; { name: 'undisclosed' } for an unnamed external client; or { name: '<company>' } plus optional description/location/sector/company_size for a named client. Stored in creation_parameters.hiring_for_company.",
+            "example": {
+              "name": "undisclosed"
+            }
           },
           "pdf_export_auto_config": {
             "type": "object",
@@ -5052,7 +5154,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "create_persona"
       }
     },
     "/job-interview-get": {
@@ -6231,7 +6334,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "get_merchant_credit_usage"
       }
     },
     "/merchant-candidate-list": {
@@ -7234,7 +7338,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "list_languages"
       }
     }
   }
