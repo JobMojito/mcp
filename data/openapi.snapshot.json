@@ -1880,12 +1880,14 @@
           "welcome_message": {
             "type": "string",
             "nullable": true,
-            "description": "Custom welcome message shown to the candidate."
+            "description": "Custom welcome message spoken to the candidate before the role-play starts — set it; omitting it leaves a generic platform default. This is the scene-setting message; the avatar's first in-character line is `opening_line`, which comes after it.",
+            "example": "Welcome! You are about to speak with a customer who is unhappy about a recent price increase."
           },
           "thank_you_message": {
             "type": "string",
             "nullable": true,
-            "description": "Custom thank-you message shown after the session."
+            "description": "Custom thank-you message shown after the session — set it; omitting it leaves a generic platform default.",
+            "example": "Thanks — your role-play has been recorded and will be reviewed by the hiring team."
           },
           "tags": {
             "type": "array",
@@ -1898,6 +1900,24 @@
               "sales",
               "role-play"
             ]
+          },
+          "portal": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "coaching",
+              "interview"
+            ],
+            "description": "REQUIRED IN PRACTICE — pick deliberately; the default is the coaching product, not the recruiting one. `interview`: an interview role-play. Choose this for ANY recruiting or assessment use case (screening candidates, hiring, sales role-plays for applicants). Candidates are invited through the normal invitation flow, results are visible to the recruiter alongside ordinary interview results, it is billed against your merchant credits on the same basis as an interview, and attempts are capped (see `interview_attempts`). | `coaching` (DEFAULT when omitted): the classic coaching persona for practice/training. Runs on the coaching portal, is consumed against the mentee's own coaching credits, is started by the mentee from the catalogue or a shared link, and its results are NOT visible to recruiters. The conversation itself behaves identically in both cases — only the portal, billing, visibility and attempt limits differ.",
+            "example": "interview"
+          },
+          "interview_attempts": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Allowed candidate attempts (1-20), defaulting to 3. Only meaningful when `portal` is `interview`; coaching personas are unlimited. A recruiter can still grant an extra attempt afterwards.",
+            "example": 3
           },
           "is_embedded": {
             "type": "boolean",
@@ -1992,6 +2012,7 @@
               "coaching",
               "interview",
               "persona",
+              "persona_interview",
               "public_avatar",
               "assessment"
             ],
@@ -5096,8 +5117,8 @@
         "tags": [
           "Interviews"
         ],
-        "summary": "Create a new persona (role-play avatar)",
-        "description": "Creates a new persona definition — an AI avatar that plays a defined role in a free-form conversation instead of running a scored Q&A interview. No AI question/description generation runs; the persona role fields are the configuration. The session runs as: a welcome message → the avatar's OPENING LINE (the first thing it says, set via `opening_line`) → the candidate replies and the free-form role-play begins → a closing message. Because there is no question list, `opening_line` is how the avatar starts the scene — set it to a concrete in-character line; if omitted it defaults to a generic \"Hello\". Provisions the default conversational steps and optionally an embed key. Personas are a coaching-platform feature — only available on the coaching portal, not the standard interview portal.",
+        "summary": "Create a role-play — coaching persona or interview-portal role-play (choose with `portal`)",
+        "description": "FIRST DECIDE `portal`. This endpoint creates two different products and the default is NOT the recruiter one:\n- `portal: \"interview\"` — an INTERVIEW ROLE-PLAY. Use this whenever the goal is to ASSESS or SCREEN candidates: hiring, assessments, sales role-plays for job applicants, anything a recruiter runs. Candidates are invited through the normal invitation flow, results appear in the recruiter's result list, it is billed against merchant credits, and attempts are capped via `interview_attempts` — exactly like an interview.\n- `portal: \"coaching\"` (THE DEFAULT) — a coaching persona for practice/training on the coaching portal. Consumed against the mentee's own coaching credits, self-started from the catalogue, and its results are NOT visible to recruiters. Omitting `portal` gives you this one, so pass `portal: \"interview\"` explicitly for any recruiting/assessment use case.\nThe conversation itself behaves identically in both.\n\nThe avatar plays a defined role in a free-form conversation instead of running a scored Q&A interview. No AI question/description generation runs; the persona role fields ARE the configuration. The session runs as: a welcome message → the avatar's OPENING LINE (the first thing it says, set via `opening_line`) → the candidate replies and the free-form role-play begins → a closing message. Because there is no question list, `opening_line` is how the avatar starts the scene — set it to a concrete in-character line; if omitted it defaults to a generic \"Hello\". Set `welcome_message` and `thank_you_message` too — omitting them leaves the generic platform defaults. Also set `candidate_expectations`: it is the yardstick the session is scored against. Provisions the default conversational steps and optionally an embed key.",
         "security": [
           {
             "bearerAuth": []
@@ -5472,7 +5493,8 @@
                 "coaching",
                 "assessment",
                 "public_avatar",
-                "persona"
+                "persona",
+                "persona_interview"
               ],
               "default": "interview",
               "description": "Product type of interviews to list.",
@@ -5892,7 +5914,8 @@
                 "coaching",
                 "assessment",
                 "public_avatar",
-                "persona"
+                "persona",
+                "persona_interview"
               ],
               "default": "interview",
               "description": "Product type of results to list.",
