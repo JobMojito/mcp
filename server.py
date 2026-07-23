@@ -215,9 +215,13 @@ def build_server() -> FastMCP:
     # diagnose app-level failures incl. output-schema validation (-32602). It does
     # NOT see transport-layer 400/404s (missing/expired Mcp-Session-Id), which are
     # rejected before any tool runs.
-    from middleware import ToolCallLoggingMiddleware
+    from middleware import OutputValidationErrorMiddleware, ToolCallLoggingMiddleware
 
     mcp.add_middleware(ToolCallLoggingMiddleware())
+    # Rewrites the SDK's path-less "Output validation error: <msg>" into one that
+    # names the offending field(s), so an agent knows exactly what didn't match.
+    # Registered after logging so the logger still records the failed call.
+    mcp.add_middleware(OutputValidationErrorMiddleware())
 
     # Documentation tools (live, single-source). A single `search_documentation`
     # tool queries the help center (Featurebase) and developer docs (Mintlify
