@@ -73,7 +73,12 @@ TOOL_META: dict[tuple[str, str], tuple[str, str]] = {
         "Create a role-play persona: an avatar that plays a defined role in a "
         "free-form conversation instead of a scored Q&A interview. Set "
         "`persona_role_avatar`/`persona_role_user` for the roles and `opening_line` "
-        "for the avatar's first spoken line (defaults to a generic 'Hello'). "
+        "for the avatar's first spoken line (defaults to a generic 'Hello'). The "
+        "avatar's behaviour is four fields: `persona_avatar_who_is` (identity and "
+        "what drives it), `persona_avatar_knowledge` (private facts it may use), "
+        "`persona_avatar_progress` (how the conversation is allowed to move forward "
+        "— starts with `Mode: turning point` or `Mode: steps` — and what gates the "
+        "later personal details), and `persona_avatar_end_conditions` (when to stop). "
         "Coaching-platform feature.",
     ),
     # --- Pre-screening ---
