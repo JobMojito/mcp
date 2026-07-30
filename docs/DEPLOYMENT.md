@@ -55,7 +55,13 @@ Set these on the Horizon deployment (never commit them):
 | Variable | Value |
 |----------|-------|
 | `ENABLE_AUTH` | `true` |
-| `BASE_URL` | `https://mcp.jobmojito.com` (public, no `/mcp`) |
+| `BASE_URL` | `https://mcp.jobmojito.com` (public, no `/mcp`) — **this is the OAuth resource identifier; it must equal the URL clients connect to exactly** |
+| `MCP_PATH` | `/mcp` (default; combined with `BASE_URL` to form the resource id) |
+| `ENABLE_LAZY_AUTH` | `true` (default) — serves `initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a verified JWT. |
+| `OAUTH_SCOPES_SUPPORTED` | `openid,email` — advertised in the PRM and in the `scope=` parameter of the 401 challenge |
+| `OPENAI_APPS_CHALLENGE_TOKEN` | OpenAI plugin-directory domain verification. Served verbatim at `/.well-known/openai-apps-challenge`; the route 404s while unset. |
+| `SERVER_ICON_URL` / `SERVER_ICON_MIME` | Square PNG/SVG logo for listings. Startup warns while this is a `.ico`. |
+| `MAX_TOOL_RESULT_CHARS` | `120000` — refuse oversized results with pagination guidance instead of letting the client truncate them. `0` disables. |
 | `SUPABASE_PROJECT_URL` | your Supabase project URL |
 | `SUPABASE_ANON_KEY` | project anon key (`apikey` header for Edge Functions) |
 | `SITE_URL` | `https://app.jobmojito.com` |
@@ -97,6 +103,37 @@ stuck connection).
 4. After deploy, re-run the discovery `curl` to confirm direct mode.
 5. Reconnect the client (fresh session) and smoke-test a read tool (e.g.
    `list_interviews`).
+
+## Post-deploy smoke test
+
+```bash
+BASE=https://mcp.jobmojito.com
+
+# 1. Liveness
+curl -s $BASE/healthz
+
+# 2. OAuth identity — `resource` MUST be exactly $BASE/mcp
+curl -s $BASE/.well-known/oauth-protected-resource/mcp
+
+# 3. Lazy auth: discovery is open, tool calls are not
+curl -s -o /dev/null -w '%{http_code}\n' -X POST $BASE/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}'
+# expect 200
+
+curl -s -D - -o /dev/null -X POST $BASE/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_interviews","arguments":{}}}'
+# expect 401 with:
+#   WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp", scope="openid email"
+
+# 4. OpenAI domain verification (only once OPENAI_APPS_CHALLENGE_TOKEN is set)
+curl -s $BASE/.well-known/openai-apps-challenge
+```
+
+If step 2 returns a `resource` pointing at a different hostname, `BASE_URL` is
+stale. Discovery will keep returning 200 and every client will fail token
+validation with `401 invalid_token` — with nothing in the logs explaining why.
 
 ## Observability
 

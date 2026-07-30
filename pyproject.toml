@@ -1,6 +1,6 @@
 [project]
 name = "jobmojito-mcp"
-version = "0.1.0"
+version = "1.0.0"
 description = "JobMojito MCP server (FastMCP) — exposes the JobMojito API + documentation as MCP tools, secured with Supabase OAuth."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,4 +30,6 @@ py-modules = [
     "mintlify",
     "merchants",
     "middleware",
+    "lazy_auth",
+    "wellknown",
 ]

@@ -58,7 +58,10 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `docs_tools.py` | `search_documentation` (help + developer in parallel) and `get_documentation`. |
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
-| `middleware.py` | Server-side tool-call logging (name + arg keys + outcome/timing). |
+| `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
+| `lazy_auth.py` | Auth provider subclass that serves `initialize`/`tools/list` unauthenticated and adds `scope=` to the 401 challenge. |
+| `wellknown.py` | Unauthenticated routes: `/healthz`, OpenAI domain challenge, Smithery server card. |
+| `server.json` | Official MCP Registry entry (published by `.github/workflows/publish-registry.yml`). |
 | `data/openapi.snapshot.json` | Committed cold-start fallback spec. Refresh via the script above. |
 
 More detail: `docs/ARCHITECTURE.md`.
@@ -67,9 +70,26 @@ More detail: `docs/ARCHITECTURE.md`.
 
 - **Adding a module?** Add it to `pyproject.toml [tool.setuptools] py-modules` and
   keep it importable from the repo root (flat layout, no packages).
-- **Tool naming** is driven by `naming.py::TOOL_META` (injected as `operationId`,
-  which becomes the MCP tool name). New JobMojito endpoints appear automatically
-  with an auto-generated name until you add curated metadata.
+- **Tool naming AND annotations** are driven by `naming.py::TOOL_META` (a
+  `ToolMeta` per endpoint: name, title, hint, annotations, justification). The name
+  is injected as `operationId` and becomes the MCP tool name; `server.py::
+  _customize_component` applies the rest. New JobMojito endpoints appear
+  automatically with an auto-generated name and conservative method-derived
+  annotations (`naming.fallback_meta`) until you add curated metadata.
+- **Every tool MUST have a `title` and either `readOnlyHint: true` or
+  `destructiveHint: true`.** Both the Anthropic and OpenAI directories reject
+  servers that don't, and read-only tools run without a per-call confirmation
+  prompt. Two traps: FastMCP *silently swallows* exceptions raised inside
+  `mcp_component_fn`, and tools registered outside the OpenAPI path bypass it
+  entirely — hence `ToolMetadataBackfillMiddleware` (safe default: destructive) and
+  the assertions in `tests/test_listing_readiness.py`. Never weaken those tests to
+  make a change pass.
+- **Splitting read from write is a hard requirement,** not a style preference:
+  Anthropic rejects any tool that can both read and write. Never add a catch-all
+  `api_request(method=...)` tool.
+- **`SERVER_VERSION` (server.py), `version` (pyproject.toml) and `version`
+  (server.json) must match** — a test enforces it, and the registry publish
+  workflow re-checks it. Registry versions are immutable, so bump all three.
 - **Excluding an endpoint:** add its path to `naming.py::IGNORED_PATHS`, or set
   the `IGNORED_TOOL_PATHS` env var (comma-separated) at deploy time.
 - **Output validation stays ON** (`validate_output=True`). The JobMojito spec is
@@ -82,6 +102,17 @@ More detail: `docs/ARCHITECTURE.md`.
 - **Auth is mandatory in production and must never be bypassed.** The end-user's
   Supabase JWT is forwarded by `upstream.py`. For local testing use
   `ENABLE_AUTH=false` or supply `JOBMOJITO_DEV_BEARER_TOKEN`.
+- **Lazy auth is deliberate, and narrow.** `lazy_auth.py` serves only capability
+  discovery (`initialize`, `tools/list`, `ping`, the other `*/list` methods)
+  without a token, so directory crawlers can show the tool list. Every tool call,
+  resource read and prompt still requires a verified JWT. If you add a method to
+  `PUBLIC_METHODS`, you are making it anonymous — be sure it exposes no data.
+  It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<4` and
+  the lazy-auth tests gate any upgrade.
+- **`BASE_URL` is the OAuth resource identifier**, not decoration. It must equal
+  the URL clients connect to, character for character, or discovery succeeds while
+  every client 401s. `server._validate_public_identity()` logs the exact curl to
+  verify after a deploy.
 - **Secrets** live in `.env` (gitignored). `.env.example` holds placeholders only —
   never commit real keys.
 - **Merchant scoping:** most API tools accept `merchant_id`. The UI picker is

@@ -3,13 +3,20 @@
 Entrypoint object: ``mcp`` — point Prefect Horizon at ``server.py:mcp``.
 
 What this server exposes:
-  * 21 API tools auto-generated from the live JobMojito OpenAPI spec
-    (all endpoints surfaced as Tools, with curated names).
+  * API tools auto-generated from the live JobMojito OpenAPI spec (interviews,
+    candidates, knowledge base, analytics), with curated names, titles and MCP
+    annotations.
   * 2 documentation tools that read developer + help docs live (single-source).
-  * A Supabase OAuth consent page route (for end-user auth).
+  * A merchant picker (``jobmojito_configuration``) and its text fallback.
+  * Unauthenticated operational routes (health probe, directory verification).
 
 End-user auth uses Supabase OAuth (FastMCP SupabaseProvider). The authenticated
-user's Supabase JWT is forwarded to the JobMojito API on every tool call.
+user's Supabase JWT is forwarded to the JobMojito API on every tool call, so
+every action runs with that user's own permissions.
+
+Capability discovery (``initialize`` / ``tools/list``) is servable without a
+token — see ``lazy_auth.py`` for why and how. Every tool call still requires a
+verified token.
 """
 
 from __future__ import annotations
@@ -19,76 +26,108 @@ import os
 import re
 
 from fastmcp import FastMCP
-from mcp.types import Icon
+from mcp.types import Icon, ToolAnnotations
 
 try:  # FastMCP 3.x location
-    from fastmcp.server.providers.openapi import MCPType, RouteMap
+    from fastmcp.server.providers.openapi import MCPType, OpenAPITool, RouteMap
 except ImportError:  # FastMCP 2.x fallback
-    from fastmcp.server.openapi import MCPType, RouteMap
+    from fastmcp.server.openapi import MCPType, OpenAPITool, RouteMap
 
 import docs_tools
 import merchants
+import wellknown
 from config import settings
-from naming import IGNORED_PATHS, description_hint_for
+from naming import IGNORED_PATHS, fallback_meta, meta_for
 from openapi_loader import load_openapi_spec
 from upstream import build_api_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("jobmojito_mcp")
 
+#: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
+#: version as the release identity, so bump all three together.
+SERVER_VERSION = "1.0.0"
+
+#: <=100 characters — the hard cap on ``description`` in the official MCP Registry
+#: server.json schema, and the tightest length constraint of any listing surface.
+SHORT_DESCRIPTION = (
+    "Run AI interviews, manage candidates and read hiring analytics on JobMojito."
+)
+
+#: Metadata for tools that aren't generated from the OpenAPI spec and therefore
+#: don't flow through ``naming.TOOL_META``. Anything omitted here is treated as
+#: state-changing (see ``ToolMetadataBackfillMiddleware``) — safe by default.
+TOOL_METADATA_OVERRIDES: dict[str, dict] = {
+    "jobmojito_configuration": {
+        "title": "Choose a JobMojito merchant",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+    },
+    "list_my_merchants": {
+        "title": "List merchants you can act as",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+    },
+    "search_merchants": {
+        "title": "Search sub-merchants",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+    },
+}
+
 INSTRUCTIONS = """\
 JobMojito MCP server — manage AI-powered hiring (interviews, candidates,
-invitations, pre-screening, knowledge bases, analytics) on the JobMojito platform,
-plus search the documentation. Every action runs as the signed-in user, so results
-respect that user's own permissions.
+invitations, knowledge bases, analytics) on the JobMojito platform, plus search
+the documentation. Every action runs as the signed-in user, so results respect
+that user's own permissions.
 
-AUTHENTICATION (required for EVERY tool):
-The user must have authorized this server to use ANY tool — including
-`search_documentation` and `get_documentation`. There is no anonymous access. If a
-tool call returns an authentication error (e.g. 401 / invalid_token), the
-connection isn't authorized: tell the user to connect/authorize this server and
-then retry. Do not attempt to bypass or work around authentication.
+RESPONSIBLE USE (applies to every result this server returns):
+JobMojito produces assistive output for hiring workflows. Interview scores,
+transcripts, summaries and reports are decision-support material — they are not
+hiring decisions. Present them as input for a qualified human reviewer, and never
+describe a candidate as accepted, rejected, or ranked as final by this system.
+When a user is preparing candidate-facing material, remind them that candidates
+should be told AI is used in the process.
 
-HOW TO USE THIS SERVER (read this before calling tools):
+AUTHENTICATION:
+Capability discovery works without a login, but every tool call requires the user
+to have authorized this server. If a call returns an authentication error (401 /
+invalid_token), the connection isn't authorized: ask the user to connect and
+authorize, then retry.
+
+HOW TO USE THIS SERVER:
 1. To understand how something works — an endpoint, a field, a workflow, what an
-   input means, or what a tool will do — call `search_documentation` FIRST, then
-   `get_documentation(url)` to read the page. Do NOT call action tools
-   speculatively just to discover their behavior or required inputs.
-2. `search_documentation` is the single docs entry point: one call searches both
-   the developer/API reference and the help center in parallel. You don't need to
-   pick a source or find a separate search tool.
-3. For a multi-step workflow (e.g. create an interview → invite candidates →
-   review results), search the documentation for a step-by-step "cookbook" or
-   guide and follow it, rather than chaining tools by trial and error.
-4. Only call an action tool once you know which one you need and what inputs it
-   expects. Prefer the read-only "Merchant lists" tools to look things up before
-   creating or changing anything.
-5. JobMojito configuration / merchant selection: whenever the user wants to
-   choose, switch, or set a merchant — or a tool needs a `merchant_id` and none is
-   selected — ALWAYS call `jobmojito_configuration`. It renders an interactive
-   searchable picker. Do NOT list merchants as text or ask the user to type a
-   name; render the picker and wait for their selection. Only use
-   `list_my_merchants` (text) if the client cannot render UI. After the user picks,
-   pass `merchant_id=<chosen id>` on every subsequent call — omit it for the user's
-   own account.
+   input means — `search_documentation` is usually faster and more reliable than
+   experimenting. It's the single docs entry point: one call searches both the
+   developer/API reference and the help center in parallel. Then
+   `get_documentation(url)` reads a page in full.
+2. For a multi-step workflow (create an interview → invite candidates → review
+   results), the documentation has step-by-step cookbooks worth following.
+3. The read-only tools (`list_*`, `get_*`) are the safe way to look things up
+   before creating or changing anything.
+4. Merchant selection: many tools accept a `merchant_id`. When one is needed and
+   none has been selected — or the user wants to switch merchants —
+   `jobmojito_configuration` renders an interactive searchable picker, which is a
+   better experience than asking the user to type a name. `list_my_merchants`
+   returns the same options as text for clients that cannot render UI. After a
+   merchant is chosen, pass `merchant_id=<chosen id>` on subsequent calls; omit it
+   for the user's own account.
 
 IDENTIFIERS & ADMIN LINKS:
 Ids are easy to mix up — the same interview is `interview_def_set_id` (on create),
 `position_id` (get/set-state), and `interview_id` (register/token); results use
 `interview_result_id`, NOT the result row's `id`. There is no link-building tool.
-For the full id-to-field map, where each id comes from, and admin link patterns,
-read the guide: get_documentation("https://developer.jobmojito.com/mcp/identifiers").
+For the full id-to-field map, where each id comes from, and admin link patterns:
+get_documentation("https://developer.jobmojito.com/mcp/identifiers").
 
 TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
-• Configuration / merchants: jobmojito_configuration (searchable picker to choose
-  which merchant to act as — run when a merchant_id is needed but none is selected),
+• Configuration / merchants: jobmojito_configuration (searchable picker),
   list_my_merchants (text equivalent, supports a `search` filter)
 • Interview (create/manage): create_interview, create_interview_from_questions,
   get_interview_definition, set_interview_state, request_another_interview_attempt
-• Invitations: register_users_for_interview (register candidates for an interview
-  and get their personal interview links), generate_interview_url (create a signed
-  interview link to share)
+• Invitations: register_users_for_interview (register candidates and get their
+  personal interview links), generate_interview_url (a signed link to share)
 • Results & reports: get_interview_result_details, generate_interview_report
 • Knowledge base: upload_knowledge_base_document
 • Merchant lists (read-only): list_interviews, list_candidates,
@@ -96,13 +135,66 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   get_merchant_status
 
 Typical flows:
-- "Set up an interview for a role" → (optionally search_documentation for field
-  meanings) → create_interview → generate_interview_url / register_users_for_interview.
+- "Set up an interview for a role" → create_interview → generate_interview_url or
+  register_users_for_interview.
 - "Invite candidates to an interview" → register_users_for_interview (per-candidate
   links) or generate_interview_url (one shareable link).
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
 """
+
+
+def _server_icon() -> Icon:
+    """The icon advertised to MCP clients.
+
+    ``sizes`` is only emitted when SERVER_ICON_SIZES is set: an incorrect size
+    hint is worse than none, since clients use it to pick between variants.
+    """
+    kwargs: dict = {
+        "src": settings.server_icon_url,
+        "mimeType": settings.server_icon_mime,
+    }
+    if settings.server_icon_sizes:
+        kwargs["sizes"] = list(settings.server_icon_sizes)
+    return Icon(**kwargs)
+
+
+def _validate_public_identity() -> None:
+    """Fail fast / warn loudly when BASE_URL doesn't match the served URL.
+
+    ``BASE_URL`` is not cosmetic: it becomes the OAuth *resource identifier*
+    advertised at ``/.well-known/oauth-protected-resource/mcp``. The MCP
+    authorization spec — and Anthropic's connector review explicitly — require
+    that value to equal the URL the client connected to, character for character.
+    If the server moves to a new hostname and BASE_URL is left behind, discovery
+    still returns 200 with a stale `resource`, clients fail token validation, and
+    nothing in the logs says why. So we say it here.
+    """
+    if not settings.enable_auth:
+        return
+    if settings.base_url_looks_local:
+        logger.warning(
+            "BASE_URL is %s — for a deployed server this MUST be the public base "
+            "URL with no /mcp suffix (e.g. https://mcp.jobmojito.com), or OAuth "
+            "discovery advertises the wrong resource and clients get 401 "
+            "invalid_token.",
+            settings.base_url,
+        )
+        return
+    logger.info(
+        "Public identity: MCP endpoint=%s | OAuth resource=%s | PRM=%s",
+        settings.mcp_endpoint,
+        settings.mcp_endpoint,
+        f"{settings.base_url}/.well-known/oauth-protected-resource"
+        f"{settings.mcp_path}",
+    )
+    logger.info(
+        "Verify after deploy:  curl -s %s/.well-known/oauth-protected-resource%s"
+        "   # `resource` must equal %s",
+        settings.base_url,
+        settings.mcp_path,
+        settings.mcp_endpoint,
+    )
 
 
 def _build_auth():
@@ -117,46 +209,75 @@ def _build_auth():
         )
     from fastmcp.server.auth.providers.supabase import SupabaseProvider
 
+    from lazy_auth import lazy_auth_provider_class
+
     logger.info(
-        "Configuring Supabase OAuth (project=%s, alg=%s, base_url=%s)",
+        "Configuring Supabase OAuth (project=%s, alg=%s, base_url=%s, lazy_auth=%s)",
         settings.supabase_project_url,
         settings.supabase_jwt_algorithm,
         settings.base_url,
+        settings.enable_lazy_auth,
     )
-    if "localhost" in settings.base_url or "127.0.0.1" in settings.base_url:
-        logger.warning(
-            "BASE_URL is %s — for a deployed server this MUST be the public URL "
-            "(e.g. https://mcp.jobmojito.com), or OAuth discovery/token validation "
-            "will fail with 401 invalid_token.",
-            settings.base_url,
-        )
-    return SupabaseProvider(
+
+    provider_class = lazy_auth_provider_class(SupabaseProvider)
+    scopes = list(settings.oauth_scopes_supported)
+    return provider_class(
         project_url=settings.supabase_project_url,
         base_url=settings.base_url,
         algorithm=settings.supabase_jwt_algorithm,
+        # Advertised in the RFC 9728 protected-resource metadata so clients can
+        # request the right scopes up front instead of guessing.
+        scopes_supported=scopes,
+        resource_name="JobMojito",
+        # --- lazy-auth extras (see lazy_auth.py) ---
+        mcp_path=settings.mcp_path,
+        advertise_scope=" ".join(scopes) if scopes else None,
+        lazy_auth_enabled=settings.enable_lazy_auth,
     )
 
 
 def _customize_component(route, component) -> None:
     """Categorize and annotate each generated API tool.
 
-    Prefixes the description with its OpenAPI category (e.g. "[Interview]") and
-    adds the category as an MCP tag, so tools are grouped/labeled even though MCP
-    exposes a flat tool list.
+    Three things happen here, and all three are load-bearing for directory review:
+
+    1. The description is prefixed with its OpenAPI category (e.g. "[Interview]")
+       and a curated one-line hint, so the model picks the right tool.
+    2. A human-readable ``title`` is set (both the top-level MCP ``title`` and
+       ``annotations.title`` — clients read one or the other depending on age).
+    3. MCP annotations are set from ``naming.TOOL_META``. Anthropic and OpenAI both
+       reject servers whose tools lack ``title`` plus ``readOnlyHint``/
+       ``destructiveHint``; a read-only tool also runs without a per-call
+       confirmation prompt, which is a real UX win for the ``list_*`` tools.
+
+    CAUTION: FastMCP *swallows* exceptions raised in this callback and registers
+    the tool uncustomized, with only a log warning. A typo here therefore fails
+    silently in production. ``tests/test_listing_readiness.py`` asserts the result
+    rather than trusting the logs — keep it that way.
     """
     route_tags = list(getattr(route, "tags", None) or [])
     category = route_tags[0] if route_tags else None
-    hint = description_hint_for(route.method, route.path)
+    meta = meta_for(route.method, route.path) or fallback_meta(route.method, route.path)
     existing = (component.description or "").strip()
 
     prefix_parts = []
     if category:
         prefix_parts.append(f"[{category}]")
-    if hint:
-        prefix_parts.append(hint)
+    if meta.hint:
+        prefix_parts.append(meta.hint)
     prefix = " ".join(prefix_parts)
     if prefix:
         component.description = f"{prefix}\n\n{existing}".strip() if existing else prefix
+
+    if isinstance(component, OpenAPITool):
+        component.title = meta.title
+        component.annotations = ToolAnnotations(**meta.annotations())
+        component.meta = {
+            "jobmojito": {
+                "category": category or "general",
+                "http_method": route.method.upper(),
+            }
+        }
 
     component.tags.add("jobmojito-api")
     for tag in route_tags:
@@ -172,6 +293,8 @@ def _ignored_paths() -> set[str]:
 
 
 def build_server() -> FastMCP:
+    _validate_public_identity()
+
     spec = load_openapi_spec()
     client = build_api_client()
     auth = _build_auth()
@@ -188,15 +311,9 @@ def build_server() -> FastMCP:
         client=client,
         # --- Branding (reported to clients in the MCP `initialize` response) ---
         name="JobMojito",
-        version="1.0.0",
-        website_url="https://www.jobmojito.com",
-        icons=[
-            Icon(
-                src="https://www.jobmojito.com/favicon.ico",
-                mimeType="image/x-icon",
-                sizes=["any"],
-            )
-        ],
+        version=SERVER_VERSION,
+        website_url=settings.marketing_site_url,
+        icons=[_server_icon()],
         instructions=INSTRUCTIONS,
         auth=auth,
         # Expose every endpoint (incl. GET lists) as Tools, except ignored ones.
@@ -211,17 +328,44 @@ def build_server() -> FastMCP:
     if ignored:
         logger.info("Excluded %d endpoint(s) from tools: %s", len(ignored), ", ".join(sorted(ignored)))
 
+    if settings.server_icon_url.endswith(".ico"):
+        logger.warning(
+            "SERVER_ICON_URL is a .ico (%s). MCP clients accept it, but the "
+            "Anthropic and OpenAI directories want a square PNG/SVG logo "
+            "(>=48px, ideally 512x512). Publish one and set SERVER_ICON_URL / "
+            "SERVER_ICON_MIME before submitting a listing.",
+            settings.server_icon_url,
+        )
+
+    # --- Middleware. Order matters: registration order is execution order, so the
+    # logger wraps everything and records failures the guards raise. ---
+    from middleware import (
+        OutputValidationErrorMiddleware,
+        ResultSizeGuardMiddleware,
+        ToolCallLoggingMiddleware,
+        ToolMetadataBackfillMiddleware,
+        UpstreamErrorMiddleware,
+    )
+
     # Server-side tool-call logging (name + arg keys + outcome/timing). Helps
     # diagnose app-level failures incl. output-schema validation (-32602). It does
     # NOT see transport-layer 400/404s (missing/expired Mcp-Session-Id), which are
     # rejected before any tool runs.
-    from middleware import OutputValidationErrorMiddleware, ToolCallLoggingMiddleware
-
     mcp.add_middleware(ToolCallLoggingMiddleware())
+    # Turns raw "HTTP error 403: Forbidden - {...}" into a cause + next step, so the
+    # model stops permuting arguments against a permissions problem.
+    mcp.add_middleware(UpstreamErrorMiddleware())
+    # Refuse oversized results with pagination guidance rather than letting the
+    # client silently truncate them.
+    mcp.add_middleware(ResultSizeGuardMiddleware(settings.max_tool_result_chars))
     # Rewrites the SDK's path-less "Output validation error: <msg>" into one that
     # names the offending field(s), so an agent knows exactly what didn't match.
     # Registered after logging so the logger still records the failed call.
     mcp.add_middleware(OutputValidationErrorMiddleware())
+    # Safety net: any tool registered outside the OpenAPI path (docs tools, the
+    # merchant picker, future MCP App providers) still gets a title and safety
+    # hints, so one forgotten registration can't fail a directory review.
+    mcp.add_middleware(ToolMetadataBackfillMiddleware(overrides=TOOL_METADATA_OVERRIDES))
 
     # Documentation tools (live, single-source). A single `search_documentation`
     # tool queries the help center (Featurebase) and developer docs (Mintlify
@@ -231,6 +375,9 @@ def build_server() -> FastMCP:
 
     # Merchant selection (list_my_merchants + clickable picker for UI clients).
     merchants.register(mcp)
+
+    # Unauthenticated operational + directory-verification routes.
+    wellknown.register(mcp, version=SERVER_VERSION, description=SHORT_DESCRIPTION)
 
     if settings.developer_docs_mcp_url:
         logger.info(

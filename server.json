@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.jobmojito/jobmojito",
+  "title": "JobMojito",
+  "description": "Run AI interviews, manage candidates and read hiring analytics on JobMojito.",
+  "version": "1.0.0",
+  "websiteUrl": "https://jobmojito.com",
+  "icons": [
+    {
+      "src": "https://jobmojito.com/favicon.png",
+      "mimeType": "image/png",
+      "theme": "light"
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.jobmojito.com/mcp"
+    }
+  ]
+}

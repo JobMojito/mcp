@@ -1,0 +1,47 @@
+# Publish this server to the official MCP Registry (registry.modelcontextprotocol.io).
+#
+# Namespace: `com.jobmojito/*` requires proof that we control jobmojito.com, via a
+# DNS TXT record. One-time setup:
+#
+#   openssl genpkey -algorithm Ed25519 -out key.pem
+#   PUBLIC_KEY="$(openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64)"
+#   # add this TXT record on jobmojito.com:
+#   #   v=MCPv1; k=ed25519; p=$PUBLIC_KEY
+#   PRIVATE_KEY="$(openssl pkey -in key.pem -noout -text | grep -A3 'priv:' | tail -n +2 | tr -d ' :\n')"
+#   # store $PRIVATE_KEY as the repository secret MCP_REGISTRY_PRIVATE_KEY
+#
+# Published versions are IMMUTABLE — bump `version` in server.json (and keep it in
+# sync with pyproject.toml and server.py:SERVER_VERSION) for every publish.
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Check server.json version matches the code
+        run: |
+          json_version="$(python3 -c "import json;print(json.load(open('server.json'))['version'])")"
+          code_version="$(python3 -c "import re;print(re.search(r'SERVER_VERSION = \"([^\"]+)\"', open('server.py').read()).group(1))")"
+          if [ "$json_version" != "$code_version" ]; then
+            echo "::error::server.json version ($json_version) != server.py SERVER_VERSION ($code_version)"
+            exit 1
+          fi
+
+      - name: Authenticate (DNS proof for com.jobmojito/*)
+        run: ./mcp-publisher login dns --domain jobmojito.com --private-key "${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}"
+
+      - name: Publish
+        run: ./mcp-publisher publish

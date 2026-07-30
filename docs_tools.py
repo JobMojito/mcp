@@ -256,7 +256,13 @@ def register(mcp) -> None:
     """Register documentation tools on the given FastMCP server."""
 
     @mcp.tool(
-        annotations={"readOnlyHint": True, "openWorldHint": True},
+        annotations={
+            "title": "Search JobMojito documentation",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
         tags={"documentation"},
     )
     async def search_documentation(query: str, source: str = "all", limit: int = 8) -> dict:
@@ -309,7 +315,13 @@ def register(mcp) -> None:
         return out
 
     @mcp.tool(
-        annotations={"readOnlyHint": True, "openWorldHint": True},
+        annotations={
+            "title": "Read a JobMojito documentation page",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
         tags={"documentation"},
     )
     async def get_documentation(url: str, max_chars: int = 20000) -> dict:

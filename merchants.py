@@ -233,7 +233,13 @@ def register(mcp) -> None:
     """Register merchant-selection tooling on the given FastMCP server."""
 
     @mcp.tool(
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+        annotations={
+            "title": "List merchants you can act as",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
         tags={"jobmojito"},
     )
     async def list_my_merchants(ctx: Context, search: str = "") -> dict:

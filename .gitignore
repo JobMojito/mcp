@@ -23,3 +23,9 @@ venv/
 
 # Runtime-refreshed OpenAPI cache (snapshot is committed; live cache is not)
 data/openapi.cache.json
+
+# MCP Registry publishing key (DNS/HTTP domain proof). Never commit this — the
+# private key is what proves control of jobmojito.com to the registry.
+key.pem
+mcp-registry-auth
+mcp-publisher

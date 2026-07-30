@@ -52,6 +52,10 @@ JobMojito API  (https://cool.jobmojito.com/functions/v1)
 | `scripts/update_snapshot.py` | Refresh the committed fallback spec |
 | `scripts/try_docs.py` | Local smoke test for the documentation tools |
 | `data/openapi.snapshot.json` | Offline fallback spec (regenerate from your machine) |
+| `lazy_auth.py` | Unauthenticated capability discovery + `scope=` on the 401 challenge |
+| `wellknown.py` | `/healthz`, OpenAI domain challenge, Smithery server card |
+| `server.json` | Official MCP Registry entry |
+| `.github/workflows/publish-registry.yml` | Publishes `server.json` to the MCP Registry on a `v*` tag |
 
 ---
 
@@ -264,3 +268,58 @@ Unlike Mintlify, Featurebase's Reader MCP (`mcp-read.featurebase.app`) only
 supports interactive OAuth (no client-credentials), so it isn't mounted here. If
 you want its native search, add it **directly** as a connector in your AI client.
 `HELP_DOCS_MCP_URL` is kept in config for reference only.
+
+
+---
+
+## Directory listings & discoverability
+
+The server is built to satisfy the Anthropic connector directory, the OpenAI
+plugin directory (ChatGPT + Codex) and the official MCP Registry without further
+code changes. What that means in practice:
+
+| Requirement | Where it lives |
+|---|---|
+| Every tool has a `title` + `readOnlyHint`/`destructiveHint`, with a written justification | `naming.py::TOOL_META`, applied by `server.py::_customize_component`, backfilled by `middleware.ToolMetadataBackfillMiddleware` |
+| Read and write are separate tools (no catch-all) | `naming.py` — asserted in `tests/test_listing_readiness.py` |
+| `tools/list` works without credentials, so crawlers can show the tool list | `lazy_auth.py` |
+| `scopes_supported` in the protected-resource metadata, `scope=` on the 401 | `server.py::_build_auth` + `lazy_auth.WWWAuthenticateScopeMiddleware` |
+| Actionable errors instead of bare 4xx/5xx | `middleware.UpstreamErrorMiddleware` |
+| Results stay under the client's size ceiling | `middleware.ResultSizeGuardMiddleware` |
+| Health probe for uptime monitoring | `GET /healthz` |
+| OpenAI domain verification | `GET /.well-known/openai-apps-challenge` (set `OPENAI_APPS_CHALLENGE_TOKEN`) |
+| MCP Registry entry | `server.json` + the publish workflow |
+
+Generate the annotation justifications OpenAI asks for at submission:
+
+```bash
+python -c "import naming,json;print(json.dumps(naming.annotation_justifications(),indent=2))"
+```
+
+Verify the public identity after any deploy or hostname change — this is the
+single most common way an otherwise-healthy server 401s every client:
+
+```bash
+curl -s https://mcp.jobmojito.com/.well-known/oauth-protected-resource/mcp
+# "resource" MUST equal "https://mcp.jobmojito.com/mcp"
+curl -s https://mcp.jobmojito.com/healthz
+```
+
+### Still to do outside this repo
+
+The code is ready; these are not code problems:
+
+1. **A Claude Team or Enterprise plan.** The Anthropic submission portal lives
+   under `claude.ai/admin-settings/` and is unavailable on individual plans.
+2. **A square PNG/SVG logo** (512×512), then set `SERVER_ICON_URL` /
+   `SERVER_ICON_MIME`. The server warns on startup while it's still a `.ico`.
+3. **A public "Connect JobMojito to Claude & ChatGPT" docs page** — required by
+   Anthropic (documentation URL) and OpenAI (support URL).
+4. **A populated reviewer test account** with no MFA and no email confirmation
+   step; OpenAI rejects submissions whose test account requires either.
+5. **DNS TXT record on `jobmojito.com`** for the `com.jobmojito/*` registry
+   namespace, and the `MCP_REGISTRY_PRIVATE_KEY` repo secret — see the header
+   comment in `.github/workflows/publish-registry.yml`.
+6. **Allowlist Anthropic's egress range `160.79.104.0/21`** on the MCP host and
+   anything in front of Supabase. A blocking WAF is Anthropic's most common
+   documented failure mode.
