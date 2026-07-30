@@ -126,7 +126,7 @@ def _build_auth():
     if "localhost" in settings.base_url or "127.0.0.1" in settings.base_url:
         logger.warning(
             "BASE_URL is %s — for a deployed server this MUST be the public URL "
-            "(e.g. https://<name>.fastmcp.app), or OAuth discovery/token validation "
+            "(e.g. https://mcp.jobmojito.com), or OAuth discovery/token validation "
             "will fail with 401 invalid_token.",
             settings.base_url,
         )

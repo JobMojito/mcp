@@ -124,7 +124,7 @@ Steps:
    - **Site URL:** `https://app.jobmojito.com`
    - **Authorization Path:** `/oauth/consent`
 2. Env: `SUPABASE_PROJECT_URL=https://momsbvnltsydezmoesqt.supabase.co`,
-   `BASE_URL=https://jobmojito.fastmcp.app` (public base, no `/mcp`),
+   `BASE_URL=https://mcp.jobmojito.com` (public base, no `/mcp`),
    `SUPABASE_JWT_ALGORITHM=ES256` (switch to `RS256` if your JWKS shows RSA keys).
 3. If the JobMojito Edge Functions require an `apikey` header, set `SUPABASE_ANON_KEY`.
 
@@ -160,7 +160,7 @@ API so calls respect that user's permissions.
      OAuth, so let it be the auth layer.
 4. Set environment variables / secrets:
    - `ENABLE_AUTH=true`
-   - `BASE_URL=https://jobmojito.fastmcp.app` — **critical.** This must be the
+   - `BASE_URL=https://mcp.jobmojito.com` — **critical.** This must be the
      server's **public base URL, with no `/mcp` and no trailing slash**. It's what
      `SupabaseProvider` advertises as the OAuth resource; if it's left at the
      `http://localhost:8000` default, clients get `401 invalid_token`. The startup
@@ -168,7 +168,7 @@ API so calls respect that user's permissions.
    - `SUPABASE_PROJECT_URL=https://momsbvnltsydezmoesqt.supabase.co`
    - `SUPABASE_ANON_KEY` if the Edge Functions need the `apikey` header.
    - `FEATUREBASE_API_KEY` for help-center docs.
-5. **Deploy.** Your MCP endpoint is `https://jobmojito.fastmcp.app/mcp`. Horizon
+5. **Deploy.** Your MCP endpoint is `https://mcp.jobmojito.com/mcp`. Horizon
    redeploys on every push to `main`.
 
 ### Testing the login
@@ -176,7 +176,7 @@ API so calls respect that user's permissions.
 A `401` on `initialize` is the **normal first step** of MCP OAuth — the client is
 meant to read the discovery metadata and run the Supabase login. Horizon's
 **Inspector / ChatMCP do not perform that login**, so they'll show a bare 401.
-Test by adding `https://jobmojito.fastmcp.app/mcp` as a **custom connector in
+Test by adding `https://mcp.jobmojito.com/mcp` as a **custom connector in
 Claude.ai**, which runs the full OAuth flow and prompts the Supabase login.
 
 Make sure the Supabase side is configured (or the flow 401s regardless): OAuth

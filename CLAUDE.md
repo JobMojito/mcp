@@ -91,11 +91,11 @@ More detail: `docs/ARCHITECTURE.md`.
 
 The Horizon deployment must be **direct**, not behind the managed auth gateway,
 because the gateway can't carry the Supabase token. Requirements: `ENABLE_AUTH=true`
-and `BASE_URL` set to the public URL (e.g. `https://jobmojito.fastmcp.app`, no
+and `BASE_URL` set to the public URL (e.g. `https://mcp.jobmojito.com`, no
 `/mcp` suffix). Verify direct mode from the live discovery doc:
 
 ```bash
-curl -s https://jobmojito.fastmcp.app/.well-known/oauth-protected-resource/mcp
+curl -s https://mcp.jobmojito.com/.well-known/oauth-protected-resource/mcp
 # authorization_servers must be your Supabase project (…supabase.co/auth/v1)
 ```
 

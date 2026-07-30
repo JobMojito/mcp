@@ -26,19 +26,19 @@ plus these environment variables — there is no separate "proxy runner" switch 
 the UI:
 
 - `ENABLE_AUTH=true`
-- `BASE_URL=https://<your-app>.fastmcp.app`  ← public URL, **no** `/mcp` suffix
+- `BASE_URL=https://mcp.jobmojito.com`  ← public URL, **no** `/mcp` suffix
 
 ### Verify direct mode (source of truth)
 
 ```bash
-curl -s https://<your-app>.fastmcp.app/.well-known/oauth-protected-resource/mcp
+curl -s https://mcp.jobmojito.com/.well-known/oauth-protected-resource/mcp
 ```
 
 Expected:
 
 ```json
 {
-  "resource": "https://<your-app>.fastmcp.app/mcp",
+  "resource": "https://mcp.jobmojito.com/mcp",
   "authorization_servers": ["https://<project>.supabase.co/auth/v1"],
   "bearer_methods_supported": ["header"]
 }
@@ -55,7 +55,7 @@ Set these on the Horizon deployment (never commit them):
 | Variable | Value |
 |----------|-------|
 | `ENABLE_AUTH` | `true` |
-| `BASE_URL` | `https://<your-app>.fastmcp.app` (public, no `/mcp`) |
+| `BASE_URL` | `https://mcp.jobmojito.com` (public, no `/mcp`) |
 | `SUPABASE_PROJECT_URL` | your Supabase project URL |
 | `SUPABASE_ANON_KEY` | project anon key (`apikey` header for Edge Functions) |
 | `SITE_URL` | `https://app.jobmojito.com` |
