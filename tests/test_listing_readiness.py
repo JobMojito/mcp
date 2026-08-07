@@ -47,6 +47,8 @@ EXPECTED_READ_ONLY = {
     "get_merchant_credit_usage",
     "get_merchant_status",
     "list_languages",
+    "list_catalogue_directories",
+    "get_catalogue_directory",
     "search_documentation",
     "get_documentation",
 }

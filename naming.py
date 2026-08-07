@@ -125,6 +125,22 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Get the definition/configuration of an interview (position).",
         _READ_WHY,
     ),
+    ("POST", "/job-interview-update"): _write(
+        "update_interview",
+        "Update interview or position",
+        "Update the configuration of an existing interview/position: name, "
+        "description, avatar template, recording, scoring, tags and the rest of "
+        "the create-time settings. Only the fields you send are changed. The "
+        "question list is NOT updated by this tool — nor are the welcome and "
+        "thank-you messages, which are stored as questions, nor the language, "
+        "which the existing questions are already written in. Use `tags` to place "
+        "a coaching session into a catalogue directory.",
+        "readOnlyHint=false / destructiveHint=true: this overwrites the "
+        "configuration of a live interview in place, which is user-visible to "
+        "candidates and cannot be undone from the tool. idempotentHint=true: "
+        "sending the same body twice leaves the same stored state. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
     ("POST", "/job-interview-set-state"): _write(
         "set_interview_state",
         "Change interview state",
@@ -209,6 +225,52 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Coaching-platform feature.",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "persona on the account. " + _OPEN_WORLD,
+    ),
+    # --- Coaching catalogue ---
+    ("GET", "/catalogue-tag-list"): _read(
+        "list_catalogue_directories",
+        "List coaching catalogue directories",
+        "List the coaching-catalogue directories you can see (your merchant's own "
+        "plus the platform-wide public ones). Start here to find a directory id, "
+        "to pick a parent for a new one, or to walk the tree with `parent_tag`; "
+        "`is_start_directory` marks the page the catalogue opens on. The custom "
+        "Markdown page is not included — read it with get_catalogue_directory.",
+        _READ_WHY,
+    ),
+    ("GET", "/catalogue-tag-get"): _read(
+        "get_catalogue_directory",
+        "Get coaching catalogue directory",
+        "Read one catalogue directory in full: its settings, its custom Markdown "
+        "page (`content_md`), its resolved sub-directories, and the coaching "
+        "sessions its tag filter currently matches — which is how you verify that "
+        "a session's `tags` actually place it in this directory. Read before "
+        "updating: `content_md`, `tags_sub` and `tags_interview_set_filter` are "
+        "replaced wholesale, so you need the current value to extend it.",
+        _READ_WHY,
+    ),
+    ("POST", "/catalogue-tag-create"): _write(
+        "create_catalogue_directory",
+        "Create coaching catalogue directory",
+        "Create a directory (page) in the coaching portal catalogue. A directory "
+        "nests other directories (`tags_sub`), lists coaching sessions whose own "
+        "`tags` match its `tags_interview_set_filter`, and can carry a fully "
+        "custom Markdown page (`content_md`) with `[sessions]`, `[directory:…]`, "
+        "`[session:…]` and `[plan-progress]` directives. Coaching-platform feature.",
+        "readOnlyHint=false / destructiveHint=true: creates a persistent, "
+        "publicly reachable catalogue page on the merchant's coaching portal. "
+        + _OPEN_WORLD,
+    ),
+    ("POST", "/catalogue-tag-update"): _write(
+        "update_catalogue_directory",
+        "Update coaching catalogue directory",
+        "Update a coaching catalogue directory: rename it, change which sessions "
+        "it lists (`tags_interview_set_filter`), re-order its sub-directories "
+        "(`tags_sub`), or author its custom Markdown page (`content_md`). Only "
+        "the fields you send are changed. Coaching-platform feature.",
+        "readOnlyHint=false / destructiveHint=true: overwrites a live, publicly "
+        "reachable catalogue page in place. idempotentHint=true: sending the same "
+        "body twice leaves the same stored state. " + _OPEN_WORLD,
+        idempotent=True,
     ),
     # --- Pre-screening ---
     ("POST", "/pre-screening-create"): _write(

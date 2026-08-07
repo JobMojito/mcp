@@ -17,6 +17,10 @@
       "description": "Create, configure and manage interview / coaching / assessment definitions."
     },
     {
+      "name": "Coaching catalogue",
+      "description": "Directories (pages) of the coaching portal catalogue that group coaching sessions and carry custom content pages."
+    },
+    {
       "name": "Results",
       "description": "Interview results, transcripts, reports, re-attempt requests and analytics."
     },
@@ -62,12 +66,24 @@
           "embed_signing_key": {
             "type": "string",
             "description": "Embed signing key, present only when is_embedded=true."
+          },
+          "questions_generated": {
+            "type": "number",
+            "description": "Number of questions actually generated. May be lower than the requested interview_length, which is capped by max_duration.",
+            "example": 8
+          },
+          "max_duration": {
+            "type": "number",
+            "description": "Live session limit in seconds stored on the interview — the value sent, or the 1200 default when omitted.",
+            "example": 1200
           }
         },
         "required": [
-          "interview_def_set_id"
+          "interview_def_set_id",
+          "questions_generated",
+          "max_duration"
         ],
-        "description": "Id of the created interview. Includes embed_id/embed_signing_key when is_embedded=true."
+        "description": "Id of the created interview, the number of questions generated and the stored max_duration. Includes embed_id/embed_signing_key when is_embedded=true."
       },
       "Error": {
         "type": "object",
@@ -280,7 +296,7 @@
                 "nullable": true
               }
             ],
-            "description": "Number of questions to generate (max 40).",
+            "description": "Number of questions to generate (1-40). Also capped by max_duration, which allows one question per 2 minutes: 20 min -> 10 questions, 30 min -> 15, 45 min -> 22, 60 min -> 30, 80 min -> 40. Asking for more than the cap is not an error — you get the cap, and the response reports the real count in questions_generated. Omit this field to let the AI pick 5-8.",
             "example": 8
           },
           "interview_attempts": {
@@ -294,8 +310,8 @@
           "max_duration": {
             "type": "number",
             "nullable": true,
-            "description": "Maximum interview duration in minutes used to scope question generation.",
-            "example": 30
+            "description": "Maximum interview duration in seconds. Scopes how many questions are generated (see interview_length) and is stored on the interview as the live session limit and the basis for the credit multiplier. Defaults to 1200 (20 minutes) when omitted.",
+            "example": 1200
           },
           "max_followups": {
             "type": "integer",
@@ -395,10 +411,10 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the interview.",
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
             "example": [
-              "engineering",
-              "remote"
+              "interview-practice",
+              "sales"
             ]
           },
           "merchant_id": {
@@ -1029,10 +1045,10 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the interview.",
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
             "example": [
-              "engineering",
-              "remote"
+              "interview-practice",
+              "sales"
             ]
           },
           "required_pronunciation": {
@@ -1472,7 +1488,8 @@
           "max_duration": {
             "type": "number",
             "nullable": true,
-            "description": "Maximum interview duration used to scale generated questions."
+            "description": "Maximum interview duration in seconds. Scopes how many questions are generated and is stored on the interview as the live session limit and the basis for the credit multiplier. Defaults to 1200 (20 minutes) when omitted.",
+            "example": 1200
           },
           "is_embedded": {
             "type": "boolean",
@@ -1908,10 +1925,10 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the persona.",
+            "description": "Free-form tags stored on the persona. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
             "example": [
-              "sales",
-              "role-play"
+              "interview-practice",
+              "sales"
             ]
           },
           "portal": {
@@ -2159,7 +2176,7 @@
           "interview_description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Long description (create field `description_long`)."
+            "description": "Long description (create/update field `description_long`)."
           },
           "candidate_expectations": {
             "type": "string",
@@ -2168,15 +2185,102 @@
           },
           "candidate_expectations_json": {
             "nullable": true,
-            "description": "Structured candidate expectations JSON. Null for multi-stage positions."
+            "description": "Structured candidate expectations JSON — the scoring rubric. Null for multi-stage positions."
           },
           "result_scoring": {
             "nullable": true,
-            "description": "Resolved result-scoring config. Null for multi-stage positions."
+            "description": "Resolved result-scoring config (update field `custom_scoring`; its `max_retries` is the update field `interview_attempts`). Null means the platform defaults apply. Null for multi-stage positions."
           },
           "creation_parameters": {
             "nullable": true,
-            "description": "The creation parameters recorded at build time (interview_type, interview_tone, interview_length, additional_context, include_rapport_question, include_closing_prompt, knowledge_base_store_id, seniority_level)."
+            "description": "The creation parameters recorded at build time (interview_type, interview_tone, interview_length, additional_context, include_rapport_question, include_closing_prompt, knowledge_base_store_id, seniority_level, hiring_for_company)."
+          },
+          "interview_department": {
+            "type": "string",
+            "nullable": true,
+            "description": "Department the position belongs to.",
+            "example": "Engineering"
+          },
+          "interview_salary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salary range shown for the position.",
+            "example": "$80k - $100k"
+          },
+          "interview_available_till": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date/time after which the interview is no longer available to candidates. Null means always available."
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this interview/position."
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL slug of the public listing, when one was generated."
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags. Also the coaching-catalogue mapping key: a catalogue directory lists this session when its `tags_interview_set_filter` is a subset of these tags. Null for multi-stage positions.",
+            "example": [
+              "interview-practice",
+              "sales"
+            ]
+          },
+          "coach_plan": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "demo",
+              "screening",
+              "2nd",
+              "3rd",
+              "closing",
+              "job-specific",
+              "other"
+            ],
+            "description": "Coaching-plan stage this session belongs to. Null for multi-stage positions and for sessions outside any plan."
+          },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "description": "Conversation pace of the AI avatar (slower/normal/faster). Null keeps the template default. Null for multi-stage positions."
+          },
+          "max_followups": {
+            "type": "number",
+            "nullable": true,
+            "description": "Maximum number of AI follow-up questions; null uses the template default. Null for multi-stage positions."
+          },
+          "max_duration": {
+            "type": "number",
+            "nullable": true,
+            "description": "Live session limit in seconds. Null for multi-stage positions."
+          },
+          "questions_random_subset": {
+            "type": "number",
+            "nullable": true,
+            "description": "Fraction of the questions actually asked (0.01-0.9); null asks all of them. Null for multi-stage positions."
+          },
+          "required_pronunciation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether a pronunciation assessment is required. Null for multi-stage positions."
+          },
+          "result_enable_edit_transcript": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the candidate may edit the transcript on the result view. Null for multi-stage positions."
+          },
+          "pdf_export_auto_config": {
+            "nullable": true,
+            "description": "Auto-PDF-report options applied when the interview completes; null when auto-export is off. Null for multi-stage positions."
           }
         },
         "required": [
@@ -2206,7 +2310,463 @@
           "candidate_video_introduction",
           "description",
           "interview_description_long",
-          "candidate_expectations"
+          "candidate_expectations",
+          "interview_department",
+          "interview_salary",
+          "interview_available_till",
+          "recruiter_profile_id",
+          "slug",
+          "tags",
+          "coach_plan",
+          "interview_conversation_speed",
+          "max_followups",
+          "max_duration",
+          "questions_random_subset",
+          "required_pronunciation",
+          "result_enable_edit_transcript"
+        ]
+      },
+      "JobInterviewUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "position_id": {
+            "type": "string",
+            "description": "The id that was updated."
+          },
+          "is_multistage": {
+            "type": "boolean",
+            "description": "True when the id resolved to a multi-stage position (position_def_set) rather than a single interview."
+          },
+          "updated_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Names of the stored columns that were written, plus `status` when the lifecycle status was changed.",
+            "example": [
+              "name",
+              "tags"
+            ]
+          }
+        },
+        "required": [
+          "position_id",
+          "is_multistage",
+          "updated_fields"
+        ],
+        "description": "Confirmation of what was updated."
+      },
+      "JobInterviewUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "position_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "Id of the interview definition (single-stage) or position definition (multi-stage) to update. The same id you pass to job-interview-get.",
+            "example": "00000000-0000-0000-0000-000000000000"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived",
+              "deleted",
+              "preparing",
+              "completed"
+            ],
+            "description": "New lifecycle status. Applied through the same interview_set_status routine as job-interview-set-state (which is also where you manage the iframe embed key).",
+            "example": "active"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted"
+            ],
+            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "example": "merchant_public"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Interview / position name.",
+            "example": "Project manager"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "External code/reference. Blank is stored as null."
+          },
+          "location": {
+            "type": "string",
+            "nullable": true,
+            "description": "Interview location (column `interview_location`). Blank is stored as null.",
+            "example": "remote"
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short interview description."
+          },
+          "description_long": {
+            "type": "string",
+            "nullable": true,
+            "description": "Long-form interview description (column `interview_description_long`), Markdown."
+          },
+          "interview_department": {
+            "type": "string",
+            "nullable": true,
+            "description": "Department the position belongs to. Blank is stored as null.",
+            "example": "Engineering"
+          },
+          "interview_salary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salary range shown for the position. Blank is stored as null.",
+            "example": "$80k - $100k"
+          },
+          "interview_available_till": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date/time after which the interview is no longer available to candidates. null keeps it always available.",
+            "example": "2026-12-31"
+          },
+          "recruiter_profile_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant. null clears it."
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
+            "example": [
+              "interview-practice",
+              "sales"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "coaching",
+              "assessment"
+            ],
+            "description": "Product type of the interview. Changing it also re-derives `type_credit` (null for interview/assessment, otherwise interview_coach_manager) unless you send `type_credit` explicitly. Single-stage interviews only.",
+            "example": "interview"
+          },
+          "type_credit": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "resume_check",
+              "interview_coach_starter",
+              "interview_coach_contributor",
+              "interview_coach_manager",
+              "cover_letter"
+            ],
+            "description": "Credit bucket the session draws from. Only meaningful for candidate-paid coaching/persona sessions; hiring interviews and assessments are merchant-billed and carry null. Options — `resume_check`: Resume-check credits. | `interview_coach_starter`: Coaching credits — starter tier. | `interview_coach_contributor`: Coaching credits — contributor tier. | `interview_coach_manager`: Coaching credits — manager tier. | `cover_letter`: Cover-letter credits..",
+            "example": "interview_coach_manager"
+          },
+          "coach_plan": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "demo",
+              "screening",
+              "2nd",
+              "3rd",
+              "closing",
+              "job-specific",
+              "other"
+            ],
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "example": "screening"
+          },
+          "interview_template_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Id of the interview template (avatar/voice) to use. Must reference an existing interview_templates row. Also decides the modality — see list_avatars / merchant-avatar-list.",
+            "example": "46b98d37-1557-4391-beca-03037ead19f2"
+          },
+          "knowledge_base_store_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Knowledge base store id the interview draws context from; validated for existence. null unlinks it."
+          },
+          "recording": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_first_5_answers",
+              "audio_all",
+              "video_all",
+              "video_first_5_answers"
+            ],
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "example": "video_all"
+          },
+          "recording_full_session": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "audio_all",
+              "video_all"
+            ],
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "example": "video_all"
+          },
+          "result_view": {
+            "type": "string",
+            "enum": [
+              "none",
+              "minimal",
+              "minimal_with_score",
+              "advanced",
+              "full",
+              "full_expand_scores"
+            ],
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "example": "full"
+          },
+          "candidate_video_introduction": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hidden",
+              "optional",
+              "required"
+            ],
+            "description": "Whether a candidate video introduction is hidden, optional or required. null is treated like hidden."
+          },
+          "interview_conversation_speed": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "slower",
+              "normal",
+              "faster"
+            ],
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "example": "normal"
+          },
+          "max_followups": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Maximum number of AI follow-up questions. 0 disables follow-ups; presets are 0-3 (none/low/normal/high) and custom values start at 4; null uses the template default (Normal).",
+            "example": 2
+          },
+          "max_duration": {
+            "type": "number",
+            "nullable": true,
+            "description": "Live session limit in seconds. Also the basis for the credit multiplier.",
+            "example": 1200
+          },
+          "questions_random_subset": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0.01,
+            "maximum": 0.9,
+            "description": "Ask only a random subset of the questions, as a fraction between 0.01 and 0.9. null asks all questions.",
+            "example": 0.5
+          },
+          "interview_attempts": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Allowed candidate attempts (1-20). Stored as result_scoring.max_retries.",
+            "example": 1
+          },
+          "required_pronunciation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Require pronunciation assessment (restricts to pronunciation-capable languages)."
+          },
+          "result_enable_edit_transcript": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Allow editing the transcript on the result view."
+          },
+          "candidate_expectations": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text candidate expectations."
+          },
+          "candidate_expectations_json": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "weak": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Baseline requirements every viable candidate should meet (table stakes)."
+              },
+              "moderate": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Requirements expected of a solid, competent candidate."
+              },
+              "strong": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "High-bar requirements only standout candidates clear."
+              }
+            },
+            "description": "Structured candidate expectations (the scoring rubric), bucketed by requirement level (weak/moderate/strong). null clears the rubric. Extra keys are preserved."
+          },
+          "custom_scoring": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "Result-scoring overrides (max_score, early_stop, speech_cadence, ai_pronunciation, sentiment_analysis, ai_assessment_answer, ai_assessment_resume, ai_assessment_session). Merged onto the stored configuration, so keys you omit keep their current value."
+          },
+          "pdf_export_auto_config": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "mojito_language_code": {
+                "type": "string",
+                "description": "Report language code (platform-languages.json code).",
+                "example": "en"
+              },
+              "contact_details": {
+                "type": "boolean",
+                "description": "Include candidate contact details."
+              },
+              "ai_recruiter_assessment": {
+                "type": "boolean",
+                "description": "Include the AI recruiter assessment."
+              },
+              "ai_scoring_rubric": {
+                "type": "boolean",
+                "description": "Include the AI scoring rubric."
+              },
+              "analytics": {
+                "type": "boolean",
+                "description": "Include analytics."
+              },
+              "files": {
+                "type": "boolean",
+                "description": "Include uploaded candidate files."
+              },
+              "transcript": {
+                "type": "boolean",
+                "description": "Include the interview transcript."
+              },
+              "answer_recording": {
+                "type": "boolean",
+                "description": "Include per-answer recordings."
+              },
+              "session_recording": {
+                "type": "boolean",
+                "description": "Include the full-session recording."
+              },
+              "group_by_question": {
+                "type": "boolean",
+                "description": "Group transcript answers by expected question."
+              }
+            },
+            "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
+          },
+          "interview_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "pre-screening",
+              "pre-screening-with-test-questions",
+              "second-interview",
+              "remote-freelancer-verification",
+              "strength-based-interview",
+              "potential-based-interview",
+              "process-verification-from-knowledge-base"
+            ],
+            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. Stored in creation_parameters; existing questions are NOT regenerated. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents..",
+            "example": "pre-screening-with-test-questions"
+          },
+          "interview_tone": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Suggested values — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate.. Case-insensitive; other strings are accepted but unknown tones fall back to the default.",
+            "example": "professional"
+          },
+          "seniority_level": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "entry-level",
+              "intermediate",
+              "senior",
+              "managerial",
+              "director",
+              "executive"
+            ],
+            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role..",
+            "example": "senior"
+          },
+          "hiring_for_company": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true,
+                "description": "End-employer name. Omit/null when hiring for yourself, 'undisclosed' for an unnamed external client, or the client's company name.",
+                "example": "Unimo Enterprises"
+              },
+              "description": {
+                "type": "string",
+                "nullable": true,
+                "description": "Short description of the end employer, used as background context by the agent.",
+                "example": "Unimo Enterprises is a leading logistics and supply chain solutions provider."
+              },
+              "location": {
+                "type": "string",
+                "nullable": true,
+                "description": "Primary location of the end employer.",
+                "example": "Sri Lanka"
+              },
+              "sector": {
+                "type": "string",
+                "nullable": true,
+                "description": "Industry / sector of the end employer.",
+                "example": "Logistics and Supply Chain"
+              },
+              "company_size": {
+                "type": "string",
+                "nullable": true,
+                "description": "Approximate headcount of the end employer.",
+                "example": "100-200"
+              }
+            },
+            "description": "Who the position is really for. null (or an object with name null/blank) means hiring for yourself; { name: 'undisclosed' } for an unnamed external client; or { name: '<company>' } plus optional description/location/sector/company_size. Stored in creation_parameters.hiring_for_company.",
+            "example": {
+              "name": "undisclosed"
+            }
+          }
+        },
+        "required": [
+          "position_id"
         ]
       },
       "JobInterviewSetStateResponse": {
@@ -2629,6 +3189,715 @@
               }
             },
             "description": "The merchant's interview definitions for this page, newest-updated first."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "CatalogueTagCreateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the created directory.",
+            "example": "sales-coaching-en"
+          },
+          "merchant_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Owning merchant id. Null for a platform-wide (`public`) directory."
+          },
+          "parent_tag": {
+            "type": "string",
+            "nullable": true,
+            "description": "The directory this one was nested under, when `parent_tag` was supplied."
+          },
+          "catalogue_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Public URL of the directory page, when the merchant has a coaching-portal domain configured. Null otherwise.",
+            "example": "https://coaching.example.com/catalogue/sales-coaching-en"
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "parent_tag",
+          "catalogue_url"
+        ],
+        "description": "The created catalogue directory."
+      },
+      "CatalogueTagCreateRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:(?:-|_)+[a-z0-9]+)*$",
+            "description": "Directory id — also the catalogue URL segment (/catalogue/<id>) and the value other directories reference in their `tags_sub`. Lowercase letters, digits and single - or _ separators. Convention is to end language-specific directories with the language code, e.g. `sales-coaching-en`.",
+            "example": "sales-coaching-en"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name of the directory, shown as the page title and on its card.",
+            "example": "Sales coaching"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short description shown on the directory card.",
+            "example": "Practice discovery, objection handling and closing."
+          },
+          "mojito_language_code": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "ar",
+              "bg",
+              "zh",
+              "hr",
+              "cs",
+              "da",
+              "nl",
+              "en",
+              "fil",
+              "fi",
+              "fr",
+              "de",
+              "el",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ms",
+              "no",
+              "pl",
+              "pt",
+              "br",
+              "ro",
+              "ru",
+              "sk",
+              "es",
+              "sv",
+              "ta",
+              "th",
+              "tr",
+              "uk",
+              "vi"
+            ],
+            "description": "Language of the directory (one of the platform-languages.json codes). The catalogue groups directories by language; defaults to `en` when omitted.",
+            "example": "en"
+          },
+          "visibility": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "public",
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted"
+            ],
+            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link..",
+            "example": "merchant_public"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ],
+            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served..",
+            "example": "active"
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL shown on the directory card."
+          },
+          "coach_plan": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "demo",
+              "screening",
+              "2nd",
+              "3rd",
+              "closing",
+              "job-specific",
+              "other"
+            ],
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "example": "screening"
+          },
+          "tags_sub": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the directories nested under this one, in display order. Replaces the whole list — send the full set, not just the additions. A referenced directory only appears if it exists and is visible to the viewer.",
+            "example": [
+              "sales-coaching-objections-en",
+              "sales-coaching-closing-en"
+            ]
+          },
+          "tags_interview_set_filter": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Tag filter selecting which coaching sessions this directory lists: a session appears when its own `tags` contain EVERY tag here (an AND, not an OR). Only `active` coaching/persona sessions with visibility `public` or `merchant_public` are listed. Set the matching tags on the session with the create-interview / job-interview-update `tags` field.",
+            "example": [
+              "sales",
+              "objection-handling"
+            ]
+          },
+          "content_md": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text.",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+          },
+          "parent_tag": {
+            "type": "string",
+            "nullable": true,
+            "description": "Id of an existing directory to nest this new one under: the new id is appended to that directory's `tags_sub`. Omit to create a top-level directory (reachable via a direct link, or by adding it to another directory later).",
+            "example": "home-employee-en"
+          },
+          "merchant_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Merchant that owns the directory. Admin / sub-merchant callers only; otherwise taken from your token.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CatalogueTagUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the updated directory.",
+            "example": "sales-coaching-en"
+          },
+          "updated_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Names of the fields that were written.",
+            "example": [
+              "content_md",
+              "tags_interview_set_filter"
+            ]
+          },
+          "catalogue_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Public URL of the directory page, when the merchant has a coaching-portal domain configured. Null otherwise.",
+            "example": "https://coaching.example.com/catalogue/sales-coaching-en"
+          }
+        },
+        "required": [
+          "id",
+          "updated_fields",
+          "catalogue_url"
+        ],
+        "description": "Confirmation of what was updated."
+      },
+      "CatalogueTagUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:(?:-|_)+[a-z0-9]+)*$",
+            "description": "Id of the directory to update (the catalogue URL segment). The id itself cannot be changed — create a new directory instead.",
+            "example": "sales-coaching-en"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name of the directory.",
+            "example": "Sales coaching"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short description shown on the directory card."
+          },
+          "mojito_language_code": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "ar",
+              "bg",
+              "zh",
+              "hr",
+              "cs",
+              "da",
+              "nl",
+              "en",
+              "fil",
+              "fi",
+              "fr",
+              "de",
+              "el",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ms",
+              "no",
+              "pl",
+              "pt",
+              "br",
+              "ro",
+              "ru",
+              "sk",
+              "es",
+              "sv",
+              "ta",
+              "th",
+              "tr",
+              "uk",
+              "vi"
+            ],
+            "description": "Language of the directory (one of the platform-languages.json codes). The catalogue groups directories by language.",
+            "example": "en"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted"
+            ],
+            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link..",
+            "example": "merchant_public"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ],
+            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served..",
+            "example": "active"
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL shown on the directory card. null clears it."
+          },
+          "coach_plan": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "demo",
+              "screening",
+              "2nd",
+              "3rd",
+              "closing",
+              "job-specific",
+              "other"
+            ],
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "example": "screening"
+          },
+          "tags_sub": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the directories nested under this one, in display order. Replaces the whole list — send the full set, not just the additions. A referenced directory only appears if it exists and is visible to the viewer.",
+            "example": [
+              "sales-coaching-objections-en",
+              "sales-coaching-closing-en"
+            ]
+          },
+          "tags_interview_set_filter": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Tag filter selecting which coaching sessions this directory lists: a session appears when its own `tags` contain EVERY tag here (an AND, not an OR). Only `active` coaching/persona sessions with visibility `public` or `merchant_public` are listed. Set the matching tags on the session with the create-interview / job-interview-update `tags` field.",
+            "example": [
+              "sales",
+              "objection-handling"
+            ]
+          },
+          "content_md": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown for the custom directory page. Sending null removes the custom page and restores the default grid; sending a string replaces the whole page. Directives, each ALONE on its own line: `[plan-progress]`, `[directory:<tag-id>]`, `[session:<interview-id>]`, `[sessions]`, `[sessions:<term>]`, `[sessions:filter=<term>,limit=<n>]`.",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CatalogueTagGetResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Directory id — also the catalogue URL segment.",
+            "example": "sales-coaching-en"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display name."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short description shown on the directory card."
+          },
+          "mojito_language_code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Directory language.",
+            "example": "en"
+          },
+          "visibility": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who can see it."
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lifecycle status."
+          },
+          "coach_plan": {
+            "type": "string",
+            "nullable": true,
+            "description": "Coaching-plan stage, when the directory belongs to one."
+          },
+          "cover_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cover image URL."
+          },
+          "merchant_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Owning merchant id. Null for a platform-wide directory."
+          },
+          "tags_sub": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the directories nested under this one, in display order. Replaces the whole list — send the full set, not just the additions. A referenced directory only appears if it exists and is visible to the viewer.",
+            "example": [
+              "sales-coaching-objections-en",
+              "sales-coaching-closing-en"
+            ]
+          },
+          "tags_interview_set_filter": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Tag filter selecting which coaching sessions this directory lists: a session appears when its own `tags` contain EVERY tag here (an AND, not an OR). Only `active` coaching/persona sessions with visibility `public` or `merchant_public` are listed. Set the matching tags on the session with the create-interview / job-interview-update `tags` field.",
+            "example": [
+              "sales",
+              "objection-handling"
+            ]
+          },
+          "content_md": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text.",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+          },
+          "created_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Creation timestamp (ISO 8601)."
+          },
+          "updated_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Last update timestamp (ISO 8601)."
+          },
+          "catalogue_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Public URL of this directory page, when the merchant has a coaching-portal domain configured.",
+            "example": "https://coaching.example.com/catalogue/sales-coaching-en"
+          },
+          "is_start_directory": {
+            "type": "boolean",
+            "description": "True when this is the directory the merchant's catalogue opens on."
+          },
+          "sub_directories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Sub-directory id."
+                },
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Display name."
+                },
+                "description": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Short description."
+                },
+                "status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Lifecycle status."
+                },
+                "visibility": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Visibility."
+                },
+                "mojito_language_code": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Directory language."
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "description",
+                "status",
+                "visibility",
+                "mojito_language_code"
+              ],
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "The directories listed in `tags_sub`, resolved and in display order. An id in `tags_sub` that does not resolve (deleted, or not visible to you) is simply absent here — compare the two to spot a broken link."
+          },
+          "matched_sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Interview definition id of the coaching/persona session."
+                },
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Session name."
+                },
+                "type": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Product type — `coaching` or `persona`."
+                },
+                "type_avatar": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Avatar/voice modality of the session."
+                },
+                "status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Lifecycle status (always `active` here — nothing else is listed)."
+                },
+                "visibility": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Visibility."
+                },
+                "type_credit": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Credit bucket the session draws from."
+                },
+                "tags": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The session's own tags — the superset that matched this directory's filter."
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "type",
+                "type_avatar",
+                "status",
+                "visibility",
+                "type_credit",
+                "tags"
+              ],
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "The coaching/persona sessions this directory currently lists, applying the same rules as the live portal: `active`, type `coaching` or `persona`, visibility `public` or `merchant_public` for this merchant, and `tags` containing every tag of `tags_interview_set_filter`. Empty when the filter is null. Capped at 200."
+          },
+          "matched_sessions_truncated": {
+            "type": "boolean",
+            "description": "True when more sessions match than the 200 returned — narrow `tags_interview_set_filter` if you see this."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "mojito_language_code",
+          "visibility",
+          "status",
+          "coach_plan",
+          "cover_image_url",
+          "merchant_id",
+          "tags_sub",
+          "tags_interview_set_filter",
+          "content_md",
+          "created_at",
+          "updated_at",
+          "catalogue_url",
+          "is_start_directory",
+          "sub_directories",
+          "matched_sessions",
+          "matched_sessions_truncated"
+        ],
+        "description": "One catalogue directory with its content page, sub-directories and matched sessions."
+      },
+      "CatalogueTagListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Directory id — also the catalogue URL segment and the value referenced in a parent's `tags_sub`.",
+                  "example": "sales-coaching-en"
+                },
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Display name."
+                },
+                "description": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Short description shown on the directory card."
+                },
+                "mojito_language_code": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Directory language.",
+                  "example": "en"
+                },
+                "visibility": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Who can see it (public/merchant_public/merchant_invite/merchant_unlisted)."
+                },
+                "status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Lifecycle status (draft/active/archived)."
+                },
+                "coach_plan": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Coaching-plan stage, when the directory belongs to one."
+                },
+                "cover_image_url": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Cover image URL."
+                },
+                "merchant_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Owning merchant id. Null for a platform-wide directory."
+                },
+                "tags_sub": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Ids of the directories nested under this one, in display order."
+                },
+                "tags_interview_set_filter": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Tag filter selecting the coaching sessions this directory lists: a session appears when its own `tags` contain every tag here."
+                },
+                "has_content_page": {
+                  "type": "boolean",
+                  "description": "True when the directory has a custom Markdown page. Read the Markdown itself with catalogue-tag-get."
+                },
+                "is_start_directory": {
+                  "type": "boolean",
+                  "description": "True for the directory the merchant's catalogue opens on — the root to navigate down from."
+                },
+                "created_at": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Creation timestamp (ISO 8601)."
+                },
+                "updated_at": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Last update timestamp (ISO 8601)."
+                }
+              },
+              "required": [
+                "id",
+                "has_content_page",
+                "is_start_directory"
+              ],
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "The catalogue directories for this page, ordered by id."
           },
           "pagination": {
             "$ref": "#/components/schemas/Pagination"
@@ -5503,6 +6772,83 @@
         "operationId": "get_interview_definition"
       }
     },
+    "/job-interview-update": {
+      "post": {
+        "tags": [
+          "Interviews"
+        ],
+        "summary": "Update an interview or position",
+        "description": "Updates the configuration of an existing interview (single-stage) or position (multi-stage). Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. The question list is out of scope: questions, and the welcome / thank-you messages that are stored as questions, are not changed by this endpoint. For the same reason `mojito_language_code` cannot be changed — the existing questions stay in the language they were written in — so create a new interview to change language. A multi-stage position only carries the shared identity fields (name, code, location, description, description_long, cover_image_url, department, salary, available_till, recruiter, status, visibility, hiring_for_company); sending an interview-only field for a position is a 422.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobInterviewUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Interview / position updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobInterviewUpdateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No interview or position found for the given id (or hidden by row-level security).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (unknown enum value, out-of-range number, unresolved template/language/knowledge-base id, or an interview-only field sent for a multi-stage position).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (includes authorization failures).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "update_interview"
+      }
+    },
     "/job-interview-set-state": {
       "post": {
         "tags": [
@@ -5893,6 +7239,440 @@
           }
         },
         "operationId": "list_interviews"
+      }
+    },
+    "/catalogue-tag-create": {
+      "post": {
+        "tags": [
+          "Coaching catalogue"
+        ],
+        "summary": "Create a coaching catalogue directory",
+        "description": "Creates a directory (page) in the coaching portal catalogue. A directory nests other directories through `tags_sub`, lists coaching sessions through `tags_interview_set_filter`, and can replace the default grid with a custom Markdown page through `content_md`. The id you choose is the catalogue URL segment and cannot be changed afterwards.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogueTagCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Directory created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueTagCreateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A directory with this id already exists. Use catalogue-tag-update to change it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (malformed id, unknown enum value, unresolved parent_tag).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (includes authorization failures).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "create_catalogue_directory"
+      }
+    },
+    "/catalogue-tag-update": {
+      "post": {
+        "tags": [
+          "Coaching catalogue"
+        ],
+        "summary": "Update a coaching catalogue directory",
+        "description": "Updates a directory (page) of the coaching portal catalogue. Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. Use it to rename a directory, re-point which sessions it lists (`tags_interview_set_filter`), re-order or replace its sub-directories (`tags_sub`), or author its custom Markdown page (`content_md`).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogueTagUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Directory updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueTagUpdateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No directory with this id (or hidden / not writable by row-level security).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (malformed id, unknown enum value, or no updatable field supplied).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (includes authorization failures).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "update_catalogue_directory"
+      }
+    },
+    "/catalogue-tag-get": {
+      "get": {
+        "tags": [
+          "Coaching catalogue"
+        ],
+        "summary": "Get a coaching catalogue directory",
+        "description": "Reads one catalogue directory in full: its settings, its custom Markdown page (`content_md`), the sub-directories it nests, and the coaching sessions its `tags_interview_set_filter` currently matches. Read a directory before updating it — `content_md`, `tags_sub` and `tags_interview_set_filter` are replaced wholesale by catalogue-tag-update, so you need the current value to extend rather than overwrite it.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Id of the catalogue directory to read (the catalogue URL segment).",
+              "example": "sales-coaching-en"
+            },
+            "required": true,
+            "name": "id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved catalogue directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueTagGetResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not permitted to read this merchant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No directory with this id (or hidden by row-level security).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_catalogue_directory"
+      }
+    },
+    "/catalogue-tag-list": {
+      "get": {
+        "tags": [
+          "Coaching catalogue"
+        ],
+        "summary": "List coaching catalogue directories",
+        "description": "Paginated list of the coaching-catalogue directories visible to you: your merchant's own, plus the platform-wide `public` ones unless you set include_public=false. Use it to find a directory id before updating one, to pick a `parent_tag`, or to walk the tree with `parent_tag`. The custom Markdown page is not included — fetch it per directory with catalogue-tag-get.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "active",
+                "archived"
+              ],
+              "description": "Filter by lifecycle status. Omit to include every status you can see (deleted directories are never returned).",
+              "example": "active"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "merchant_public",
+                "merchant_invite",
+                "merchant_unlisted"
+              ],
+              "description": "Filter by visibility.",
+              "example": "merchant_public"
+            },
+            "required": false,
+            "name": "visibility",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Filter by the directory language (a platform-languages.json code, e.g. `en`)."
+            },
+            "required": false,
+            "name": "mojito_language_code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Case-insensitive search on the directory id, name and description."
+            },
+            "required": false,
+            "name": "filter_text",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Return only the directories nested directly under this one (its `tags_sub`), in the parent's own order. Combine with the other filters to narrow further."
+            },
+            "required": false,
+            "name": "parent_tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "true",
+              "description": "Include the platform-wide `public` directories shared across merchants.",
+              "example": "true"
+            },
+            "required": false,
+            "name": "include_public",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50,
+              "description": "Maximum number of records to return (1–1000).",
+              "example": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of records to skip from the start of the result set.",
+              "example": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of catalogue directories with pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueTagListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not permitted to read this merchant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_catalogue_directories"
       }
     },
     "/job-interview-details": {
