@@ -5,11 +5,17 @@ deeper docs under `docs/` when a task needs them.
 
 ## What this is
 
-A **FastMCP** server that exposes the **JobMojito** hiring API (interviews,
-candidates, pre-screening, knowledge bases, analytics) plus documentation search
-as MCP tools, secured with **Supabase OAuth**. Tools are generated from the live
-JobMojito **OpenAPI** spec at startup; end-user Supabase JWTs are forwarded to the
-API so every call runs with that user's own permissions.
+A **FastMCP** server that exposes the **JobMojito** hiring API (interviews and
+role-play personas, the coaching catalogue, candidates and results, knowledge
+bases, merchants/analytics) plus documentation search as MCP tools, secured with
+**Supabase OAuth**. Tools are generated from the live JobMojito **OpenAPI** spec
+at startup; end-user Supabase JWTs are forwarded to the API so every call runs
+with that user's own permissions.
+
+Current surface: **25 API tools** (30 spec endpoints minus the 5 in
+`IGNORED_PATHS`) + `search_documentation`, `get_documentation`,
+`jobmojito_configuration`, `list_my_merchants`. `naming.py` is the inventory —
+don't maintain a tool list anywhere else.
 
 - Language: Python ≥ 3.10. Single async process, served over Streamable HTTP.
 - Hosting: **Prefect Horizon / FastMCP Cloud**, entrypoint `server.py:mcp`.
@@ -40,7 +46,10 @@ python scripts/update_snapshot.py
 ```
 
 Always run `pytest` before finishing a change; the suite is fast and covers the
-tool inventory, the ignore list, and the schema-relaxation fixes.
+tool inventory, the ignore list, the schema-relaxation fixes
+(`tests/test_smoke.py`) and the directory-listing requirements — titles,
+annotations, justifications, version consistency, lazy auth, error rewriting
+(`tests/test_listing_readiness.py`).
 
 ## Architecture at a glance
 
@@ -138,6 +147,10 @@ Full steps, env var reference, and OAuth/session notes: `docs/DEPLOYMENT.md`.
 - `docs/DEVELOPMENT.md` — local setup, env vars, and recipes (add/rename/ignore a
   tool, refresh the snapshot, add a config field, debug validation errors).
 - `docs/DEPLOYMENT.md` — Horizon deploy, auth/OAuth, session behavior, redeploy checklist.
-- `docs/cookbooks/` — **end-user** product docs (Mintlify), a different audience
-  from these developer docs.
 - `README.md` — project overview.
+
+**End-user** product docs are *not* in this repo. They live on
+`help.jobmojito.com` (Featurebase) and `developer.jobmojito.com` (Mintlify), and
+the server reads them live through `docs_tools.py`. The former `docs/cookbooks/`
+guides were moved out to Mintlify — never re-add copies here, or the docs tools
+start answering from two sources.

@@ -7,9 +7,11 @@ team — `app.prefect.cloud` → Horizon).
 
 It exposes:
 
-- **25 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews,
-  coaching catalogue, knowledge base, merchant lists/analytics). All endpoints —
-  including the `GET` lists — are surfaced as tools with clean, curated names.
+- **25 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews
+  and role-play personas, the coaching catalogue, candidates and results,
+  knowledge base, merchant lists/analytics). All endpoints — including the `GET`
+  lists — are surfaced as tools with clean, curated names, each with a title and
+  read-only/destructive annotations.
 - **2 documentation tools** (`search_documentation`, `get_documentation`) that read
   the developer docs and help center **live** — docs stay single-source on their
   existing platforms; nothing is copied into this repo.
@@ -44,11 +46,15 @@ JobMojito API  (https://cool.jobmojito.com/functions/v1)
 | `server.py` | Entry point — builds and exposes `mcp` (point Horizon at `server.py:mcp`) |
 | `config.py` | Environment-driven settings |
 | `openapi_loader.py` | Live fetch + cache/snapshot fallback + operationId injection |
-| `naming.py` | Curated tool names & description hints per endpoint |
+| `naming.py` | Curated tool names, titles, hints and annotations per endpoint |
 | `upstream.py` | httpx client that forwards the user's Supabase JWT to the API |
+| `middleware.py` | Call logging, upstream-error rewriting, result-size guard, annotation backfill |
+| `merchants.py` | Merchant picker (MCP App UI) + `list_my_merchants` text fallback |
 | `docs_tools.py` | `search_documentation` / `get_documentation` |
 | `featurebase.py` | Featurebase REST client (help-center articles) |
 | `mintlify.py` | Mintlify developer-docs MCP proxy + client-credentials auth |
+| `tests/` | `test_smoke.py` (inventory, schema relaxation, docs) + `test_listing_readiness.py` (directory contract) |
+| `docs/` | Developer docs: architecture, development, deployment |
 | `scripts/update_snapshot.py` | Refresh the committed fallback spec |
 | `scripts/try_docs.py` | Local smoke test for the documentation tools |
 | `data/openapi.snapshot.json` | Offline fallback spec (regenerate from your machine) |
@@ -147,10 +153,15 @@ match your Supabase OAuth Server settings.
 
 ## Authentication model
 
-**Every tool requires the user to be signed in via Supabase OAuth** — including
-`search_documentation` and `get_documentation`. There is no anonymous access.
-Keep `ENABLE_AUTH=true`; the signed-in user's token is forwarded to the JobMojito
-API so calls respect that user's permissions.
+**Every tool *call* requires the user to be signed in via Supabase OAuth** —
+including `search_documentation` and `get_documentation`. Keep `ENABLE_AUTH=true`;
+the signed-in user's token is forwarded to the JobMojito API so calls respect that
+user's permissions.
+
+The one deliberate exception is **capability discovery**: with `ENABLE_LAZY_AUTH`
+(default `true`), `initialize`, `ping` and the `*/list` methods answer without a
+token so directory crawlers can render the tool list. No data is reachable that
+way — every `tools/call`, resource read and prompt still needs a verified JWT.
 
 ## Deploy to Prefect Horizon
 
@@ -311,15 +322,13 @@ The code is ready; these are not code problems:
 
 1. **A Claude Team or Enterprise plan.** The Anthropic submission portal lives
    under `claude.ai/admin-settings/` and is unavailable on individual plans.
-2. **A square PNG/SVG logo** (512×512), then set `SERVER_ICON_URL` /
-   `SERVER_ICON_MIME`. The server warns on startup while it's still a `.ico`.
-3. **A public "Connect JobMojito to Claude & ChatGPT" docs page** — required by
+2. **A public "Connect JobMojito to Claude & ChatGPT" docs page** — required by
    Anthropic (documentation URL) and OpenAI (support URL).
-4. **A populated reviewer test account** with no MFA and no email confirmation
+3. **A populated reviewer test account** with no MFA and no email confirmation
    step; OpenAI rejects submissions whose test account requires either.
-5. **DNS TXT record on `jobmojito.com`** for the `com.jobmojito/*` registry
+4. **DNS TXT record on `jobmojito.com`** for the `com.jobmojito/*` registry
    namespace, and the `MCP_REGISTRY_PRIVATE_KEY` repo secret — see the header
    comment in `.github/workflows/publish-registry.yml`.
-6. **Allowlist Anthropic's egress range `160.79.104.0/21`** on the MCP host and
+5. **Allowlist Anthropic's egress range `160.79.104.0/21`** on the MCP host and
    anything in front of Supabase. A blocking WAF is Anthropic's most common
    documented failure mode.

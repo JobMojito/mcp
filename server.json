@@ -9,6 +9,7 @@
     {
       "src": "https://jobmojito.com/favicon.png",
       "mimeType": "image/png",
+      "sizes": ["512x512"],
       "theme": "light"
     }
   ],
@@ -17,5 +18,12 @@
       "type": "streamable-http",
       "url": "https://mcp.jobmojito.com/mcp"
     }
-  ]
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "documentationUrl": "https://developer.jobmojito.com/mcp",
+      "supportUrl": "https://help.jobmojito.com",
+      "privacyPolicyUrl": "https://jobmojito.com/privacy_policy"
+    }
+  }
 }

@@ -605,7 +605,7 @@
           },
           "id": {
             "type": "string",
-            "description": "Caller-local identifier for this question. Only needed when another question references it via conditional_question_main_id (the mapping is resolved within this array)."
+            "description": "Identifier for this question. job-interview-get returns the question's real id here; send it back to job-interview-update so an unchanged question keeps its existing record (and with it its answer rules and any rendered avatar video). Also the handle another question references via conditional_question_main_id. On job-interview-create-from-array it is a caller-local value, only needed for those references."
           },
           "duration": {
             "type": "number",
@@ -695,7 +695,7 @@
           "conditional_question_main_id": {
             "type": "string",
             "nullable": true,
-            "description": "For a conditional question, the id (the local \"id\" field above) of the parent question in this same array that triggers it."
+            "description": "For a conditional question, the id (the \"id\" field above) of the parent question in this same array that triggers it. The parent must appear earlier in the array than the conditional question referencing it."
           },
           "knowledge_base_id": {
             "type": "string",
@@ -705,7 +705,7 @@
           "external_id": {
             "type": "string",
             "nullable": true,
-            "description": "External identifier stored on the question."
+            "description": "External identifier stored on the question. job-interview-update matches on this first, so an ATS that owns stable ids can send its own array and have the diff line up without round-tripping our ids."
           },
           "external_data": {
             "type": "object",
@@ -1988,6 +1988,14 @@
             "nullable": true,
             "description": "The compiled interview definition JSON (structure varies by interview type)."
           },
+          "questions": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/JobInterviewCreateFromArrayQuestion"
+            },
+            "description": "The interview questions, in the order they are asked, in the same format job-interview-create-from-array accepts — so this array can be edited and sent straight back to job-interview-update, or used to create a copy of this interview. Each `id` is the question's real identifier: send it back unchanged and the question keeps its existing record (and with it its answer rules and any rendered avatar video). The welcome, thank-you and instructional-video steps are NOT included — they are not questions in this format, and job-interview-update leaves them untouched. Null for multi-stage positions, whose questions live on the individual interview stages."
+          },
           "is_multistage": {
             "type": "boolean",
             "description": "True when the id resolved to a multi-stage position rather than a single interview."
@@ -2287,6 +2295,7 @@
           "name",
           "created_at",
           "updated_at",
+          "questions",
           "is_multistage",
           "status",
           "visibility",
@@ -2326,6 +2335,74 @@
           "result_enable_edit_transcript"
         ]
       },
+      "JobInterviewQuestionsDiff": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "kept": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Questions left exactly as they were, record and all."
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the questions created for entries that matched nothing stored."
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids unlinked because no entry in the request matched them. The question records themselves still exist."
+          },
+          "replaced": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "The id that was unlinked."
+                },
+                "to": {
+                  "type": "string",
+                  "description": "The id of the question created in its place."
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ]
+            },
+            "description": "Edited questions: the old record was unlinked and a new one created, so the change cannot leak into other interviews reusing it."
+          },
+          "question_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The interview's full ordered step list after the update, including the welcome / thank-you / instructional steps this endpoint does not manage."
+          },
+          "reactivated": {
+            "type": "boolean",
+            "description": "True when the interview was already active and was re-published so the new questions go live."
+          }
+        },
+        "required": [
+          "kept",
+          "added",
+          "removed",
+          "replaced",
+          "question_ids",
+          "reactivated"
+        ],
+        "description": "What the question diff decided, question by question. Null when `questions` was not sent."
+      },
       "JobInterviewUpdateResponse": {
         "type": "object",
         "properties": {
@@ -2342,17 +2419,21 @@
             "items": {
               "type": "string"
             },
-            "description": "Names of the stored columns that were written, plus `status` when the lifecycle status was changed.",
+            "description": "Names of the stored columns that were written, plus `status` when the lifecycle status was changed and `questions` when the question list was diffed.",
             "example": [
               "name",
               "tags"
             ]
+          },
+          "questions_diff": {
+            "$ref": "#/components/schemas/JobInterviewQuestionsDiff"
           }
         },
         "required": [
           "position_id",
           "is_multistage",
-          "updated_fields"
+          "updated_fields",
+          "questions_diff"
         ],
         "description": "Confirmation of what was updated."
       },
@@ -2455,6 +2536,19 @@
               "interview-practice",
               "sales"
             ]
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobInterviewCreateFromArrayQuestion"
+            },
+            "minItems": 1,
+            "description": "OPTIONAL. Omit this field entirely and the interview's questions are left exactly as they are — this endpoint only touches questions when you send the array. When you do send it, send the COMPLETE list you want the interview to end up with, in order, in the same format job-interview-create-from-array accepts and job-interview-get returns: there is no way to change a single question on its own, so read the interview, edit that array, and send the whole thing back. An empty array is rejected. It is applied as a DIFF, not a replace, so resending the array job-interview-get gave you changes nothing at all. Each entry is matched against what is stored — first on `external_id`, then on `id`, then on identical content — and: an entry matching an unchanged question keeps that question exactly as it is, including its answer rules and any rendered avatar video; an entry matching a question whose content differs unlinks the old question and creates a new one in its place (fields you omit are carried over from the old one); an entry matching nothing is created; and a stored question no entry matches is unlinked. `questions_diff` in the response reports exactly what was decided. Questions are shared records, so nothing is ever deleted — removing one only unlinks it from this interview, and an edit is always unlink-old + create-new so the change cannot leak into another interview reusing the same question. The welcome, thank-you and instructional-video steps are not part of this array and are left in place. Single-stage interviews only; for a multi-stage position, update its interview stages individually."
+          },
+          "regenerate_candidate_expectations": {
+            "type": "boolean",
+            "description": "Re-derive the interview-level `candidate_expectations_json` scoring rubric from the resulting question list, the way job-interview-create-from-array derives it at creation time. Only applies when `questions` is sent, the interview type is `interview`, and `candidate_expectations_json` is not also being set explicitly (an explicit value wins).",
+            "example": false
           },
           "type": {
             "type": "string",
@@ -6697,7 +6791,7 @@
           "Interviews"
         ],
         "summary": "Get interview definition",
-        "description": "Retrieves the interview definition for a given interview-definition id or position id. Returns the compiled `calc_definition_json` plus basic metadata. Access is subject to the caller's row-level security.",
+        "description": "Retrieves the interview definition for a given interview-definition id or position id. Returns the compiled `calc_definition_json`, the ordered `questions` array (in the same format job-interview-create-from-array accepts, so it round-trips into job-interview-update) plus basic metadata. Access is subject to the caller's row-level security.",
         "security": [
           {
             "bearerAuth": []
@@ -6778,7 +6872,7 @@
           "Interviews"
         ],
         "summary": "Update an interview or position",
-        "description": "Updates the configuration of an existing interview (single-stage) or position (multi-stage). Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. The question list is out of scope: questions, and the welcome / thank-you messages that are stored as questions, are not changed by this endpoint. For the same reason `mojito_language_code` cannot be changed — the existing questions stay in the language they were written in — so create a new interview to change language. A multi-stage position only carries the shared identity fields (name, code, location, description, description_long, cover_image_url, department, salary, available_till, recruiter, status, visibility, hiring_for_company); sending an interview-only field for a position is a 422.",
+        "description": "Updates the configuration of an existing interview (single-stage) or position (multi-stage). Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. The question list is only touched when you send `questions`; omit that field and the questions are left exactly as they are. When sent, it must be the complete list and is applied as a diff against what is stored (matched on external_id, then id, then identical content), so unchanged questions keep their existing records, edited ones are unlinked and re-created, and dropped ones are unlinked — and re-sending the array job-interview-get returned changes nothing. See the field description, and `questions_diff` in the response for what was decided. Questions of an interview that is already `active` can only be changed on interactive avatar templates, where re-publishing is instant; on the offline (pre-rendered video) templates set the interview back to `draft` first. The welcome / thank-you messages and the instructional-video screen are stored as steps rather than questions and are never changed here. `mojito_language_code` cannot be changed — the existing questions and rendered videos are in the original language — so create a new interview to change language. A multi-stage position only carries the shared identity fields (name, code, location, description, description_long, cover_image_url, department, salary, available_till, recruiter, status, visibility, hiring_for_company); sending an interview-only field for a position is a 422.",
         "security": [
           {
             "bearerAuth": []
@@ -6826,7 +6920,7 @@
             }
           },
           "422": {
-            "description": "Validation error (unknown enum value, out-of-range number, unresolved template/language/knowledge-base id, or an interview-only field sent for a multi-stage position).",
+            "description": "Validation error (unknown enum value, out-of-range number, unresolved template/language/knowledge-base id, an interview-only field sent for a multi-stage position, an empty `questions` array, or a question change on an active interview using an offline avatar template).",
             "content": {
               "application/json": {
                 "schema": {

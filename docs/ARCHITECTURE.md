@@ -6,7 +6,7 @@ How the JobMojito MCP server is put together, for developers and coding agents.
 
 The server turns the JobMojito REST API (a set of Supabase Edge Functions) into
 MCP tools, and adds a small number of hand-written tools (documentation search,
-admin deep-links, merchant selection). It is a single asynchronous Python process
+merchant selection). It is a single asynchronous Python process
 built on FastMCP 3.x and served over the MCP Streamable HTTP transport. The object
 Horizon serves is `mcp`, created by `build_server()` in `server.py`.
 
@@ -32,7 +32,10 @@ Two ideas drive the design:
    `apikey` header is added when `SUPABASE_ANON_KEY` is set.
 4. The API responds. FastMCP validates the **output** against the (relaxed)
    OpenAPI response schema and returns structured content to the client.
-5. `middleware.py` logs the call name, argument keys, and outcome/timing.
+5. The middleware chain (`middleware.py`) wraps all of the above: it logs the call
+   name/argument keys/outcome/timing, rewrites upstream HTTP errors and
+   output-validation errors into actionable messages, and refuses oversized
+   results. See *Middleware* below.
 
 ## Building the server (`server.py`)
 
@@ -47,10 +50,19 @@ Two ideas drive the design:
   lists, become Tools).
 - Calls `FastMCP.from_openapi(...)` with branding (name, version, website, icon),
   the server `instructions`, `route_maps`, `mcp_component_fn=_customize_component`
-  (adds a `[Category]` prefix + tag per tool), and `validate_output=True`.
-- Registers the logging middleware, then the hand-written tools: `docs_tools`,
-  `merchants`. (Admin UI deep-links are not a tool — the server instructions tell
+  and `validate_output=True`.
+- Registers the middleware chain (see below), then the hand-written tools:
+  `docs_tools`, `merchants`, and the unauthenticated operational routes from
+  `wellknown`. (Admin UI deep-links are not a tool — the server instructions tell
   the agent how to build `candidate` / `interview` / `result` URLs from `SITE_URL`.)
+
+`_customize_component` runs per generated tool and does three load-bearing things:
+prefixes the description with its OpenAPI `[Category]` and the curated hint; sets
+a human-readable `title` (both the MCP `title` and `annotations.title`); and
+applies the MCP annotations from `naming.py`. FastMCP **swallows exceptions**
+raised in this callback and registers the tool uncustomized with only a log
+warning, so `tests/test_listing_readiness.py` asserts the built result rather than
+trusting the logs.
 
 The module-level `mcp = build_server()` is what Horizon serves. The
 `if __name__ == "__main__"` block is a local-dev convenience that runs the HTTP
@@ -94,20 +106,81 @@ require their fields; only value **nullability** changes.
 direct `type` key) are not touched. If a future null-validation error names such a
 field, that's where to extend the relaxer.
 
-## Naming & exclusions (`naming.py`)
+## Naming, annotations & exclusions (`naming.py`)
 
-`TOOL_META` is the single source of truth for curated tool names and the one-line
-description hints that improve model tool-selection. `IGNORED_PATHS` lists
-endpoints that must never be exposed (admin/candidate-token/pre-screening flows);
-`_ignored_paths()` in `server.py` merges it with the `IGNORED_TOOL_PATHS` env var.
+`TOOL_META` maps `(METHOD, path)` → a `ToolMeta` dataclass and is the single
+source of truth for everything curated about a tool:
+
+| Field | Used for |
+|-------|----------|
+| `name` | injected as `operationId`; becomes the MCP tool name (≤ 64 chars) |
+| `title` | MCP `title` + `annotations.title` (clients read one or the other) |
+| `hint` | one-line description prefix that improves model tool-selection |
+| `read_only` / `destructive` / `idempotent` / `open_world` | MCP annotations (`readOnlyHint`, …) |
+| `justification` | the written rationale OpenAI asks for at submission; surfaced by `annotation_justifications()` |
+
+The `_read()` / `_write()` helpers set the annotation quartet consistently — use
+them rather than constructing `ToolMeta` by hand. Endpoints that aren't listed
+still get exposed: `fallback_meta()` derives a name and conservative,
+method-based annotations (`GET` → read-only, everything else → destructive) so a
+new API endpoint is never silently unannotated.
+
+Because directory review rejects any tool that both reads and writes, read and
+write live in separate tools — never add a catch-all `api_request(method=…)`.
+
+`IGNORED_PATHS` lists endpoints that must never be exposed (user invites, the
+candidate-token one-shot flow, the pre-screening endpoints); `_ignored_paths()`
+in `server.py` merges it with the `IGNORED_TOOL_PATHS` env var. Currently 30 spec
+endpoints minus 5 ignored = **25 generated API tools**, plus the four
+hand-written ones (`search_documentation`, `get_documentation`,
+`jobmojito_configuration`, `list_my_merchants`).
+
+## Middleware (`middleware.py`)
+
+Registration order is execution order, so the logger is registered first and
+wraps everything below it.
+
+| Middleware | What it does |
+|------------|--------------|
+| `ToolCallLoggingMiddleware` | Logs tool name, argument **keys** (never values), outcome and timing. Cannot see transport-level 400/404s — those are rejected before any tool runs. |
+| `UpstreamErrorMiddleware` | Turns `HTTP error 403: Forbidden - {...}` into cause + concrete next step (keeping a capped upstream detail), so the model stops permuting arguments against a permissions problem. Unrecognised errors are re-raised untouched. |
+| `ResultSizeGuardMiddleware` | Rejects results over `MAX_TOOL_RESULT_CHARS` (default 120 000) with pagination guidance. Deliberately an error, not a truncation — a half-list that looks complete is worse, and truncating structured content would break its output schema. |
+| `OutputValidationErrorMiddleware` | Rewrites the SDK's path-less "Output validation error" into one that names the offending field(s). |
+| `ToolMetadataBackfillMiddleware` | Safety net at `tools/list` time: any tool registered outside the OpenAPI path gets a title and annotations, defaulting to the *safe* (destructive) assumption. |
+
+## Directory-listing readiness (`lazy_auth.py`, `wellknown.py`)
+
+The server is built to pass the Anthropic connector directory, the OpenAI plugin
+directory and the MCP Registry without code changes.
+
+- **`lazy_auth.py`** wraps the auth provider class so capability discovery
+  (`initialize`, `ping`, `tools/list` and the other `*/list` methods) is served
+  **without** a token — crawlers can render the tool list — while every
+  `tools/call`, resource read and prompt still requires a verified JWT.
+  `WWWAuthenticateScopeMiddleware` adds `scope="openid email"` to the 401
+  challenge. This hooks undocumented FastMCP internals, which is why `fastmcp` is
+  pinned `<4` and the lazy-auth tests gate any upgrade.
+- **`wellknown.py`** registers unauthenticated routes: `GET /healthz` (uptime
+  probe), `GET /.well-known/openai-apps-challenge` (domain verification; 404s
+  while `OPENAI_APPS_CHALLENGE_TOKEN` is unset) and
+  `GET /.well-known/mcp/server-card.json` (Smithery-style server card).
+- **`server.json`** is the MCP Registry entry, published by
+  `.github/workflows/publish-registry.yml` on a `v*` tag. Its `version` must match
+  `SERVER_VERSION` in `server.py` and `pyproject.toml` — a test enforces it, and
+  registry versions are immutable.
 
 ## Authentication (`upstream.py`, `server.py::_build_auth`)
 
 `SupabaseProvider` makes the server an OAuth resource server derived from
 `SUPABASE_PROJECT_URL` (endpoints under `/auth/v1`, ES256, audience
 `authenticated`). Discovery is published at
-`/.well-known/oauth-protected-resource/mcp`. There is **no anonymous access** in
-production; every tool (including docs search) requires a signed-in user.
+`/.well-known/oauth-protected-resource/mcp`, where `resource` must equal the URL
+clients actually connect to (`BASE_URL` + `MCP_PATH`) character for character —
+`server._validate_public_identity()` warns at startup when it doesn't.
+
+**Nothing is executed anonymously.** Every tool call — including docs search —
+requires a signed-in user; only capability discovery is open, and only because
+`ENABLE_LAZY_AUTH` is on (see *Directory-listing readiness*).
 
 Token forwarding is per-request: `get_access_token()` yields the caller's JWT,
 which is attached to the upstream call. For local development without OAuth, set
@@ -126,9 +199,10 @@ which is attached to the upstream call. For local development without OAuth, set
   enabled.
 
 `get_documentation(url)` fetches a specific page (Featurebase article by id, or a
-developer `.md`). Docs are read live/single-source — the repo does not duplicate
-their content. (The `docs/cookbooks/*.mdx` files are authored end-user guides
-published to Mintlify, a separate concern from these tools.)
+developer `.md`), restricted to the allowed doc hosts. Docs are read
+live/single-source — the repo does not duplicate their content, and the end-user
+guides that once lived under `docs/cookbooks/` were moved to Mintlify to keep it
+that way.
 
 ## Merchant selection (`merchants.py`)
 

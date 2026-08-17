@@ -122,7 +122,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("GET", "/job-interview-get"): _read(
         "get_interview_definition",
         "Get interview definition",
-        "Get the definition/configuration of an interview (position).",
+        "Get the definition/configuration of an interview (position), including "
+        "its ordered `questions` array. The questions come back in the same "
+        "format create_interview_from_questions accepts, so you can read an "
+        "interview here, change the array, and send it to update_interview. Each "
+        "question's `id` identifies it — keep the ids you did not mean to change.",
         _READ_WHY,
     ),
     ("POST", "/job-interview-update"): _write(
@@ -130,11 +134,17 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Update interview or position",
         "Update the configuration of an existing interview/position: name, "
         "description, avatar template, recording, scoring, tags and the rest of "
-        "the create-time settings. Only the fields you send are changed. The "
-        "question list is NOT updated by this tool — nor are the welcome and "
-        "thank-you messages, which are stored as questions, nor the language, "
-        "which the existing questions are already written in. Use `tags` to place "
-        "a coaching session into a catalogue directory.",
+        "the create-time settings. Only the fields you send are changed. "
+        "To change the questions, send `questions` — the WHOLE list you want the "
+        "interview to end up with, in order, in the format "
+        "get_interview_definition returns. OMIT `questions` and the existing "
+        "questions are left completely alone; there is no way to change one "
+        "question on its own, so read the interview first, edit that array, and "
+        "send it back. Resending an unchanged array does nothing. Not updated by "
+        "this tool at all: the welcome and thank-you messages and the "
+        "instructional-video screen (stored as steps, not questions), and the "
+        "language, which the existing questions are already written in. Use "
+        "`tags` to place a coaching session into a catalogue directory.",
         "readOnlyHint=false / destructiveHint=true: this overwrites the "
         "configuration of a live interview in place, which is user-visible to "
         "candidates and cannot be undone from the tool. idempotentHint=true: "
