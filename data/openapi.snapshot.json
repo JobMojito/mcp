@@ -2337,7 +2337,6 @@
       },
       "JobInterviewQuestionsDiff": {
         "type": "object",
-        "nullable": true,
         "properties": {
           "kept": {
             "type": "array",
@@ -2401,7 +2400,7 @@
           "question_ids",
           "reactivated"
         ],
-        "description": "What the question diff decided, question by question. Null when `questions` was not sent."
+        "description": "What the question diff decided, question by question. Absent when `questions` was not sent."
       },
       "JobInterviewUpdateResponse": {
         "type": "object",
@@ -2432,8 +2431,7 @@
         "required": [
           "position_id",
           "is_multistage",
-          "updated_fields",
-          "questions_diff"
+          "updated_fields"
         ],
         "description": "Confirmation of what was updated."
       },
