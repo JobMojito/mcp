@@ -96,9 +96,21 @@ More detail: `docs/ARCHITECTURE.md`.
 - **Splitting read from write is a hard requirement,** not a style preference:
   Anthropic rejects any tool that can both read and write. Never add a catch-all
   `api_request(method=...)` tool.
-- **`SERVER_VERSION` (server.py), `version` (pyproject.toml) and `version`
-  (server.json) must match** — a test enforces it, and the registry publish
-  workflow re-checks it. Registry versions are immutable, so bump all three.
+- **The version lives in ONE place: `server.py::SERVER_VERSION`.** Bump it with
+  `python scripts/set_version.py 1.2.3` and commit; nothing else is edited by
+  hand. `pyproject.toml` resolves it at build time via
+  `[tool.setuptools.dynamic]`, and `server.json` — which cannot derive anything,
+  because `mcp-publisher` reads that file directly — is rewritten from
+  `SERVER_VERSION` by the publish workflow, so a stale copy cannot reach the
+  registry. **`SERVER_VERSION` must stay a plain string literal**: setuptools
+  extracts it by AST, and a computed value makes it fall back to *importing*
+  `server.py` at build time, which fails in any clean environment without
+  fastmcp. Tests pin all three properties.
+- **Publishing is triggered by `server.py` changing on `main`, not by a git tag.**
+  The workflow compares `SERVER_VERSION` against the previous commit and exits
+  early when it is unchanged, so ordinary edits to `server.py` are a no-op run
+  rather than a failed publish. Registry versions are immutable — bump, never
+  amend. `workflow_dispatch` forces a publish when you need one.
 - **Excluding an endpoint:** add its path to `naming.py::IGNORED_PATHS`, or set
   the `IGNORED_TOOL_PATHS` env var (comma-separated) at deploy time.
 - **Output validation stays ON** (`validate_output=True`). The JobMojito spec is

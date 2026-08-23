@@ -199,15 +199,53 @@ def test_instructions_carry_the_responsible_use_language():
 # ---------------------------------------------------------------------------
 
 
-def test_version_is_consistent_everywhere():
+def test_pyproject_derives_the_version_from_the_code():
+    """pyproject must not carry its own copy of the version.
+
+    `server.py:SERVER_VERSION` is the one hand-edited version in this repo.
+    setuptools reads it by AST via `[tool.setuptools.dynamic]`, so re-adding a
+    literal `version = "..."` here would reintroduce exactly the drift this
+    setup removes.
+    """
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+
+    assert re.search(r"^dynamic = \[.*\bversion\b", pyproject, re.M), (
+        "pyproject should declare a dynamic version"
+    )
+    assert re.search(r'version = \{attr = "server\.SERVER_VERSION"\}', pyproject), (
+        "the dynamic version must resolve from server.SERVER_VERSION"
+    )
+    assert not re.search(r'^version = "', pyproject, re.M), (
+        "pyproject must not hard-code a version — it derives from server.py"
+    )
+
+
+def test_server_version_is_a_literal():
+    """The AST read only works on a plain string literal.
+
+    Give SERVER_VERSION a computed value and setuptools stops being able to
+    extract it, silently falls back to *importing* server.py at build time, and
+    the build then fails in any clean environment that lacks fastmcp.
+    """
+    source = (REPO_ROOT / "server.py").read_text()
+    assert re.search(r'^SERVER_VERSION = "[^"]+"', source, re.M), (
+        "SERVER_VERSION must stay a plain string literal"
+    )
+
+
+def test_server_json_version_matches_the_code():
+    """server.json cannot derive from anything — mcp-publisher reads that file.
+
+    CI rewrites it from SERVER_VERSION before publishing, so a drifted committed
+    copy never reaches the registry. This keeps the checked-in repo honest too;
+    `python scripts/set_version.py <version>` fixes it in one command.
+    """
     import server
 
     server_json = json.loads((REPO_ROOT / "server.json").read_text())
-    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
-    pyproject_version = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
-
-    assert server_json["version"] == server.SERVER_VERSION
-    assert pyproject_version == server.SERVER_VERSION
+    assert server_json["version"] == server.SERVER_VERSION, (
+        "run: python scripts/set_version.py " + server.SERVER_VERSION
+    )
 
 
 def test_server_json_matches_the_deployed_shape():
@@ -435,3 +473,61 @@ def test_oversized_upstream_detail_is_capped():
     rewritten = UpstreamErrorMiddleware._rewrite("t", "HTTP error 422: X - " + "y" * 5000)
     assert "(truncated)" in rewritten
     assert len(rewritten) < 2000
+
+
+def test_healthz_is_never_cached(monkeypatch):
+    """A liveness probe served from a CDN cache can report a dead server as ok.
+
+    Horizon fronts this host with CloudFront. With no cache headers it applied
+    its own default TTL, and /healthz was observed serving a pre-deploy version
+    for 31 minutes (`x-cache: Hit from cloudfront`, `age: 1859`) while the new
+    build was demonstrably handling MCP traffic. The wrong version was the
+    visible symptom; the real risk is a cached `"status": "ok"` outliving the
+    process it claims to be probing.
+    """
+    import asyncio
+
+    import wellknown
+
+    captured: dict = {}
+
+    class _FakeMCP:
+        def custom_route(self, path, methods, include_in_schema=True):
+            def decorator(fn):
+                captured[path] = fn
+                return fn
+
+            return decorator
+
+    wellknown.register(_FakeMCP(), version="9.9.9", description="d")
+
+    response = asyncio.run(captured["/healthz"](None))
+    cache_control = response.headers.get("cache-control", "")
+
+    assert "no-store" in cache_control, f"healthz must not be cacheable, got: {cache_control!r}"
+    assert b"9.9.9" in response.body, "healthz must report the running version"
+
+
+def test_server_card_states_an_explicit_ttl(monkeypatch):
+    """Cacheable by design, but bounded — it carries `version` too."""
+    import asyncio
+
+    import wellknown
+
+    captured: dict = {}
+
+    class _FakeMCP:
+        def custom_route(self, path, methods, include_in_schema=True):
+            def decorator(fn):
+                captured[path] = fn
+                return fn
+
+            return decorator
+
+        async def list_tools(self):
+            return []
+
+    wellknown.register(_FakeMCP(), version="9.9.9", description="d")
+
+    response = asyncio.run(captured["/.well-known/mcp/server-card.json"](None))
+    assert "max-age" in response.headers.get("cache-control", "")

@@ -13,10 +13,13 @@
 # Published versions are IMMUTABLE — bump `version` in server.json (and keep it in
 # sync with pyproject.toml and server.py:SERVER_VERSION) for every publish.
 #
-# TRIGGER: the version in server.json, not a git tag. Pushing a commit to main
-# that changes it publishes that version; pushing anything else does not. There
-# is nothing to remember beyond the bump the code already requires, and no way to
-# tag a commit whose server.json says something different.
+# TRIGGER: `server.py:SERVER_VERSION`, not a git tag. Pushing a commit to main
+# that changes it publishes that version; pushing anything else does not.
+#
+# ONE HAND-EDITED VERSION. server.py holds it; pyproject.toml resolves it at
+# build time via [tool.setuptools.dynamic]; server.json is rewritten by this
+# workflow before publishing. Nothing to keep in sync by hand, and no way to tag
+# a commit whose manifest disagrees with the code.
 #
 # Publishing the same version twice is rejected by the registry (versions are
 # immutable), so the job compares server.json against the previous commit and
@@ -31,9 +34,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "server.json"
       - "server.py"
-      - "pyproject.toml"
   workflow_dispatch:
 
 jobs:
@@ -48,10 +49,11 @@ jobs:
       - name: Skip when the version is unchanged
         id: changed
         run: |
-          current="$(python3 -c "import json;print(json.load(open('server.json'))['version'])")"
-          previous="$(git show HEAD^:server.json 2>/dev/null \
-            | python3 -c "import json,sys;print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "")"
+          read_version() { python3 -c "import re,sys;print(re.search(r'^SERVER_VERSION = \"([^\"]+)\"', sys.stdin.read(), re.M).group(1))"; }
+          current="$(read_version < server.py)"
+          previous="$(git show HEAD^:server.py 2>/dev/null | read_version 2>/dev/null || echo "")"
           echo "previous=$previous current=$current"
+          echo "version=$current" >> "$GITHUB_OUTPUT"
           if [ "$previous" = "$current" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Version unchanged — nothing to publish."
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -63,21 +65,18 @@ jobs:
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
 
-      # All three must agree. tests/test_listing_readiness.py asserts the same
-      # thing, but that only helps if the suite ran — this is the gate that
-      # cannot be bypassed, and it now covers pyproject.toml too, which the
-      # previous version of this check left out.
-      - name: Check the version is consistent everywhere
+      # server.json is the one file that cannot derive its version — mcp-publisher
+      # reads it directly. So CI writes it from SERVER_VERSION rather than
+      # trusting whoever bumped the code to have remembered a second file. A
+      # drifted committed copy therefore cannot reach the registry.
+      # (pyproject.toml needs nothing here: [tool.setuptools.dynamic] resolves it
+      # from server.py at build time.)
+      - name: Sync server.json from SERVER_VERSION
         if: steps.changed.outputs.skip != 'true'
         run: |
-          json_version="$(python3 -c "import json;print(json.load(open('server.json'))['version'])")"
-          code_version="$(python3 -c "import re;print(re.search(r'SERVER_VERSION = \"([^\"]+)\"', open('server.py').read()).group(1))")"
-          toml_version="$(python3 -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
-          echo "server.json=$json_version server.py=$code_version pyproject.toml=$toml_version"
-          if [ "$json_version" != "$code_version" ] || [ "$json_version" != "$toml_version" ]; then
-            echo "::error::version mismatch — server.json=$json_version server.py=$code_version pyproject.toml=$toml_version"
-            exit 1
-          fi
+          python3 scripts/set_version.py "${{ steps.changed.outputs.version }}"
+          python3 scripts/set_version.py --check
+          git --no-pager diff --stat -- server.json
 
       - name: Authenticate (DNS proof for com.jobmojito/*)
         if: steps.changed.outputs.skip != 'true'

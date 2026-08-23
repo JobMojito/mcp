@@ -1,6 +1,6 @@
 [project]
 name = "jobmojito-mcp"
-version = "1.0.1"
+dynamic = ["version"]
 description = "JobMojito MCP server (FastMCP) — exposes the JobMojito API + documentation as MCP tools, secured with Supabase OAuth."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,17 @@ dev = [
 
 # Flat layout: all modules live at the repo root so Prefect Horizon can run
 # `server.py:mcp` directly without an install/build step.
+# The version lives in exactly one hand-edited place: server.py:SERVER_VERSION.
+# setuptools reads it by AST, without importing server.py — which matters,
+# because importing it at build time would drag in fastmcp, httpx and the
+# OpenAPI loader. That in turn is why SERVER_VERSION must stay a plain string
+# literal: give it a computed value and setuptools silently falls back to
+# importing the module, and the build breaks in a clean environment.
+# server.json is the third copy and cannot be derived (mcp-publisher reads that
+# file directly), so it is written by scripts/set_version.py rather than by hand.
+[tool.setuptools.dynamic]
+version = {attr = "server.SERVER_VERSION"}
+
 [tool.setuptools]
 py-modules = [
     "server",
