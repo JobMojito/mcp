@@ -48,17 +48,55 @@ def _http_status(message: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _exception_messages(properties: dict) -> list[str]:
+    """Every message string carried by an `$exception` payload.
+
+    The message is NOT under `$mcp_error_message` — that property exists only on
+    the `$mcp_tool_call` sibling. The SDK builds the exception from
+    `posthog.mcp._exceptions.capture_exception`, which returns
+    `{"$exception_list": [{"type": ..., "value": <message>}, ...]}` and spreads it
+    onto the event; `$exception_values` and `$exception_types` are derived later,
+    server-side, so they are absent here. Reading the wrong key silently matches
+    nothing, which is exactly how the first version of this filter failed in
+    production while its unit tests passed.
+
+    `$exception_values` and `$mcp_error_message` are still checked as fallbacks so
+    a future payload shape degrades to "filter still works" rather than "filter
+    silently stops working".
+    """
+    messages: list[str] = []
+
+    for entry in properties.get("$exception_list") or []:
+        if isinstance(entry, dict):
+            value = entry.get("value")
+            if isinstance(value, str):
+                messages.append(value)
+
+    values = properties.get("$exception_values")
+    if isinstance(values, list):
+        messages.extend(v for v in values if isinstance(v, str))
+    elif isinstance(values, str):
+        messages.append(values)
+
+    fallback = properties.get("$mcp_error_message")
+    if isinstance(fallback, str):
+        messages.append(fallback)
+
+    return messages
+
+
 def _drop_client_error_exceptions(event: Any) -> Any:
     """Keep 4xx tool failures out of Error Tracking, without hiding them.
 
     A 4xx from the JobMojito API means the CALLER got it wrong — a missing
-    required argument, or a permission the signed-in user does not have. For an
-    MCP server that is normal operation, not a fault: the model is expected to
-    occasionally send a bad payload, and our own error text is written to tell it
-    how to correct the call. Left alone, every such mistake also raises an
-    `$exception`, and since agents make them constantly they would quickly
-    outnumber the real failures in Error Tracking — the first three tool errors
-    this server recorded in production were all one missing `position_id`.
+    required argument, an id that does not resolve, or a permission the
+    signed-in user does not have. For an MCP server that is normal operation,
+    not a fault: the model is expected to occasionally send a bad payload, and
+    our own error text is written to tell it how to correct the call. Left
+    alone, every such mistake also raises an `$exception`, and since agents make
+    them constantly they would quickly outnumber the real failures in Error
+    Tracking — the first three tool errors this server recorded in production
+    were all one missing `position_id`.
 
     Only the `$exception` sibling is dropped. The `$mcp_tool_call` event still
     carries `$mcp_is_error=True` and the full message, so failed calls stay
@@ -73,9 +111,10 @@ def _drop_client_error_exceptions(event: Any) -> Any:
         if event.get("event") != "$exception":
             return event
         properties = event.get("properties") or {}
-        status = _http_status(str(properties.get("$mcp_error_message") or ""))
-        if status is not None and 400 <= status < 500:
-            return None
+        for message in _exception_messages(properties):
+            status = _http_status(message)
+            if status is not None and 400 <= status < 500:
+                return None
     except Exception:
         # A filter that throws must not cost us the error report.
         logger.debug("posthog.mcp before_send filter failed", exc_info=True)
