@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ENABLE_AUTH=false .venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(ENABLE_AUTH=false OPENAPI_CACHE_PATH=data/openapi.cache.json .venv/bin/python -c ' *)"
+    ]
+  }
+}

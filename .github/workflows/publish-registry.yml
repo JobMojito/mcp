@@ -12,12 +12,28 @@
 #
 # Published versions are IMMUTABLE — bump `version` in server.json (and keep it in
 # sync with pyproject.toml and server.py:SERVER_VERSION) for every publish.
+#
+# TRIGGER: the version in server.json, not a git tag. Pushing a commit to main
+# that changes it publishes that version; pushing anything else does not. There
+# is nothing to remember beyond the bump the code already requires, and no way to
+# tag a commit whose server.json says something different.
+#
+# Publishing the same version twice is rejected by the registry (versions are
+# immutable), so the job compares server.json against the previous commit and
+# exits early when it is unchanged — a no-op run rather than a red build.
+#
+# NOTE: this publishes the REGISTRY LISTING only. It does not deploy the running
+# server — that is the Horizon deploy, and https://mcp.jobmojito.com/healthz
+# reports whatever Horizon is running, not what is listed here.
 name: Publish to MCP Registry
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths:
+      - "server.json"
+      - "server.py"
+      - "pyproject.toml"
   workflow_dispatch:
 
 jobs:
@@ -25,23 +41,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # HEAD^ is needed to tell a version bump from an unrelated edit.
+          fetch-depth: 2
+
+      - name: Skip when the version is unchanged
+        id: changed
+        run: |
+          current="$(python3 -c "import json;print(json.load(open('server.json'))['version'])")"
+          previous="$(git show HEAD^:server.json 2>/dev/null \
+            | python3 -c "import json,sys;print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "")"
+          echo "previous=$previous current=$current"
+          if [ "$previous" = "$current" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Version unchanged — nothing to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install mcp-publisher
+        if: steps.changed.outputs.skip != 'true'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
 
-      - name: Check server.json version matches the code
+      # All three must agree. tests/test_listing_readiness.py asserts the same
+      # thing, but that only helps if the suite ran — this is the gate that
+      # cannot be bypassed, and it now covers pyproject.toml too, which the
+      # previous version of this check left out.
+      - name: Check the version is consistent everywhere
+        if: steps.changed.outputs.skip != 'true'
         run: |
           json_version="$(python3 -c "import json;print(json.load(open('server.json'))['version'])")"
           code_version="$(python3 -c "import re;print(re.search(r'SERVER_VERSION = \"([^\"]+)\"', open('server.py').read()).group(1))")"
-          if [ "$json_version" != "$code_version" ]; then
-            echo "::error::server.json version ($json_version) != server.py SERVER_VERSION ($code_version)"
+          toml_version="$(python3 -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
+          echo "server.json=$json_version server.py=$code_version pyproject.toml=$toml_version"
+          if [ "$json_version" != "$code_version" ] || [ "$json_version" != "$toml_version" ]; then
+            echo "::error::version mismatch — server.json=$json_version server.py=$code_version pyproject.toml=$toml_version"
             exit 1
           fi
 
       - name: Authenticate (DNS proof for com.jobmojito/*)
+        if: steps.changed.outputs.skip != 'true'
         run: ./mcp-publisher login dns --domain jobmojito.com --private-key "${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}"
 
       - name: Publish
+        if: steps.changed.outputs.skip != 'true'
         run: ./mcp-publisher publish
