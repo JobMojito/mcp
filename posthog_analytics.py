@@ -28,9 +28,58 @@ from __future__ import annotations
 
 import atexit
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Matches both message shapes an upstream failure can arrive in: FastMCP's raw
+# `ToolError("HTTP error 403: ...")` and the agent-facing rewrite produced by
+# middleware.UpstreamErrorMiddleware ("`tool` failed with HTTP 422: ..."). Both
+# formats are ours to keep stable — _HTTP_ERROR_RE in middleware.py parses the
+# first and line ~262 builds the second — so anchoring on them is safe in a way
+# that matching arbitrary error prose would not be.
+_HTTP_STATUS_RE = re.compile(r"(?:HTTP error|with HTTP)\s+(\d{3})\b")
+
+
+def _http_status(message: str) -> int | None:
+    """The upstream HTTP status named in an error message, if it names one."""
+    match = _HTTP_STATUS_RE.search(message or "")
+    return int(match.group(1)) if match else None
+
+
+def _drop_client_error_exceptions(event: Any) -> Any:
+    """Keep 4xx tool failures out of Error Tracking, without hiding them.
+
+    A 4xx from the JobMojito API means the CALLER got it wrong — a missing
+    required argument, or a permission the signed-in user does not have. For an
+    MCP server that is normal operation, not a fault: the model is expected to
+    occasionally send a bad payload, and our own error text is written to tell it
+    how to correct the call. Left alone, every such mistake also raises an
+    `$exception`, and since agents make them constantly they would quickly
+    outnumber the real failures in Error Tracking — the first three tool errors
+    this server recorded in production were all one missing `position_id`.
+
+    Only the `$exception` sibling is dropped. The `$mcp_tool_call` event still
+    carries `$mcp_is_error=True` and the full message, so failed calls stay
+    visible and countable on the MCP dashboard, where they are a useful signal
+    about tool-schema clarity rather than a page-worthy defect.
+
+    5xx and anything without a recognisable status still raise `$exception`:
+    those are ours to fix, and an unparseable message is exactly the case where
+    dropping the report would hide something we have not seen before.
+    """
+    try:
+        if event.get("event") != "$exception":
+            return event
+        properties = event.get("properties") or {}
+        status = _http_status(str(properties.get("$mcp_error_message") or ""))
+        if status is not None and 400 <= status < 500:
+            return None
+    except Exception:
+        # A filter that throws must not cost us the error report.
+        logger.debug("posthog.mcp before_send filter failed", exc_info=True)
+    return event
 
 
 def _build_client(api_key: str | None, host: str, *, debug: bool) -> Any | None:
@@ -165,6 +214,10 @@ def install(
                 # just an error flag on $mcp_tool_call. This is the whole reason
                 # exception reporting needs no separate integration.
                 enable_exception_autocapture=True,
+                # ...but 4xx means the caller erred, not the server. Runs after
+                # the $exception payload is built and can drop it; see the
+                # function's docstring for why only that sibling goes.
+                before_send=_drop_client_error_exceptions,
             ),
         )
     except Exception:
