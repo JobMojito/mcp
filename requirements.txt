@@ -8,3 +8,6 @@
 fastmcp[apps]>=3.4.4,<4
 httpx>=0.27
 python-dotenv>=1.0
+# MCP analytics + exception reporting. Optional at runtime: posthog_analytics.py
+# degrades to a no-op if the import fails, so a deploy without it still boots.
+posthog>=7.42

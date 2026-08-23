@@ -70,6 +70,16 @@ class Settings:
     # --- Result guards ---
     max_tool_result_chars: int
 
+    # --- Observability (PostHog: MCP analytics + exception reporting) ---
+    # Unset POSTHOG_API_KEY disables both; the server runs unchanged.
+    posthog_api_key: str | None
+    posthog_host: str
+    posthog_debug: bool
+    # Captures WHY the agent called a tool (drives Intent clustering), at the cost
+    # of injecting a required `context` argument into every tool's JSON schema.
+    # Off by default: that schema change is visible to directory reviewers.
+    posthog_enable_intent: bool
+
     # --- Documentation ---
     developer_docs_llms_url: str
     developer_docs_base_url: str
@@ -199,6 +209,11 @@ def load_settings() -> Settings:
         # better to say nothing than to advertise the wrong dimensions.
         server_icon_sizes=_csv(os.environ.get("SERVER_ICON_SIZES", "")),
         max_tool_result_chars=int(os.environ.get("MAX_TOOL_RESULT_CHARS", "120000")),
+        posthog_api_key=os.environ.get("POSTHOG_API_KEY") or None,
+        # EU cloud: JobMojito's PostHog organisation is hosted in Frankfurt.
+        posthog_host=os.environ.get("POSTHOG_HOST", "https://eu.i.posthog.com").rstrip("/"),
+        posthog_debug=_bool(os.environ.get("POSTHOG_DEBUG"), False),
+        posthog_enable_intent=_bool(os.environ.get("POSTHOG_ENABLE_INTENT"), False),
         developer_docs_llms_url=os.environ.get(
             "DEVELOPER_DOCS_LLMS_URL", "https://developer.jobmojito.com/llms.txt"
         ),

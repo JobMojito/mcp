@@ -8,6 +8,7 @@ dependencies = [
     "fastmcp[apps]>=3.4.4,<4",  # 3.4.3 shipped a Host/Origin guard that 421s direct/reverse-proxy deploys; 3.4.4 reverts it
     "httpx>=0.27",
     "python-dotenv>=1.0",
+    "posthog>=7.42",  # MCP analytics + exception reporting; optional at runtime
 ]
 
 [project.optional-dependencies]
@@ -32,4 +33,5 @@ py-modules = [
     "middleware",
     "lazy_auth",
     "wellknown",
+    "posthog_analytics",
 ]

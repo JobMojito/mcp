@@ -407,6 +407,20 @@ def build_server() -> FastMCP:
         "tools (search_documentation, get_documentation).",
         api_ops,
     )
+
+    # PostHog MCP analytics + exception reporting. Deliberately last: the adapter
+    # wraps the tool manager and the list_tools handler, so every tool (OpenAPI,
+    # docs, merchants) must already be registered. No-op without POSTHOG_API_KEY.
+    import posthog_analytics
+
+    posthog_analytics.install(
+        mcp,
+        api_key=settings.posthog_api_key,
+        host=settings.posthog_host,
+        debug=settings.posthog_debug,
+        enable_intent=settings.posthog_enable_intent,
+    )
+
     return mcp
 
 
