@@ -85,41 +85,57 @@ def _exception_messages(properties: dict) -> list[str]:
     return messages
 
 
-def _drop_client_error_exceptions(event: Any) -> Any:
-    """Keep 4xx tool failures out of Error Tracking, without hiding them.
+def _classify_upstream_exception(event: Any) -> Any:
+    """Report upstream failures, except the ones that are part of normal auth.
 
-    A 4xx from the JobMojito API means the CALLER got it wrong — a missing
-    required argument, an id that does not resolve, or a permission the
-    signed-in user does not have. For an MCP server that is normal operation,
-    not a fault: the model is expected to occasionally send a bad payload, and
-    our own error text is written to tell it how to correct the call. Left
-    alone, every such mistake also raises an `$exception`, and since agents make
-    them constantly they would quickly outnumber the real failures in Error
-    Tracking — the first three tool errors this server recorded in production
-    were all one missing `position_id`.
+    WHAT IS DROPPED, AND WHY ONLY THAT
+    A **401** is not a failure here: an unauthenticated `tools/call` is exactly
+    how an MCP client discovers it needs to run the OAuth flow, and lazy_auth
+    answers it before any tool executes. Reporting those would mean an
+    `$exception` for every client's first call. Everything else — 4xx and 5xx
+    alike — is reported.
 
-    Only the `$exception` sibling is dropped. The `$mcp_tool_call` event still
-    carries `$mcp_is_error=True` and the full message, so failed calls stay
-    visible and countable on the MCP dashboard, where they are a useful signal
-    about tool-schema clarity rather than a page-worthy defect.
+    THIS IS DELIBERATELY NOISIER THAN THE ALTERNATIVE
+    An earlier version dropped every 4xx on the grounds that a missing argument
+    or an unresolvable id is the caller's mistake rather than the server's; the
+    first three tool errors this server recorded in production were all one
+    missing `position_id`. Reporting them is a considered choice: a 4xx can also
+    mean a tool schema that misleads the model, or a permission the product
+    should have granted, and neither is visible if the whole class is hidden.
 
-    5xx and anything without a recognisable status still raise `$exception`:
-    those are ours to fix, and an unparseable message is exactly the case where
-    dropping the report would hide something we have not seen before.
+    So that the choice stays reversible, every reported exception is stamped with
+    `upstream_status` and `error_class`. Suppressing one noisy status later is
+    then a filter on a property rather than a code change and a redeploy.
     """
     try:
         if event.get("event") != "$exception":
             return event
-        properties = event.get("properties") or {}
+
+        properties = event.get("properties")
+        if properties is None:
+            properties = {}
+            event["properties"] = properties
+
+        status = None
         for message in _exception_messages(properties):
             status = _http_status(message)
-            if status is not None and 400 <= status < 500:
-                return None
+            if status is not None:
+                break
+
+        if status is None:
+            # No recognisable status: an unexpected exception, always reported.
+            return event
+
+        # Normal OAuth handshake, not a fault.
+        if status == 401:
+            return None
+
+        properties["upstream_status"] = status
+        properties["error_class"] = "client" if 400 <= status < 500 else "server"
     except Exception:
         # A filter that throws must not cost us the error report.
         logger.debug("posthog.mcp before_send filter failed", exc_info=True)
     return event
-
 
 def _build_client(api_key: str | None, host: str, *, debug: bool) -> Any | None:
     """Construct the PostHog client, or None when analytics is not configured.
@@ -253,10 +269,10 @@ def install(
                 # just an error flag on $mcp_tool_call. This is the whole reason
                 # exception reporting needs no separate integration.
                 enable_exception_autocapture=True,
-                # ...but 4xx means the caller erred, not the server. Runs after
-                # the $exception payload is built and can drop it; see the
-                # function's docstring for why only that sibling goes.
-                before_send=_drop_client_error_exceptions,
+                # ...minus the 401s that are just an unauthenticated client
+                # being told to authenticate. Runs after the $exception payload
+                # is built and can drop or annotate it.
+                before_send=_classify_upstream_exception,
             ),
         )
     except Exception:
