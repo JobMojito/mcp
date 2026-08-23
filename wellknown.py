@@ -13,6 +13,17 @@ Routes registered here:
     uptime monitor pointed at a cheap endpoint is worth having. Returns 200 and a
     small JSON body; never touches the upstream API.
 
+    **It must never be cached.** Horizon serves this host through CloudFront, and
+    with no cache headers CloudFront applies its own default TTL: a probe was
+    observed returning ``version: 1.0.0`` with ``x-cache: Hit from cloudfront``
+    and ``age: 1859`` for half an hour after 1.0.1 had been deployed and was
+    demonstrably serving traffic. Reporting the wrong version is the harmless
+    symptom; the dangerous one is that a cached ``"status": "ok"`` would keep
+    being served after the server had stopped answering at all, which is the one
+    thing a liveness probe must not do. Hence ``no-store`` below — and note a
+    cache-busting query string does NOT work around it, because the distribution
+    does not include the query in its cache key.
+
 ``GET /.well-known/openai-apps-challenge``
     Domain verification for the OpenAI plugin directory. OpenAI requires this path
     to return **only** that plugin's token, served from the MCP host or a parent
@@ -24,6 +35,12 @@ Routes registered here:
     a tool list without connecting. Redundant once lazy auth is on (they can just
     call ``tools/list``), but harmless and useful as a fallback for crawlers that
     never speak MCP at all.
+
+    Unlike ``/healthz`` this SHOULD be cached — it is static between deploys and
+    crawlers hit it — but it also carries ``version``, so the TTL is stated
+    explicitly rather than inherited from whatever the CDN defaults to. Five
+    minutes keeps a post-deploy card from advertising the previous version for
+    an unbounded stretch.
 """
 
 from __future__ import annotations
@@ -37,20 +54,35 @@ from config import settings
 
 logger = logging.getLogger("jobmojito_mcp.wellknown")
 
+# Sent on every response that must reflect the live process rather than a CDN's
+# copy of it. `no-store` is the directive CloudFront honours to skip caching
+# entirely; the rest are belt-and-braces for intermediaries that predate it or
+# implement only part of the spec.
+NO_STORE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+# For responses that are safe to cache but carry the version, so staleness is a
+# stated five minutes rather than whatever the CDN would otherwise choose.
+SHORT_CACHE_HEADERS = {"Cache-Control": "public, max-age=300"}
+
 
 def register(mcp, *, version: str, description: str) -> None:
     """Register the unauthenticated routes on the given FastMCP server."""
 
     @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def healthz(request: Request) -> JSONResponse:
-        """Liveness probe — deliberately does no upstream I/O."""
+        """Liveness probe — deliberately does no upstream I/O, and never cached."""
         return JSONResponse(
             {
                 "status": "ok",
                 "server": "jobmojito-mcp",
                 "version": version,
                 "auth": "supabase-oauth" if settings.enable_auth else "disabled",
-            }
+            },
+            headers=NO_STORE_HEADERS,
         )
 
     @mcp.custom_route(
@@ -85,7 +117,8 @@ def register(mcp, *, version: str, description: str) -> None:
             tools = []
 
         return JSONResponse(
-            {
+            headers=SHORT_CACHE_HEADERS,
+            content={
                 "name": settings.registry_server_name,
                 "title": "JobMojito",
                 "description": description,
