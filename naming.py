@@ -51,6 +51,14 @@ class ToolMeta:
     destructive: bool = False
     idempotent: bool = False
     open_world: bool = True
+    #: Query-parameter defaults to override on this endpoint, as
+    #: ``(("limit", 15),)``. Applied to the spec at load time by
+    #: ``openapi_loader.apply_param_defaults`` — a tuple, not a dict, because
+    #: ``ToolMeta`` is frozen/hashable.
+    #:
+    #: The only reason to use this is a spec default that cannot fit in a tool
+    #: result. See ``PAGE_SIZE_WHY``.
+    param_defaults: tuple[tuple[str, object], ...] = ()
 
     def annotations(self) -> dict[str, object]:
         """The MCP `annotations` payload for this tool."""
@@ -63,7 +71,33 @@ class ToolMeta:
         }
 
 
-def _read(name: str, title: str, hint: str, justification: str) -> ToolMeta:
+#: Why an endpoint would override the API's own page-size default.
+#:
+#: An MCP tool result costs the client roughly **twice** the API's JSON: the
+#: protocol carries the same payload in both ``content`` (as text) and
+#: ``structuredContent``, and ``MAX_TOOL_RESULT_CHARS`` counts both — correctly,
+#: since both go over the wire. So an endpoint whose rows are large can blow the
+#: 120,000-char budget at a page size the API considers modest, and the tool then
+#: fails on its *first* call with default arguments, which reads as "broken".
+#:
+#: Measure before setting one — `chars_per_row ≈ 2 × the API's JSON per row` —
+#: and leave headroom; row size varies with the data (long signed URLs, long
+#: free-text fields). Lowering this only changes the default: the model can still
+#: pass a bigger ``limit`` explicitly, and ``pagination.has_more`` tells it when
+#: to page.
+PAGE_SIZE_WHY = (
+    "rows are large enough that the API's default page size overflows the tool "
+    "result limit"
+)
+
+
+def _read(
+    name: str,
+    title: str,
+    hint: str,
+    justification: str,
+    param_defaults: tuple[tuple[str, object], ...] = (),
+) -> ToolMeta:
     """A read-only lookup tool: safe to run without user confirmation."""
     return ToolMeta(
         name=name,
@@ -74,6 +108,7 @@ def _read(name: str, title: str, hint: str, justification: str) -> ToolMeta:
         destructive=False,
         idempotent=True,
         open_world=True,
+        param_defaults=param_defaults,
     )
 
 
@@ -346,8 +381,16 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "the `interview_template_id` you pass to the create-interview tools, so pick "
         "the template whose type matches the experience you want. Note: "
         "`offline_elai` and `offline_synthesia` are legacy integrations that may "
-        "still appear here but cannot be used to create new interviews.",
+        "still appear here but cannot be used to create new interviews. Rows are "
+        "large, so this returns 15 at a time; page with `offset` while "
+        "`pagination.has_more` is true, or narrow with `type`/`filter_text`.",
         _READ_WHY,
+        # Measured: ~2,700 chars of API JSON per row, ~4,900 on the wire once MCP
+        # duplicates it into content + structuredContent. The spec's default of 50
+        # is ~247,000 chars — over twice MAX_TOOL_RESULT_CHARS — so list_avatars
+        # failed on every default call. 15 lands near 74,000 with room for rows
+        # whose media URLs run long. See PAGE_SIZE_WHY.
+        param_defaults=(("limit", 15),),
     ),
     ("GET", "/merchant-sub-merchant-list"): _read(
         "list_sub_merchants",
@@ -425,6 +468,20 @@ def fallback_meta(method: str, path: str) -> ToolMeta:
         idempotent=is_safe,
         open_world=True,
     )
+
+
+def curated_defaults() -> dict[str, dict[str, object]]:
+    """``{tool_name: {param: default}}`` for every endpoint with overrides.
+
+    Consumed by ``middleware.CuratedDefaultsMiddleware``, which is what puts the
+    value on the wire — the spec's `default` alone is only advertised to the
+    model, never sent (see that class for why).
+    """
+    return {
+        meta.name: dict(meta.param_defaults)
+        for meta in TOOL_META.values()
+        if meta.param_defaults
+    }
 
 
 def operation_id_for(method: str, path: str) -> str | None:

@@ -43,6 +43,7 @@ py-modules = [
     "merchants",
     "middleware",
     "lazy_auth",
+    "session_verifier",
     "wellknown",
     "posthog_analytics",
 ]

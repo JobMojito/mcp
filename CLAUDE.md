@@ -68,7 +68,8 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
 | `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
-| `lazy_auth.py` | Auth provider subclass that serves `initialize`/`tools/list` unauthenticated and adds `scope=` to the 401 challenge. |
+| `lazy_auth.py` | Auth-layer ASGI middleware: serves `initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, and 401s tokens the API has rejected. |
+| `session_verifier.py` | Token verifier that also resolves the JWT to a live Supabase session (what the Edge Functions check), + the rejected-token registry behind the re-auth challenge. |
 | `wellknown.py` | Unauthenticated routes: `/healthz`, OpenAI domain challenge, Smithery server card. |
 | `server.json` | Official MCP Registry entry (published by `.github/workflows/publish-registry.yml`). |
 | `data/openapi.snapshot.json` | Committed cold-start fallback spec. Refresh via the script above. |
@@ -130,6 +131,38 @@ More detail: `docs/ARCHITECTURE.md`.
   `PUBLIC_METHODS`, you are making it anonymous — be sure it exposes no data.
   It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<4` and
   the lazy-auth tests gate any upgrade.
+- **An MCP tool result costs ~2× the API's JSON, and OpenAPI `default`s are never
+  sent.** The payload goes over the wire in both `content` and
+  `structuredContent`, and `MAX_TOOL_RESULT_CHARS` counts both — so an endpoint
+  with fat rows can blow the budget at a page size the API considers modest
+  (`list_avatars` at the spec's default of 50 returned ~247k chars and failed on
+  every plain call). Fix it with `ToolMeta.param_defaults`, which feeds *both*
+  `openapi_loader.apply_param_defaults` (the schema the model reads) and
+  `middleware.CuratedDefaultsMiddleware` (what actually gets sent). The second is
+  required: FastMCP's `RequestDirector` serialises only supplied arguments, so a
+  spec `default` the model omits never reaches the API. Recipe in
+  `docs/DEVELOPMENT.md`.
+- **Token refresh is the client's job; `offline_access` is what enables it.**
+  Supabase access tokens last ~1h. This server is a resource server — it never
+  receives a refresh token and must never store one. Its whole contribution is
+  advertising `offline_access` in `OAUTH_SCOPES_SUPPORTED` (so Supabase issues a
+  refresh token) and returning a 401 when a token stops working (so the client
+  knows to use it). With both, expiry is a silent refresh; drop either and users
+  re-authorize in a browser every hour. Scopes are *advertised*, never passed as
+  `required_scopes` — requiring one rejects tokens instead of requesting a
+  capability.
+- **An auth failure must reach the client as an HTTP 401, never as a tool error.**
+  MCP clients re-authenticate only on a transport 401 carrying `WWW-Authenticate`;
+  a `ToolError` is an HTTP 200 with `isError: true` and no client acts on it, so
+  the session stays wedged no matter what the message says. Two mechanisms keep
+  this true and both must stay: `session_verifier.SupabaseSessionVerifier` runs
+  the Edge Functions' *stateful* session check at the gate (a bare `JWTVerifier`
+  only checks signature/`exp`/`iss`/`aud`, which is strictly more permissive than
+  the API), and `lazy_auth.RejectedTokenGateASGIMiddleware` challenges any token
+  the API has already 401'd. It cannot be done in-band on the failing call:
+  Streamable HTTP flushes the SSE response headers *before* the tool runs. The
+  session check deliberately **fails open** — a Supabase outage must not force a
+  fleet-wide re-auth. Never "fix" a 401 by softening either one.
 - **`BASE_URL` is the OAuth resource identifier**, not decoration. It must equal
   the URL clients connect to, character for character, or discovery succeeds while
   every client 401s. `server._validate_public_identity()` logs the exact curl to

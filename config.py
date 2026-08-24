@@ -55,6 +55,11 @@ class Settings:
     mcp_path: str
     enable_lazy_auth: bool
     oauth_scopes_supported: tuple[str, ...]
+    # Verify the Supabase *session* behind a JWT, not just the JWT's signature —
+    # see session_verifier.py. Off means this server accepts tokens the JobMojito
+    # API will reject, and clients never learn they must re-authenticate.
+    enable_session_check: bool
+    session_check_ttl_seconds: int
 
     # --- Directory listing / public metadata ---
     openai_apps_challenge_token: str | None
@@ -104,6 +109,17 @@ class Settings:
         character for character.
         """
         return f"{self.base_url}{self.mcp_path}"
+
+    @property
+    def protected_resource_metadata_url(self) -> str:
+        """RFC 9728 metadata URL, as advertised in ``WWW-Authenticate`` challenges.
+
+        Must match the route FastMCP actually serves, or a client that follows
+        the challenge lands on a 404 and cannot discover where to authorize.
+        """
+        return (
+            f"{self.base_url}/.well-known/oauth-protected-resource{self.mcp_path}"
+        )
 
     @property
     def base_url_looks_local(self) -> bool:
@@ -177,8 +193,22 @@ def load_settings() -> Settings:
         oauth_consent_path=os.environ.get("OAUTH_CONSENT_PATH", "/oauth/consent"),
         mcp_path="/" + os.environ.get("MCP_PATH", "/mcp").strip("/"),
         enable_lazy_auth=_bool(os.environ.get("ENABLE_LAZY_AUTH"), True),
+        # `offline_access` is what makes Supabase issue a refresh token, and a
+        # refresh token is the difference between a silent hourly token refresh
+        # and a browser re-authorization every time the access token expires.
+        # Advertised in the PRM *and* in `scope=` on the 401 challenge, which is
+        # where clients read it from. Verify against the authorization server
+        # before changing:
+        #   curl -s $SUPABASE_PROJECT_URL/auth/v1/.well-known/oauth-authorization-server
+        # (must list `offline_access` in scopes_supported and `refresh_token` in
+        # grant_types_supported). Never promoted to `required_scopes` — that would
+        # reject tokens rather than request a capability.
         oauth_scopes_supported=_csv(
-            os.environ.get("OAUTH_SCOPES_SUPPORTED", "openid,email")
+            os.environ.get("OAUTH_SCOPES_SUPPORTED", "openid,email,offline_access")
+        ),
+        enable_session_check=_bool(os.environ.get("SUPABASE_SESSION_CHECK"), True),
+        session_check_ttl_seconds=int(
+            os.environ.get("SUPABASE_SESSION_CHECK_TTL", "60")
         ),
         openai_apps_challenge_token=(
             os.environ.get("OPENAI_APPS_CHALLENGE_TOKEN") or None

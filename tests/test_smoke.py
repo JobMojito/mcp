@@ -80,6 +80,129 @@ async def test_merchant_selection_tools():
     assert "setup" not in names and "choose" not in names  # renamed
 
 
+# ---------------------------------------------------------------------------
+# Curated page sizes
+#
+# `list_avatars` returned ~247,000 characters on a plain call — over twice
+# MAX_TOOL_RESULT_CHARS — because avatar rows carry three long signed URLs and
+# the API's default page size is 50. The tool therefore failed on its first call
+# with default arguments, which reads to a user as "the tool is broken".
+#
+# Two traps these pin down:
+#   1. An MCP result costs ~2x the API's JSON — the payload is sent in BOTH
+#      `content` (as text) and `structuredContent`, and both count.
+#   2. An OpenAPI `default` is advertised to the model but never sent:
+#      FastMCP's RequestDirector only serialises arguments that were supplied.
+#      So the schema default and CuratedDefaultsMiddleware must agree, or the
+#      tool description promises a page size the server doesn't deliver.
+# ---------------------------------------------------------------------------
+
+
+def test_curated_default_is_both_advertised_and_sent():
+    """The spec default and the middleware default must be the same number.
+
+    They are written in one place (`TOOL_META.param_defaults`) and consumed by
+    two — `openapi_loader.apply_param_defaults` writes the schema the model
+    reads, `middleware.CuratedDefaultsMiddleware` puts the value on the wire.
+    If they ever diverge, the tool advertises one page size and fetches another.
+    """
+    import json
+    import pathlib
+
+    from naming import curated_defaults
+    from openapi_loader import apply_param_defaults
+
+    spec = json.loads(
+        (pathlib.Path(__file__).resolve().parent.parent / "data/openapi.snapshot.json").read_text()
+    )
+    apply_param_defaults(spec)
+
+    advertised = {
+        p["name"]: p["schema"]["default"]
+        for p in spec["paths"]["/merchant-avatar-list"]["get"]["parameters"]
+        if p["name"] == "limit"
+    }
+    sent = curated_defaults()["list_avatars"]
+    assert advertised["limit"] == sent["limit"]
+    # 50 rows was ~247,000 chars; the replacement must leave real headroom.
+    assert sent["limit"] <= 20
+
+
+def test_param_default_outside_spec_bounds_is_refused():
+    """A default the API would 422 on is worse than the one we're replacing."""
+    from openapi_loader import apply_param_defaults
+
+    spec = {
+        "paths": {
+            "/merchant-avatar-list": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "schema": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+                        }
+                    ]
+                }
+            }
+        }
+    }
+    # TOOL_META asks for 15, which exceeds this (hypothetical) maximum of 10.
+    apply_param_defaults(spec)
+    schema = spec["paths"]["/merchant-avatar-list"]["get"]["parameters"][0]["schema"]
+    assert schema["default"] == 5, "out-of-range override must be ignored, not applied"
+
+
+def test_curated_defaults_fill_only_absent_arguments():
+    """An explicit page size from the model always wins over the default."""
+    import asyncio
+    import types
+
+    from middleware import CuratedDefaultsMiddleware
+
+    middleware = CuratedDefaultsMiddleware({"list_avatars": {"limit": 15}})
+
+    async def run(arguments):
+        context = types.SimpleNamespace(
+            message=types.SimpleNamespace(name="list_avatars", arguments=arguments)
+        )
+
+        async def call_next(_):
+            return None
+
+        await middleware.on_call_tool(context, call_next)
+        return arguments
+
+    assert asyncio.run(run({}))["limit"] == 15
+    assert asyncio.run(run({"limit": 100}))["limit"] == 100
+    assert asyncio.run(run({"limit": None}))["limit"] == 15
+    # Untouched tools keep their arguments exactly as sent.
+    other = {"merchant_id": "x"}
+    assert asyncio.run(run(other)) == {"merchant_id": "x", "limit": 15}
+
+
+def test_oversize_guard_suggests_a_limit_that_actually_fits():
+    """The old fixed advice ("try limit=25") also overflowed for avatars.
+
+    25 avatar rows cost ~123,000 characters — still over the 120,000 budget — so
+    following the guidance produced a second identical failure. The suggestion is
+    now solved from the observed size instead of guessed.
+    """
+    from middleware import ResultSizeGuardMiddleware
+
+    guard = ResultSizeGuardMiddleware(120_000)
+    # 50 rows produced 246,931 chars => ~4,939 per row.
+    suggested = guard._suggested_limit({"limit": 50}, 246_931)
+    assert suggested is not None
+    assert suggested * (246_931 / 50) <= 120_000, "the suggestion must fit the budget"
+    assert suggested < 50, "must be smaller than the page size that just failed"
+
+    # No `limit` argument to reason from -> generic advice, no bogus number.
+    assert guard._suggested_limit({}, 246_931) is None
+    assert guard._suggested_limit(None, 246_931) is None
+    assert "limit=10" in guard._advice({}, 246_931)
+
+
 def test_relax_nullable_schemas():
     import jsonschema
 

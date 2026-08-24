@@ -58,7 +58,9 @@ Set these on the Horizon deployment (never commit them):
 | `BASE_URL` | `https://mcp.jobmojito.com` (public, no `/mcp`) — **this is the OAuth resource identifier; it must equal the URL clients connect to exactly** |
 | `MCP_PATH` | `/mcp` (default; combined with `BASE_URL` to form the resource id) |
 | `ENABLE_LAZY_AUTH` | `true` (default) — serves `initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a verified JWT. |
-| `OAUTH_SCOPES_SUPPORTED` | `openid,email` — advertised in the PRM and in the `scope=` parameter of the 401 challenge |
+| `OAUTH_SCOPES_SUPPORTED` | **Leave unset.** The `config.py` default (`openid,email,offline_access`) is the deployed value — the Horizon deployment runs direct (managed auth gateway off) and sets no OAuth env vars. Advertised in the PRM and in the `scope=` parameter of the 401 challenge. `offline_access` is load-bearing: it makes Supabase issue a refresh token, so an expired access token refreshes silently instead of sending the user through the browser every hour. Setting this on the deployment without `offline_access` silently reintroduces the hourly prompt. |
+| `SUPABASE_SESSION_CHECK` | `true` (default) — resolves each JWT to a live Supabase session before running a tool, so a revoked session gets a 401 challenge and the client re-authenticates. Requires `SUPABASE_ANON_KEY`; without it the check fails open and does nothing. |
+| `SUPABASE_SESSION_CHECK_TTL` | `60` — seconds a successful session check is cached |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | OpenAI plugin-directory domain verification. Served verbatim at `/.well-known/openai-apps-challenge`; the route 404s while unset. |
 | `SERVER_ICON_URL` / `SERVER_ICON_MIME` | Optional override. The default is already a square 512×512 PNG (`https://jobmojito.com/favicon.png`); startup warns only if this is pointed at a `.ico`. |
 | `MAX_TOOL_RESULT_CHARS` | `120000` — refuse oversized results with pagination guidance instead of letting the client truncate them. `0` disables. |

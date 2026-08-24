@@ -407,12 +407,13 @@ async def test_lazy_auth_ignores_unparseable_bodies():
     assert seen["scope"].get("user") is None
 
 
-def test_lazy_auth_provider_injects_both_middlewares():
+def test_lazy_auth_provider_injects_all_middlewares():
     """The provider subclass must actually append our ASGI middleware."""
     from starlette.middleware import Middleware as ASGIMiddleware
 
     from lazy_auth import (
         LazyAuthASGIMiddleware,
+        RejectedTokenGateASGIMiddleware,
         WWWAuthenticateScopeMiddleware,
         lazy_auth_provider_class,
     )
@@ -432,9 +433,304 @@ def test_lazy_auth_provider_injects_both_middlewares():
     classes = [m.cls for m in provider.get_middleware()]
     assert LazyAuthASGIMiddleware in classes
     assert WWWAuthenticateScopeMiddleware in classes
+    assert RejectedTokenGateASGIMiddleware in classes
+    # Ordering is load-bearing: the gate must sit inside WWWAuthenticateScope so
+    # its 401 picks up `scope=`, and inside LazyAuth so anonymous discovery is
+    # decided first. Later in the list == innermost == runs last.
+    assert classes.index(RejectedTokenGateASGIMiddleware) > classes.index(
+        WWWAuthenticateScopeMiddleware
+    )
+    assert classes.index(RejectedTokenGateASGIMiddleware) > classes.index(
+        LazyAuthASGIMiddleware
+    )
 
+    # The gate is NOT conditional on lazy auth: an upstream-rejected token must
+    # still produce a 401 challenge on a server with lazy auth turned off.
     disabled = lazy_auth_provider_class(_FakeProvider)(lazy_auth_enabled=False)
-    assert LazyAuthASGIMiddleware not in [m.cls for m in disabled.get_middleware()]
+    disabled_classes = [m.cls for m in disabled.get_middleware()]
+    assert LazyAuthASGIMiddleware not in disabled_classes
+    assert RejectedTokenGateASGIMiddleware in disabled_classes
+
+
+# ---------------------------------------------------------------------------
+# Re-authentication: upstream 401 must become a transport 401
+#
+# The bug these cover: an upstream 401 came back as HTTP 200 with
+# `isError: true`, and MCP clients only re-authenticate on an HTTP 401 carrying
+# WWW-Authenticate. So the session stayed wedged and no client ever refreshed.
+# ---------------------------------------------------------------------------
+
+PRM_URL = "https://mcp.jobmojito.com/.well-known/oauth-protected-resource/mcp"
+
+
+async def _run_gate(headers: list[tuple[bytes, bytes]], **kwargs) -> dict:
+    """Drive RejectedTokenGateASGIMiddleware over one request."""
+    from lazy_auth import RejectedTokenGateASGIMiddleware
+
+    seen: dict = {"passed_through": False, "messages": []}
+
+    async def downstream(scope, receive, send):
+        seen["passed_through"] = True
+
+    middleware = RejectedTokenGateASGIMiddleware(
+        downstream, mcp_path="/mcp", resource_metadata_url=PRM_URL, **kwargs
+    )
+    scope = {"type": "http", "method": "POST", "path": "/mcp", "headers": headers}
+
+    async def receive():  # pragma: no cover - the gate never reads the body
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        seen["messages"].append(message)
+
+    await middleware(scope, receive, send)
+    return seen
+
+
+@pytest.fixture
+def clean_rejections():
+    from session_verifier import rejected_tokens
+
+    rejected_tokens.clear()
+    yield rejected_tokens
+    rejected_tokens.clear()
+
+
+@pytest.mark.asyncio
+async def test_rejected_token_gets_a_401_challenge(clean_rejections):
+    """The whole point: a real 401 + WWW-Authenticate, not a 200 tool error."""
+    from session_verifier import mark_token_rejected
+
+    mark_token_rejected("dead.jwt.token")
+    seen = await _run_gate([(b"authorization", b"Bearer dead.jwt.token")])
+
+    assert not seen["passed_through"], "a rejected token must not reach the tool"
+    start = seen["messages"][0]
+    assert start["status"] == 401
+    challenge = dict(start["headers"])[b"www-authenticate"].decode()
+    # error="invalid_token" is what tells the client the token is the problem;
+    # resource_metadata is where it goes to find the authorization server.
+    assert 'error="invalid_token"' in challenge
+    assert f'resource_metadata="{PRM_URL}"' in challenge
+
+
+@pytest.mark.asyncio
+async def test_healthy_token_passes_through(clean_rejections):
+    seen = await _run_gate([(b"authorization", b"Bearer good.jwt.token")])
+    assert seen["passed_through"]
+    assert not seen["messages"]
+
+
+@pytest.mark.asyncio
+async def test_gate_never_blocks_anonymous_discovery(clean_rejections):
+    """A poisoned token must not make tools/list vanish from directory crawlers."""
+    from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+    from mcp.server.auth.provider import AccessToken
+
+    from lazy_auth import ANONYMOUS_CLIENT_ID, RejectedTokenGateASGIMiddleware
+    from session_verifier import mark_token_rejected
+
+    mark_token_rejected("dead.jwt.token")
+
+    passed = False
+
+    async def downstream(scope, receive, send):
+        nonlocal passed
+        passed = True
+
+    middleware = RejectedTokenGateASGIMiddleware(
+        downstream, mcp_path="/mcp", resource_metadata_url=PRM_URL
+    )
+    token = AccessToken(token="", client_id=ANONYMOUS_CLIENT_ID, scopes=[], expires_at=None)
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/mcp",
+        "headers": [(b"authorization", b"Bearer dead.jwt.token")],
+        "user": AuthenticatedUser(token),
+    }
+
+    async def receive():  # pragma: no cover
+        return {"type": "http.disconnect"}
+
+    async def send(message):  # pragma: no cover
+        pass
+
+    await middleware(scope, receive, send)
+    assert passed
+
+
+@pytest.mark.asyncio
+async def test_rejection_expires(clean_rejections):
+    """A transient upstream auth failure must not lock a token out forever."""
+    from session_verifier import rejected_tokens, token_fingerprint
+
+    rejected_tokens.add(token_fingerprint("tok"), ttl_seconds=-1)
+    seen = await _run_gate([(b"authorization", b"Bearer tok")])
+    assert seen["passed_through"]
+
+
+def test_token_fingerprint_never_reveals_the_token():
+    """Fingerprints are logged and cached; the token is a live user credential."""
+    from session_verifier import token_fingerprint
+
+    token = "eyJhbGciOiJFUzI1NiJ9.super-secret-payload.signature"
+    fingerprint = token_fingerprint(token)
+    assert token not in fingerprint
+    assert fingerprint != token_fingerprint(token + "x")
+    assert fingerprint == token_fingerprint(token)
+
+
+# --- the stateful session check itself ---------------------------------------
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, text: str = "", headers: dict | None = None):
+        self.status_code = status_code
+        self.text = text
+        self.headers = headers or {}
+        self.request = None
+
+
+def _session_verifier(response=None, raises=None):
+    """A SupabaseSessionVerifier whose JWT stage passes and whose HTTP is faked."""
+    from mcp.server.auth.provider import AccessToken
+
+    from session_verifier import SupabaseSessionVerifier
+
+    verifier = SupabaseSessionVerifier(
+        project_url="https://example.supabase.co",
+        anon_key="anon-key",
+        jwks_uri="https://example.supabase.co/auth/v1/.well-known/jwks.json",
+        issuer="https://example.supabase.co/auth/v1",
+        algorithm="ES256",
+        audience="authenticated",
+    )
+
+    async def fake_jwt_verify(token):
+        return AccessToken(
+            token=token, client_id="user-1", scopes=[], expires_at=None, claims={"sub": "user-1"}
+        )
+
+    calls: list[str] = []
+
+    class _FakeClient:
+        is_closed = False
+
+        async def get(self, url, headers=None):
+            calls.append(url)
+            if raises is not None:
+                raise raises
+            return response
+
+    # Only the HTTP stage is faked here; callers monkeypatch the JWT stage,
+    # which would otherwise need real JWKS crypto.
+    verifier._client = _FakeClient()
+    return verifier, fake_jwt_verify, calls
+
+
+@pytest.mark.asyncio
+async def test_dead_session_is_rejected_before_the_tool_runs(monkeypatch):
+    """A JWT that verifies but has no session must fail at the gate, not upstream.
+
+    Failing here is what produces a spec-correct 401 challenge; failing upstream
+    produces a 200 the client ignores.
+    """
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    verifier, fake_jwt_verify, calls = _session_verifier(_FakeResponse(401, "bad jwt"))
+    monkeypatch.setattr(JWTVerifier, "verify_token", lambda self, token: fake_jwt_verify(token))
+
+    assert await verifier.verify_token("some.jwt.token") is None
+    assert calls == ["https://example.supabase.co/auth/v1/user"]
+
+
+@pytest.mark.asyncio
+async def test_live_session_is_accepted_and_cached(monkeypatch):
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    verifier, fake_jwt_verify, calls = _session_verifier(_FakeResponse(200, "{}"))
+    monkeypatch.setattr(JWTVerifier, "verify_token", lambda self, token: fake_jwt_verify(token))
+
+    assert await verifier.verify_token("some.jwt.token") is not None
+    assert await verifier.verify_token("some.jwt.token") is not None
+    assert len(calls) == 1, "the session check must be cached, not run per request"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("response", "raises"),
+    [
+        (_FakeResponse(500, "boom"), None),
+        (None, RuntimeError("connection refused")),
+    ],
+)
+async def test_session_check_fails_open(monkeypatch, response, raises):
+    """A Supabase outage must not force every connected user to re-authenticate.
+
+    Failing closed would convert a brief blip into a fleet-wide re-auth storm;
+    failing open costs at most a doomed call the API would have rejected anyway.
+    """
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    verifier, fake_jwt_verify, _ = _session_verifier(response, raises)
+    monkeypatch.setattr(JWTVerifier, "verify_token", lambda self, token: fake_jwt_verify(token))
+
+    assert await verifier.verify_token("some.jwt.token") is not None
+
+
+@pytest.mark.asyncio
+async def test_session_check_does_not_rescue_a_bad_jwt(monkeypatch):
+    """The session check only ever *narrows* what the JWT stage accepted."""
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    verifier, _, calls = _session_verifier(_FakeResponse(200, "{}"))
+
+    async def reject(token):
+        return None
+
+    monkeypatch.setattr(JWTVerifier, "verify_token", lambda self, token: reject(token))
+    assert await verifier.verify_token("expired.jwt.token") is None
+    assert not calls, "no point asking Supabase about a token that failed signature/exp"
+
+
+def test_offline_access_is_advertised():
+    """Without `offline_access` the user re-authorizes in a browser every hour.
+
+    Supabase issues a refresh token only when the scope is requested, and clients
+    read the scopes to request from the PRM / the `scope=` challenge parameter —
+    both of which come from this setting. Drop it and every access-token expiry
+    (1h) escalates from a silent refresh to a full interactive OAuth flow.
+
+    Confirmed supported by the authorization server:
+      GET $SUPABASE_PROJECT_URL/auth/v1/.well-known/oauth-authorization-server
+      -> scopes_supported includes "offline_access"
+      -> grant_types_supported includes "refresh_token"
+    """
+    from config import settings
+
+    assert "offline_access" in settings.oauth_scopes_supported
+
+
+def test_scopes_are_advertised_not_required():
+    """Advertising a scope asks for a capability; requiring it rejects tokens.
+
+    If `offline_access` were promoted to `required_scopes`, every token whose
+    `scope` claim omitted it would 401 — turning a refresh improvement into a
+    total outage.
+    """
+    import server
+
+    assert not getattr(server._build_token_verifier(), "required_scopes", None)
+
+
+def test_prm_url_matches_the_route_fastmcp_serves():
+    """A challenge pointing at a 404 is worse than no challenge at all."""
+    from config import settings
+
+    assert settings.protected_resource_metadata_url == (
+        f"{settings.base_url}/.well-known/oauth-protected-resource{settings.mcp_path}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +754,22 @@ def test_upstream_errors_get_actionable_guidance(message, expect):
     assert rewritten is not None
     assert "What to do:" in rewritten
     assert expect in rewritten
+
+
+def test_upstream_401_tells_the_model_to_retry_not_to_give_up():
+    """The retry is the mechanism, not politeness.
+
+    Retrying is what makes the client hit RejectedTokenGateASGIMiddleware and
+    receive a real 401 challenge. Guidance that says "ask the user to reconnect"
+    instead leaves the session wedged — no MCP client re-authorizes on the
+    strength of an error string.
+    """
+    from middleware import UpstreamErrorMiddleware
+
+    rewritten = UpstreamErrorMiddleware._rewrite(
+        "list_avatars", "HTTP error 401: Unauthorized - {'error': 'nope'}"
+    )
+    assert "Retry this exact call once" in rewritten
 
 
 def test_unrecognised_errors_are_left_alone():

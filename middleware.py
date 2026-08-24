@@ -172,9 +172,15 @@ _STATUS_GUIDANCE: dict[int, tuple[str, str]] = {
     ),
     401: (
         "the JobMojito API rejected the credentials",
-        "The connection is not authorized (or the session expired). Ask the user to "
-        "reconnect/authorize this server, then retry. Do not retry with different "
-        "arguments — this is not an input problem.",
+        # Deliberately "retry the identical call once": that retry is what makes
+        # the client meet RejectedTokenGateASGIMiddleware, get a real HTTP 401 +
+        # WWW-Authenticate, and re-authenticate. Telling the model to ask the user
+        # to reconnect instead leaves the session stuck — no client re-authorizes
+        # on the strength of an error string. Do not retry with different
+        # arguments; this is not an input problem.
+        "The session is no longer valid. Retry this exact call once — that triggers "
+        "the server's re-authentication challenge. If it fails a second time, tell "
+        "the user to reconnect/authorize this server.",
     ),
     403: (
         "the signed-in user is not permitted to perform this action",
@@ -218,6 +224,28 @@ _SERVER_ERROR_GUIDANCE = (
 )
 
 
+def _remember_upstream_rejection() -> None:
+    """Flag the current token so the *next* request gets a real 401 challenge.
+
+    An upstream 401 reaches the client as HTTP 200 with ``isError: true``, which
+    no MCP client treats as an auth failure — so nothing re-authenticates, and
+    the session stays wedged until the user manually reconnects. Recording the
+    token here lets ``lazy_auth.RejectedTokenGateASGIMiddleware`` answer the next
+    request with ``401 + WWW-Authenticate`` instead.
+
+    Best-effort by design: outside a request context (unit tests, background
+    work) there is no token and this is a no-op. It must never turn an upstream
+    error into a different error.
+    """
+    try:
+        from session_verifier import mark_token_rejected
+        from upstream import current_bearer_token
+
+        mark_token_rejected(current_bearer_token())
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("Could not record upstream token rejection: %s", exc)
+
+
 class UpstreamErrorMiddleware(Middleware):
     """Rewrite raw upstream HTTP failures into errors an agent can act on.
 
@@ -245,6 +273,8 @@ class UpstreamErrorMiddleware(Middleware):
         if not match:
             return None
         status = int(match.group("status"))
+        if status == 401:
+            _remember_upstream_rejection()
         if status in _STATUS_GUIDANCE:
             cause, next_step = _STATUS_GUIDANCE[status]
         elif 500 <= status <= 599:
@@ -263,6 +293,42 @@ class UpstreamErrorMiddleware(Middleware):
         if detail:
             parts.append(f"Upstream detail: {detail}")
         return "\n\n".join(parts)
+
+
+class CuratedDefaultsMiddleware(Middleware):
+    """Actually send the curated parameter defaults from ``naming.TOOL_META``.
+
+    A default in an OpenAPI parameter schema is **advisory**: FastMCP's
+    ``RequestDirector.build()`` iterates only the arguments the model supplied,
+    so a `default` that the model omits is never put on the wire and the API
+    applies its own. Lowering `default` in the spec therefore changes what the
+    model *reads* but not what it *gets* — which is worse than useless, because
+    the tool description then promises a page size the server doesn't deliver.
+
+    This closes that gap: when a curated default exists and the caller omitted
+    the argument, we fill it in before the request is built. The spec default and
+    this middleware must carry the same value — ``openapi_loader`` writes the
+    schema, this sends it, and a test pins them together.
+
+    Only ever fills *absent* arguments. An explicit value from the model always
+    wins, so the model can still ask for a bigger page.
+    """
+
+    def __init__(self, defaults: dict[str, dict[str, object]] | None = None) -> None:
+        self.defaults = defaults or {}
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        message = getattr(context, "message", None)
+        name = getattr(message, "name", None)
+        wanted = self.defaults.get(name or "")
+        if wanted:
+            arguments = getattr(message, "arguments", None)
+            if isinstance(arguments, dict):
+                for key, value in wanted.items():
+                    if arguments.get(key) is None:
+                        arguments[key] = value
+                        logger.debug("%s: applied default %s=%r", name, key, value)
+        return await call_next(context)
 
 
 class ResultSizeGuardMiddleware(Middleware):
@@ -292,18 +358,60 @@ class ResultSizeGuardMiddleware(Middleware):
         if size <= self.max_chars:
             return result
 
-        name = getattr(getattr(context, "message", None), "name", "the tool")
+        msg = getattr(context, "message", None)
+        name = getattr(msg, "name", "the tool")
+        args = getattr(msg, "arguments", None)
         logger.warning("tool call ✗ %s result too large (%d chars)", name, size)
         raise ToolError(
             f"`{name}` returned about {size:,} characters, which exceeds this "
             f"server's {self.max_chars:,}-character result limit and would be "
             "truncated by the client.\n\n"
-            "What to do: request a smaller slice rather than retrying the same "
-            "call. Most list tools accept `limit` and `offset` — start with "
-            "`limit=25` and page through — and narrowing by `merchant_id`, a date "
-            "range, or a status filter usually removes the need to page at all. "
-            "For a single large record, request only the fields you need."
+            f"What to do: {self._advice(args, size)}"
         )
+
+    def _advice(self, arguments, size: int) -> str:
+        """Name a page size that will actually fit, when we can work one out.
+
+        A fixed suggestion ("try limit=25") is a guess about row size, and it was
+        wrong for exactly the tool that needed it most: avatar rows cost ~4,900
+        characters each on the wire, so 25 of them overflow too. Two failed calls
+        in a row reads as a broken tool. Since we know both the size that just
+        overflowed and the page size that produced it, we can solve for one that
+        fits instead of guessing.
+        """
+        suggested = self._suggested_limit(arguments, size)
+        if suggested is None:
+            return (
+                "request a smaller slice rather than retrying the same call. Most "
+                "list tools accept `limit` and `offset` — try `limit=10` and page "
+                "through with `offset` — and narrowing by `merchant_id`, a date "
+                "range, or a status filter usually removes the need to page at "
+                "all. For a single large record, request only the fields you need."
+            )
+        return (
+            f"retry with `limit={suggested}` (and page through with `offset`, "
+            f"checking `pagination.has_more`). That size is calculated from what "
+            "this call actually returned, so it should fit. Narrowing by "
+            "`merchant_id`, a date range, or a status filter is often better "
+            "still — it usually removes the need to page at all."
+        )
+
+    def _suggested_limit(self, arguments, size: int) -> int | None:
+        """Largest page size that fits in the budget, with 20% headroom.
+
+        Headroom because rows are not uniform — one long URL or free-text field
+        in the next page would otherwise put us straight back over the limit.
+        """
+        if not isinstance(arguments, dict):
+            return None
+        current = arguments.get("limit")
+        if not isinstance(current, int) or isinstance(current, bool) or current <= 0:
+            return None
+        if size <= 0:
+            return None
+        fitted = int(current * (self.max_chars / size) * 0.8)
+        # Never suggest the caller's own failing value, or a nonsensical one.
+        return max(1, min(fitted, current - 1))
 
     @staticmethod
     def _measure(result: ToolResult) -> int:

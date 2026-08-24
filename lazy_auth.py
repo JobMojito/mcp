@@ -1,7 +1,16 @@
-"""Lazy authentication + a richer 401 challenge, attached to the FastMCP object.
+"""Auth-layer ASGI middleware attached to the FastMCP object.
 
-WHY
----
+Three concerns, all of which need a slot in the Starlette stack that Prefect
+Horizon cannot take away from us (see HOW THIS ATTACHES below):
+
+* ``LazyAuthASGIMiddleware`` — serve capability discovery without a token.
+* ``WWWAuthenticateScopeMiddleware`` — add ``scope=`` to 401/403 challenges.
+* ``RejectedTokenGateASGIMiddleware`` — answer with a real HTTP 401 once the
+  JobMojito API has rejected a token, so clients actually re-authenticate
+  instead of reading a 200-wrapped tool error. See ``session_verifier.py``.
+
+WHY LAZY AUTH
+-------------
 FastMCP enforces auth at the ASGI *transport* layer: when an ``AuthProvider`` is
 configured, ``RequireAuthMiddleware`` wraps the whole ``/mcp`` route and rejects
 every unauthenticated request — including ``initialize`` and ``tools/list`` —
@@ -170,6 +179,107 @@ def _rpc_methods(body: bytes) -> set[str]:
     return set()
 
 
+class RejectedTokenGateASGIMiddleware:
+    """Answer with a real 401 when the JobMojito API has rejected this token.
+
+    An upstream 401 surfaces today as a ``ToolError`` inside an HTTP **200** —
+    ``isError: true`` in the JSON-RPC result. MCP clients never re-authenticate on
+    that, because their auth layer only reacts to an HTTP 401 carrying
+    ``WWW-Authenticate``. So the model is told to "ask the user to reconnect" and
+    nothing reconnects.
+
+    ``session_verifier.SupabaseSessionVerifier`` catches the common case before
+    the tool ever runs. This closes the residual gap: once the API has rejected a
+    token, the *next* request bearing it is answered here — before dispatch, so
+    before the SSE headers are flushed — with the challenge the client needs.
+
+    It cannot be done in-band on the failing call itself: Streamable HTTP flushes
+    the SSE response headers before the tool executes, so the 200 is already on
+    the wire by the time the upstream 401 is known.
+
+    Anonymous capability discovery is deliberately unaffected — a poisoned token
+    must not make ``tools/list`` disappear from directory crawlers.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        mcp_path: str = "/mcp",
+        resource_metadata_url: str | None = None,
+    ) -> None:
+        self.app = app
+        self.mcp_path = mcp_path
+        self.resource_metadata_url = resource_metadata_url
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("path") != self.mcp_path:
+            return await self.app(scope, receive, send)
+
+        user = scope.get("user")
+        if isinstance(user, AuthenticatedUser):
+            token = getattr(user.access_token, "client_id", None)
+            if token == ANONYMOUS_CLIENT_ID:
+                # Anonymous discovery: nothing to gate.
+                return await self.app(scope, receive, send)
+
+        bearer = _bearer_from_scope(scope)
+        if not bearer:
+            return await self.app(scope, receive, send)
+
+        from session_verifier import rejected_tokens, token_fingerprint
+
+        fingerprint = token_fingerprint(bearer)
+        if fingerprint not in rejected_tokens:
+            return await self.app(scope, receive, send)
+
+        logger.info(
+            "Challenging token %s: the JobMojito API rejected it, so this request "
+            "gets a 401 instead of another 200-wrapped tool error.",
+            fingerprint,
+        )
+        await _send_invalid_token_challenge(send, self.resource_metadata_url)
+
+
+def _bearer_from_scope(scope: Scope) -> str | None:
+    for key, value in scope.get("headers", []):
+        if key.lower() != b"authorization":
+            continue
+        raw = value.decode("latin-1").strip()
+        if raw.lower().startswith("bearer "):
+            token = raw[7:].strip()
+            # LazyAuthASGIMiddleware injects this placeholder for discovery.
+            return token if token and token != "anonymous" else None
+    return None
+
+
+async def _send_invalid_token_challenge(send: Send, resource_metadata_url: str | None) -> None:
+    """Emit the RFC 6750 / RFC 9728 challenge that makes a client re-authorize."""
+    description = (
+        "The JobMojito API rejected this access token. The Supabase session "
+        "behind it is no longer valid — refresh the token or re-authorize."
+    )
+    parts = ['error="invalid_token"', f'error_description="{description}"']
+    if resource_metadata_url:
+        parts.append(f'resource_metadata="{resource_metadata_url}"')
+    challenge = f"Bearer {', '.join(parts)}"
+
+    body = json.dumps(
+        {"error": "invalid_token", "error_description": description}
+    ).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+                (b"www-authenticate", challenge.encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
+
+
 class WWWAuthenticateScopeMiddleware:
     """Append ``scope="..."`` to 401/403 ``WWW-Authenticate`` challenges.
 
@@ -218,6 +328,7 @@ def lazy_auth_provider_class(base_class: type) -> type:
             public_methods: frozenset[str] = PUBLIC_METHODS,
             advertise_scope: str | None = None,
             lazy_auth_enabled: bool = True,
+            resource_metadata_url: str | None = None,
             **kwargs,
         ) -> None:
             super().__init__(*args, **kwargs)
@@ -225,6 +336,7 @@ def lazy_auth_provider_class(base_class: type) -> type:
             self._public_methods = public_methods
             self._advertise_scope = advertise_scope
             self._lazy_auth_enabled = lazy_auth_enabled
+            self._resource_metadata_url = resource_metadata_url
 
         def get_middleware(self) -> list:
             middleware = list(super().get_middleware())
@@ -249,6 +361,16 @@ def lazy_auth_provider_class(base_class: type) -> type:
                     "method still requires a verified Supabase JWT.",
                     ", ".join(sorted(self._public_methods)),
                 )
+            # Appended last => innermost, so it runs *after* LazyAuth has had its
+            # say about anonymous discovery, and its 401 still travels back out
+            # through WWWAuthenticateScopeMiddleware to pick up `scope=`.
+            middleware.append(
+                ASGIMiddleware(
+                    RejectedTokenGateASGIMiddleware,
+                    mcp_path=self._mcp_path,
+                    resource_metadata_url=self._resource_metadata_url,
+                )
+            )
             return middleware
 
     return _LazyAuthProvider

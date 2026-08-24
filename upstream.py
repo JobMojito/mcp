@@ -22,11 +22,17 @@ from config import settings
 logger = logging.getLogger("jobmojito_mcp.upstream")
 
 
-def _current_bearer_token() -> str | None:
+def current_bearer_token() -> str | None:
     """Best-effort fetch of the current request's Supabase access token.
 
     Returns the raw JWT string, or None if there is no authenticated context
     (e.g. auth disabled for local testing, or a non-request code path).
+
+    Public because ``middleware.UpstreamErrorMiddleware`` needs to identify the
+    token the API just rejected — see ``session_verifier.mark_token_rejected``.
+    Callers must treat the result as a live credential: never log it, never
+    include it in an error message. ``session_verifier.token_fingerprint`` gives
+    a loggable id instead.
     """
     try:
         # Imported lazily so the module also works with auth disabled / outside
@@ -54,7 +60,7 @@ class SupabaseTokenForwardAuth(httpx.Auth):
     """httpx auth flow that injects the current user's Supabase JWT per request."""
 
     def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
-        bearer = _current_bearer_token()
+        bearer = current_bearer_token()
         if bearer:
             request.headers["Authorization"] = f"Bearer {bearer}"
         else:

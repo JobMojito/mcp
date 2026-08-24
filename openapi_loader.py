@@ -24,7 +24,7 @@ from typing import Any
 import httpx
 
 from config import settings
-from naming import operation_id_for
+from naming import meta_for, operation_id_for
 
 logger = logging.getLogger("jobmojito_mcp.openapi")
 
@@ -59,6 +59,69 @@ def inject_operation_ids(spec: dict[str, Any]) -> dict[str, Any]:
                     path,
                 )
     logger.info("Injected %d operationIds (%d routes auto-named).", injected, skipped)
+    return spec
+
+
+def apply_param_defaults(spec: dict[str, Any]) -> dict[str, Any]:
+    """Override query-parameter defaults declared in ``naming.TOOL_META``.
+
+    Used to shrink page sizes on endpoints whose rows are too large for the
+    API's own default to fit in a tool result (see ``naming.PAGE_SIZE_WHY``).
+    Applied at load time rather than committed into the snapshot, so it survives
+    ``scripts/update_snapshot.py`` and stays visible next to the tool metadata.
+
+    Only the ``default`` changes: ``minimum``/``maximum`` are the API's contract
+    and are left alone, so the model can still ask for a bigger page. A default
+    outside the spec's own bounds is refused — that would make every call 422.
+    """
+    applied = 0
+    for path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            meta = meta_for(method, path)
+            if not meta or not meta.param_defaults:
+                continue
+            overrides = dict(meta.param_defaults)
+            for parameter in operation.get("parameters", []):
+                name = parameter.get("name")
+                if name not in overrides:
+                    continue
+                schema = parameter.get("schema")
+                if not isinstance(schema, dict):
+                    continue
+                value = overrides[name]
+                low, high = schema.get("minimum"), schema.get("maximum")
+                if isinstance(value, (int, float)) and (
+                    (low is not None and value < low)
+                    or (high is not None and value > high)
+                ):
+                    logger.warning(
+                        "Ignoring default %s=%r for %s: outside the spec's %s..%s "
+                        "range, which would make every call fail validation.",
+                        name,
+                        value,
+                        meta.name,
+                        low,
+                        high,
+                    )
+                    continue
+                if schema.get("default") == value:
+                    continue
+                logger.info(
+                    "%s: default %s %r -> %r (%s)",
+                    meta.name,
+                    name,
+                    schema.get("default"),
+                    value,
+                    "curated page size",
+                )
+                schema["default"] = value
+                applied += 1
+    if applied:
+        logger.info("Applied %d curated parameter default(s).", applied)
     return spec
 
 
@@ -117,8 +180,13 @@ def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
-    """Inject curated operationIds and relax nullable response fields."""
-    return relax_nullable_schemas(inject_operation_ids(spec))
+    """Inject curated operationIds/defaults and relax nullable response fields.
+
+    Order matters: ``apply_param_defaults`` looks endpoints up by (method, path)
+    in ``TOOL_META``, so it is independent of the operationId pass, but both must
+    run before ``relax_nullable_schemas`` walks the tree.
+    """
+    return relax_nullable_schemas(apply_param_defaults(inject_operation_ids(spec)))
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

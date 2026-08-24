@@ -187,6 +187,76 @@ which is attached to the upstream call. For local development without OAuth, set
 `ENABLE_AUTH=false` (no auth provider) and optionally `JOBMOJITO_DEV_BEARER_TOKEN`
 (a real Supabase token) so API tools can still be exercised.
 
+### Token refresh — whose job it is
+
+Supabase access tokens last ~1 hour. **This server never refreshes them and must
+not try.** As an OAuth 2.1 resource server it receives an access token and never
+a refresh token; the refresh token belongs to the MCP client, issued by Supabase.
+There is no channel in MCP for a client to hand a server its refresh token, and
+building one — a per-user encrypted refresh-token store, rotation, revocation —
+would make this server a confused deputy holding credentials for users' entire
+Supabase accounts.
+
+What the server owes the client is exactly two things, and both are config:
+
+1. **Advertise `offline_access`** (`OAUTH_SCOPES_SUPPORTED`). Supabase issues a
+   refresh token only when that scope is requested, and clients take the scopes
+   to request from the PRM's `scopes_supported` and the `scope=` parameter of the
+   401 challenge — both fed by this setting.
+2. **Return a 401 when the token stops working**, so the client knows *when* to
+   refresh (below).
+
+Given both, expiry is invisible: the client gets a 401, exchanges its refresh
+token at Supabase's `/auth/v1/oauth/token`, and retries. No user interaction.
+Miss either one and the same expiry escalates to a full browser flow — the first
+because there is nothing to refresh with, the second because nothing tells the
+client to.
+
+Verify the authorization server still supports it:
+
+```bash
+curl -s $SUPABASE_PROJECT_URL/auth/v1/.well-known/oauth-authorization-server
+# scopes_supported must include "offline_access"
+# grant_types_supported must include "refresh_token"
+```
+
+Scopes here are only ever *advertised*, never passed as `required_scopes`.
+Requiring a scope rejects tokens that lack it; advertising one asks the client to
+obtain a capability. Confusing the two turns a refresh improvement into an outage.
+
+### Making clients re-authenticate (`session_verifier.py`)
+
+Two gates check the same JWT and used to disagree. This server verified it
+*statelessly* (signature, `exp`, `iss`, `aud`); the JobMojito Edge Functions
+verify it *statefully*, resolving it to a live Supabase session. The stateless
+check is always more permissive, so a signed-out or revoked session passed here
+and 401'd upstream — and the user got a **tool error**, which is an HTTP 200 with
+`isError: true`. MCP clients re-authenticate only on a transport-level 401 with
+`WWW-Authenticate`, so nothing ever reconnected.
+
+Note this was never token *expiry*: `JWTVerifier` checks `exp` with no leeway and
+no caching, so expired tokens already 401 correctly and clients already refresh.
+And refreshing is not this server's job — a resource server receives an access
+token and never a refresh token; the refresh token lives with the client. The
+only lever available is emitting the 401.
+
+So:
+
+- `SupabaseSessionVerifier` (installed via `SupabaseProvider(token_verifier=…)`)
+  runs the Edge Functions' session check — a cached `GET /auth/v1/user` — after
+  the JWT stage passes. A dead session now fails during verification, where
+  FastMCP already emits `401 Bearer error="invalid_token", resource_metadata=…`.
+  One extra HTTP call per token per `SUPABASE_SESSION_CHECK_TTL`.
+- It **fails open** on timeouts and 5xx. Failing closed would turn a brief
+  Supabase outage into a forced re-auth for every connected user at once.
+- `lazy_auth.RejectedTokenGateASGIMiddleware` covers the residual race:
+  `UpstreamErrorMiddleware` records any token the API 401s, and the next request
+  bearing it gets the challenge. This can't happen in-band on the failing call —
+  Streamable HTTP flushes the SSE response headers before the tool runs, so the
+  200 is already on the wire by the time the upstream 401 is known.
+- Anonymous capability discovery is exempt, so a poisoned token never empties the
+  tool list for directory crawlers.
+
 ## Documentation tools (`docs_tools.py`, `featurebase.py`, `mintlify.py`)
 
 `search_documentation` runs two backends in parallel and merges/ranks results:

@@ -78,7 +78,9 @@ Selected keys:
 | `BASE_URL` | `http://localhost:8000` | Public server URL used for OAuth discovery. Must be the real https URL in production. |
 | `MCP_PATH` | `/mcp` | Path the MCP endpoint is served on; combined with `BASE_URL` to form the OAuth resource id. |
 | `ENABLE_LAZY_AUTH` | `true` | Serve `initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a JWT. |
-| `OAUTH_SCOPES_SUPPORTED` | `openid,email` | Advertised in the protected-resource metadata and in `scope=` on the 401 challenge. |
+| `OAUTH_SCOPES_SUPPORTED` | `openid,email,offline_access` | Advertised in the protected-resource metadata and in `scope=` on the 401 challenge. `offline_access` is what makes Supabase issue a refresh token — drop it and users re-authorize in a browser every hour. |
+| `SUPABASE_SESSION_CHECK` | `true` | Resolve each JWT to a live Supabase session before running a tool, matching what the Edge Functions check. Off means this server accepts tokens the API rejects. Needs `SUPABASE_ANON_KEY`. |
+| `SUPABASE_SESSION_CHECK_TTL` | `60` | Seconds a successful session check is cached — the worst-case delay between a sign-out and this server noticing. |
 | `PORT` | `8000` | Local HTTP port (honored by the `__main__` block). |
 | `JOBMOJITO_API_BASE_URL` | `https://cool.jobmojito.com/functions/v1` | Upstream API base. |
 | `JOBMOJITO_OPENAPI_URL` | `<api base>/openapi` | Live OpenAPI spec URL. |
@@ -143,6 +145,35 @@ the field's schema (`type` + whether it has an `enum` or uses `$ref`/`anyOf`).
 its enum). If the field is declared via `$ref`/`anyOf`/`allOf` with no direct
 `type`, extend the relaxer to handle that shape. Do **not** disable
 `validate_output`. Add a regression test using the real snapshot.
+
+### Fix an oversized list result (`… exceeds this server's N-character limit`)
+The endpoint's rows are too big for its default page size. Budget it first:
+**an MCP result costs about twice the API's JSON**, because the payload is sent
+in both `content` (as text) and `structuredContent` and `MAX_TOOL_RESULT_CHARS`
+counts both — correctly, since both go over the wire. So
+`rows_that_fit ≈ MAX_TOOL_RESULT_CHARS / (2 × api_json_bytes_per_row)`, then take
+~80% for headroom, because row size varies with the data.
+
+Set the result on the endpoint's `ToolMeta`:
+
+```python
+("GET", "/merchant-avatar-list"): _read(
+    "list_avatars", ..., param_defaults=(("limit", 15),),
+),
+```
+
+That single value feeds **two** places, and both are needed:
+
+- `openapi_loader.apply_param_defaults` writes it into the spec's `default`, which
+  is what the model *reads*;
+- `middleware.CuratedDefaultsMiddleware` puts it on the wire, which is what the
+  API actually *receives*.
+
+The second is not optional. An OpenAPI `default` is advisory — FastMCP's
+`RequestDirector.build()` serialises only the arguments the model supplied, so a
+default the model omits is never sent and the API applies its own. Changing just
+the spec makes the tool description promise a page size the server never uses.
+Mention the page size in the tool's `hint` too, so the model knows to page.
 
 ### Add a configuration field
 Add it to `config.py::Settings`, populate it in `load_settings()` with an env

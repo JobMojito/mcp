@@ -37,7 +37,7 @@ import docs_tools
 import merchants
 import wellknown
 from config import settings
-from naming import IGNORED_PATHS, fallback_meta, meta_for
+from naming import IGNORED_PATHS, curated_defaults, fallback_meta, meta_for
 from openapi_loader import load_openapi_spec
 from upstream import build_api_client
 
@@ -46,7 +46,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.0.2"
+SERVER_VERSION = "1.1.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -91,9 +91,12 @@ should be told AI is used in the process.
 
 AUTHENTICATION:
 Capability discovery works without a login, but every tool call requires the user
-to have authorized this server. If a call returns an authentication error (401 /
-invalid_token), the connection isn't authorized: ask the user to connect and
-authorize, then retry.
+to have authorized this server. If a call fails with an authentication error (401
+/ invalid_token), retry that exact call once — the server answers the retry with
+a challenge that makes the client refresh its token, and the call then usually
+succeeds without the user doing anything. Only if the second attempt fails too
+should you ask the user to reconnect and authorize this server. Never retry an
+auth failure with different arguments; it is not an input problem.
 
 HOW TO USE THIS SERVER:
 1. To understand how something works — an endpoint, a field, a workflow, what an
@@ -229,10 +232,53 @@ def _build_auth():
         # request the right scopes up front instead of guessing.
         scopes_supported=scopes,
         resource_name="JobMojito",
+        token_verifier=_build_token_verifier(),
         # --- lazy-auth extras (see lazy_auth.py) ---
         mcp_path=settings.mcp_path,
         advertise_scope=" ".join(scopes) if scopes else None,
         lazy_auth_enabled=settings.enable_lazy_auth,
+        resource_metadata_url=settings.protected_resource_metadata_url,
+    )
+
+
+def _build_token_verifier():
+    """The token verifier, or None to accept ``SupabaseProvider``'s default.
+
+    Returning a verifier here replaces the stateless ``JWTVerifier`` that
+    ``SupabaseProvider`` would build, with one that also checks the Supabase
+    *session* behind the JWT — the same thing the JobMojito Edge Functions check.
+    Without it, this server accepts tokens the API rejects, and because a tool
+    error is an HTTP 200 the client never learns to re-authenticate. See
+    ``session_verifier.py`` for the full reasoning and the fail-open posture.
+
+    The JWT parameters below must mirror ``SupabaseProvider.__init__`` exactly;
+    they are the contract with Supabase Auth, not tunables.
+    """
+    if not settings.enable_session_check:
+        logger.warning(
+            "SUPABASE_SESSION_CHECK=false — tokens are verified statelessly only. "
+            "A revoked or signed-out Supabase session will pass this gate and be "
+            "rejected by the JobMojito API instead."
+        )
+        return None
+
+    from session_verifier import SupabaseSessionVerifier
+
+    project_url = settings.supabase_project_url
+    logger.info(
+        "Supabase session check enabled (ttl=%ss): every token is resolved to a "
+        "live session before any tool runs, so a dead session gets a 401 "
+        "challenge instead of a 200-wrapped tool error.",
+        settings.session_check_ttl_seconds,
+    )
+    return SupabaseSessionVerifier(
+        project_url=project_url,
+        anon_key=settings.supabase_anon_key,
+        session_ttl_seconds=settings.session_check_ttl_seconds,
+        jwks_uri=f"{project_url}/auth/v1/.well-known/jwks.json",
+        issuer=f"{project_url}/auth/v1",
+        algorithm=settings.supabase_jwt_algorithm,
+        audience="authenticated",
     )
 
 
@@ -340,6 +386,7 @@ def build_server() -> FastMCP:
     # --- Middleware. Order matters: registration order is execution order, so the
     # logger wraps everything and records failures the guards raise. ---
     from middleware import (
+        CuratedDefaultsMiddleware,
         OutputValidationErrorMiddleware,
         ResultSizeGuardMiddleware,
         ToolCallLoggingMiddleware,
@@ -352,6 +399,12 @@ def build_server() -> FastMCP:
     # NOT see transport-layer 400/404s (missing/expired Mcp-Session-Id), which are
     # rejected before any tool runs.
     mcp.add_middleware(ToolCallLoggingMiddleware())
+    # Put curated page sizes on the wire. FastMCP only sends arguments the model
+    # supplied, so an OpenAPI `default` is advertised but never transmitted —
+    # without this, list_avatars would still fetch the API's 50 rows and blow the
+    # result limit on a plain call. Registered first so the logged arguments and
+    # the size guard both see the values actually used.
+    mcp.add_middleware(CuratedDefaultsMiddleware(curated_defaults()))
     # Turns raw "HTTP error 403: Forbidden - {...}" into a cause + next step, so the
     # model stops permuting arguments against a permissions problem.
     mcp.add_middleware(UpstreamErrorMiddleware())
