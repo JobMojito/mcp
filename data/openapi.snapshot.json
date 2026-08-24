@@ -437,7 +437,7 @@
           "description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Full job description in Markdown (Job Purpose, Responsibilities, Required & Preferred Qualifications). Provide it to use it as-is; leave it null/blank and it is AI-generated (interview and assessment types only)."
+            "description": "Full job description in Markdown (Job Purpose, Responsibilities, Required & Preferred Qualifications). Provide it to use it as-is; leave it null/blank and it is AI-generated (interview and assessment types only). Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "candidate_expectations": {
             "type": "string",
@@ -1124,7 +1124,7 @@
           "description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Long-form interview description."
+            "description": "Long-form interview description. Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "candidate_expectations": {
             "type": "string",
@@ -1363,7 +1363,7 @@
           "position_description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Full position description in Markdown (Job Purpose, Responsibilities, Required & Preferred Qualifications). Provide it to use it as-is; leave it null/blank and it is AI-generated."
+            "description": "Full position description in Markdown (Job Purpose, Responsibilities, Required & Preferred Qualifications). Provide it to use it as-is; leave it null/blank and it is AI-generated. Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "candidate_name": {
             "type": "string",
@@ -2184,7 +2184,7 @@
           "interview_description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Long description (create/update field `description_long`)."
+            "description": "Long description (create/update field `description_long`). Rendered as Markdown on the candidate-facing position page — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "candidate_expectations": {
             "type": "string",
@@ -2498,7 +2498,7 @@
           "description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Long-form interview description (column `interview_description_long`), Markdown."
+            "description": "Long-form interview description (column `interview_description_long`). Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "interview_department": {
             "type": "string",
@@ -3458,8 +3458,8 @@
           "content_md": {
             "type": "string",
             "nullable": true,
-            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text.",
-            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
           },
           "parent_tag": {
             "type": "string",
@@ -3643,8 +3643,8 @@
           "content_md": {
             "type": "string",
             "nullable": true,
-            "description": "Markdown for the custom directory page. Sending null removes the custom page and restores the default grid; sending a string replaces the whole page. Directives, each ALONE on its own line: `[plan-progress]`, `[directory:<tag-id>]`, `[session:<interview-id>]`, `[sessions]`, `[sessions:<term>]`, `[sessions:filter=<term>,limit=<n>]`.",
-            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+            "description": "Markdown for the custom directory page. Sending null removes the custom page and restores the default grid; sending a string replaces the whole page. Directives, each ALONE on its own line: `[plan-progress]`, `[directory:<tag-id>]`, `[session:<interview-id>]`, `[sessions]`, `[sessions:<term>]`, `[sessions:filter=<term>,limit=<n>]`. Chips, callouts, cards, columns and buttons are available too — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
           }
         },
         "required": [
@@ -3727,8 +3727,8 @@
           "content_md": {
             "type": "string",
             "nullable": true,
-            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text.",
-            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[sessions:filter=objection-handling,limit=6]\n"
+            "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
+            "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
           },
           "created_at": {
             "type": "string",
