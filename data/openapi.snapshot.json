@@ -5843,7 +5843,7 @@
             },
             "result": {
               "type": "string",
-              "description": "Outcome, e.g. 'Invited', 'Activated', 'SubMerchantAdded', 'Skipped', or 'Error: <message>'."
+              "description": "Outcome, e.g. 'Invited', 'Activated', 'SubMerchantAdded' (administrative access to another merchant), 'CoachingAccessAdded' (learner access to another merchant's portal), 'Skipped', or 'Error: <message>'."
             },
             "profile_id": {
               "type": "string",
