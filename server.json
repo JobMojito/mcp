@@ -3,7 +3,7 @@
   "name": "com.jobmojito/jobmojito",
   "title": "JobMojito",
   "description": "Run AI interviews, manage candidates and read hiring analytics on JobMojito.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "websiteUrl": "https://jobmojito.com",
   "icons": [
     {
