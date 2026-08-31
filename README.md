@@ -1,5 +1,40 @@
 # JobMojito MCP Server
 
+## Welcome
+
+[JobMojito](https://jobmojito.com) is an AI interview platform for hiring teams:
+**let AI interview every candidate — you make the call.** Lifelike avatar and
+voice agents run structured, multilingual interviews at any scale, score them in
+real time, and hand recruiters the transcripts, summaries and reports they need
+to make the actual decision. Everything the platform produces is decision
+support for a qualified human reviewer — never the hiring decision itself.
+
+What the platform offers:
+
+- **AI avatar & voice interviews** — real-time conversational interviews with
+  configurable avatars, generated from a job description or built from your own
+  question set, with a fully branded candidate experience.
+- **Scoring, transcripts & reports** — consistent structured assessment with
+  real-time scoring, plus shareable interview reports for the hiring team.
+- **Candidate management & invitations** — register candidates in bulk, send
+  each one a personal interview link, grant extra attempts, track results.
+- **Role-play & coaching personas** — avatars that play a defined role, for
+  screening scenarios or candidate practice on the coaching portal.
+- **Knowledge base** — upload company documents so interviews and evaluations
+  reflect your organisation's context.
+- **Workspaces & analytics** — merchants and sub-merchants, credit usage, and
+  hiring analytics across positions.
+
+Around the product: the admin console at [app.jobmojito.com](https://app.jobmojito.com),
+developer/API docs at [developer.jobmojito.com](https://developer.jobmojito.com),
+the help center at [help.jobmojito.com](https://help.jobmojito.com), and the
+hosted MCP endpoint this repo powers at `https://mcp.jobmojito.com/mcp`.
+
+This repository is the MCP server that puts all of that into AI assistants like
+Claude and ChatGPT.
+
+---
+
 An [MCP](https://modelcontextprotocol.io) server for the **JobMojito API**, built
 with [FastMCP](https://gofastmcp.com) and designed to deploy on
 [Prefect Horizon](https://horizon.prefect.io) (the MCP platform from the FastMCP
@@ -61,7 +96,7 @@ JobMojito API  (https://cool.jobmojito.com/functions/v1)
 | `lazy_auth.py` | Unauthenticated capability discovery + `scope=` on the 401 challenge |
 | `wellknown.py` | `/healthz`, OpenAI domain challenge, Smithery server card |
 | `server.json` | Official MCP Registry entry |
-| `.github/workflows/publish-registry.yml` | Publishes `server.json` to the MCP Registry on a `v*` tag |
+| `.github/workflows/publish-registry.yml` | Publishes `server.json` to the MCP Registry when a push to `main` changes `server.py:SERVER_VERSION` (or via manual dispatch) |
 
 ---
 
