@@ -3021,7 +3021,7 @@
             "type": "string",
             "nullable": true,
             "description": "Email used to identify and invite the candidate. Validated per item, not request-level.",
-            "example": "jozo@jozo.sk"
+            "example": "peter.parker@example.com"
           },
           "external_id": {
             "type": "string",
@@ -3043,12 +3043,12 @@
             "example": [
               {
                 "name": "Peter Parker",
-                "email": "jozo@jozo.sk",
+                "email": "peter.parker@example.com",
                 "external_id": "abcd"
               },
               {
-                "name": "mr beast",
-                "email": "hi@jozefbalaz.com"
+                "name": "Mary Jane Watson",
+                "email": "mary.jane@example.com"
               }
             ]
           },
