@@ -398,10 +398,17 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "create_persona",
         "Create role-play persona",
         "Create a role-play persona: an avatar that plays a defined role in a "
-        "free-form conversation instead of a scored Q&A interview. Set "
-        "`persona_role_avatar`/`persona_role_user` for the roles and `opening_line` "
-        "for the avatar's first spoken line (defaults to a generic 'Hello'). "
-        "Coaching-platform feature.",
+        "free-form conversation instead of a scored Q&A interview. FIRST CHOOSE "
+        "`portal`, because it selects between two different products: "
+        "`portal=\"interview\"` builds a SIMULATED PERSONA a recruiter invites "
+        "candidates to — scored, billed to merchant credits, and listed with the "
+        "recruiter's other results; `portal=\"coaching\"` (THE DEFAULT) builds a "
+        "coaching persona learners start themselves from the catalogue, billed to "
+        "their own coaching credits and never visible to recruiters. Pass "
+        "`portal=\"interview\"` explicitly for any hiring, screening or assessment "
+        "use. Then set `persona_role_avatar`/`persona_role_user` for the roles and "
+        "`opening_line` for the avatar's first spoken line (defaults to a generic "
+        "'Hello').",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "persona on the account. " + _OPEN_WORLD,
     ),

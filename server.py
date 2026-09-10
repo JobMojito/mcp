@@ -52,12 +52,18 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.2.0"
+SERVER_VERSION = "1.2.1"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
+#:
+#: Names all three products the server exposes. Registry versions are immutable,
+#: so a wording change here can only ship with a version bump — which is what
+#: 1.2.1 is for. Do not describe this as a hiring-only tool: ``create_persona``
+#: builds a recruiter-side simulated persona *or* a self-serve coaching persona
+#: depending on ``portal``, and the catalogue tools are coaching-only.
 SHORT_DESCRIPTION = (
-    "Run AI interviews, manage candidates and read hiring analytics on JobMojito."
+    "Run AI interviews, simulated personas and coaching sessions on JobMojito."
 )
 
 #: Metadata for tools that aren't generated from the OpenAPI spec and therefore
@@ -82,10 +88,24 @@ TOOL_METADATA_OVERRIDES: dict[str, dict] = {
 }
 
 INSTRUCTIONS = """\
-JobMojito MCP server — manage AI-powered hiring (interviews, candidates,
-invitations, knowledge bases, analytics) on the JobMojito platform, plus search
-the documentation. Every action runs as the signed-in user, so results respect
-that user's own permissions.
+JobMojito MCP server — run AI-led conversational sessions on the JobMojito
+platform, plus search the documentation. Every action runs as the signed-in user,
+so results respect that user's own permissions.
+
+THREE PRODUCTS, and they are easy to confuse:
+• Interviews — a scored Q&A. `create_interview` (questions generated from a job
+  description) or `create_interview_from_questions` (your own list).
+• Simulated personas — a scored free-form role-play used to assess or screen.
+  `create_persona` with `portal="interview"`. Invited, billed and listed exactly
+  like an interview.
+• Coaching — the same role-play engine for practice. `create_persona` with
+  `portal="coaching"` (THE DEFAULT when omitted): the learner starts it from the
+  catalogue, it spends their own coaching credits, and recruiters never see the
+  result. The catalogue tools (`*_catalogue_directory`) apply to this one only.
+
+`portal` defaults to "coaching". For ANY hiring, screening or assessment use,
+pass `portal="interview"` explicitly — omitting it silently builds the wrong
+product, billed to the wrong credits and invisible to the recruiter.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,
@@ -135,6 +155,10 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   list_my_merchants (text equivalent, supports a `search` filter)
 • Interview (create/manage): create_interview, create_interview_from_questions,
   get_interview_definition, set_interview_state, request_another_interview_attempt
+• Role-play (simulated persona or coaching persona — chosen with `portal`):
+  create_persona
+• Coaching catalogue: list_catalogue_directories, get_catalogue_directory,
+  create_catalogue_directory, update_catalogue_directory
 • Invitations: register_users_for_interview (register candidates and get their
   personal interview links), generate_interview_url (a signed link to share)
 • Results & reports: get_interview_result_details, generate_interview_report
@@ -150,6 +174,11 @@ Typical flows:
   links) or generate_interview_url (one shareable link).
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
+- "Screen someone with a role-play instead of questions" → create_persona with
+  `portal="interview"` → register_users_for_interview → list_interview_results.
+- "Add a practice session learners can start themselves" → create_persona (default
+  coaching portal) with `tags` → the catalogue directory whose
+  `tags_interview_set_filter` those tags satisfy lists it automatically.
 """
 
 
