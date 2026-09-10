@@ -7051,6 +7051,16 @@
               }
             }
           },
+          "403": {
+            "description": "The caller's role is not permitted to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error (invalid type, missing conditional fields, unauthenticated, or interview not found).",
             "content": {
@@ -7062,7 +7072,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7118,6 +7128,16 @@
               }
             }
           },
+          "403": {
+            "description": "The caller's role is not permitted to perform this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error (missing required fields, missing merchant_id with service key, or interview not found).",
             "content": {
@@ -7129,7 +7149,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {

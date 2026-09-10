@@ -137,15 +137,23 @@ hand-written ones (`search_documentation`, `get_documentation`,
 
 ## Middleware (`middleware.py`)
 
-Registration order is execution order, so the logger is registered first and
-wraps everything below it.
+Registration order is execution order **on the way in**, so the logger is
+registered first and wraps everything below it. On the way *out* that reverses:
+the last-registered middleware is the first to touch the result. That is why
+`ResponseViewMiddleware` is registered last — the size guard and the output
+validator above it must both measure and validate the pruned payload the client
+will actually receive, not the raw one.
+
+The table is in registration order.
 
 | Middleware | What it does |
 |------------|--------------|
 | `ToolCallLoggingMiddleware` | Logs tool name, argument **keys** (never values), outcome and timing. Cannot see transport-level 400/404s — those are rejected before any tool runs. |
+| `CuratedDefaultsMiddleware` | Puts `ToolMeta.param_defaults` on the wire. FastMCP serialises only the arguments the model supplied, so an OpenAPI `default` it omits is advertised but never sent — without this, `list_avatars` would still fetch the API's 50 rows. |
 | `UpstreamErrorMiddleware` | Turns `HTTP error 403: Forbidden - {...}` into cause + concrete next step (keeping a capped upstream detail), so the model stops permuting arguments against a permissions problem. Unrecognised errors are re-raised untouched. |
-| `ResultSizeGuardMiddleware` | Rejects results over `MAX_TOOL_RESULT_CHARS` (default 120 000) with pagination guidance. Deliberately an error, not a truncation — a half-list that looks complete is worse, and truncating structured content would break its output schema. |
+| `ResultSizeGuardMiddleware` | Guards `MAX_TOOL_RESULT_CHARS` (default 150 000, counting both wire copies). Over budget it first drops the protocol's duplicate `content` copy (replaced by a pointer to `structuredContent`), and only refuses — with pagination guidance — if the payload is over on its own. Deliberately an error, not a truncation: a half-list that looks complete is worse, and truncating structured content would break its output schema. |
 | `OutputValidationErrorMiddleware` | Rewrites the SDK's path-less "Output validation error" into one that names the offending field(s). |
+| `ResponseViewMiddleware` | Serves the MCP-only `view` argument on endpoints with `ToolMeta.views`: strips it before the upstream request is built (it is not an API parameter) and prunes the declared field paths out of the response. Does for a wide single record what `limit` does for a long list. |
 | `ToolMetadataBackfillMiddleware` | Safety net at `tools/list` time: any tool registered outside the OpenAPI path gets a title and annotations, defaulting to the *safe* (destructive) assumption. |
 
 ## Directory-listing readiness (`lazy_auth.py`, `wellknown.py`)

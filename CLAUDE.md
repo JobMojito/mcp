@@ -133,14 +133,41 @@ More detail: `docs/ARCHITECTURE.md`.
   the lazy-auth tests gate any upgrade.
 - **An MCP tool result costs ~2× the API's JSON, and OpenAPI `default`s are never
   sent.** The payload goes over the wire in both `content` and
-  `structuredContent`, and `MAX_TOOL_RESULT_CHARS` counts both — so an endpoint
-  with fat rows can blow the budget at a page size the API considers modest
-  (`list_avatars` at the spec's default of 50 returned ~247k chars and failed on
-  every plain call). Fix it with `ToolMeta.param_defaults`, which feeds *both*
+  `structuredContent` (FastMCP's `ToolResult` derives the text copy from the
+  structured one — spec-sanctioned, for clients that ignore `structuredContent`),
+  and `MAX_TOOL_RESULT_CHARS` counts both — so an endpoint with fat rows can blow
+  the budget at a page size the API considers modest (`list_avatars` at the spec's
+  default of 50 returned ~247k chars and failed on every plain call). Fix it with
+  `ToolMeta.param_defaults`, which feeds *both*
   `openapi_loader.apply_param_defaults` (the schema the model reads) and
   `middleware.CuratedDefaultsMiddleware` (what actually gets sent). The second is
   required: FastMCP's `RequestDirector` serialises only supplied arguments, so a
   spec `default` the model omits never reaches the API. Recipe in
+  `docs/DEVELOPMENT.md`.
+- **`MAX_TOOL_RESULT_CHARS` is 150,000 because that is a real client ceiling,**
+  not a round number: Claude.ai/Desktop cap tool results near 150k characters,
+  Claude Code at 25,000 tokens (~100k chars, raisable via `MAX_MCP_OUTPUT_TOKENS`),
+  and ChatGPT/Cursor/Copilot truncate silently at undocumented sizes. Don't raise
+  it past the strictest host you actually target — over a client's own limit the
+  result is dropped or cut in half, which reads as a broken tool instead of a
+  clear error. The rationale and per-client numbers live in `config.py`.
+- **Dropping the duplicate payload copy is a last resort, never routine.** When a
+  result is over budget, `ResultSizeGuardMiddleware` first checks whether
+  `structuredContent` alone would fit; if so it replaces the duplicate `content`
+  text with a short pointer and lets the call succeed. That trades client breadth
+  (a client that ignores `structuredContent` now sees only the note) for a result
+  that arrives at all, so it must stay conditional on being over the limit.
+- **Pagination cannot narrow a single wide record — that's what `view` is for.**
+  `get_interview_result_details` returns one interview whose per-answer raw
+  assessment blobs dominate the payload; there is no `limit` to lower and the API
+  has no field-selection parameter. `ToolMeta.views` declares named projections
+  and needs *both* halves: `openapi_loader.inject_view_params` puts the argument
+  in the schema (or the model can't ask for it) and
+  `middleware.ResponseViewMiddleware` strips it before the upstream call (it is
+  **not** an API parameter) and prunes the response. Every prunable field must be
+  optional in the response schema, or output validation rejects the pruned
+  result. Register `ResponseViewMiddleware` **last** so it is innermost and the
+  size guard measures what the client actually gets. Recipe in
   `docs/DEVELOPMENT.md`.
 - **Token refresh is the client's job; `offline_access` is what enables it.**
   Supabase access tokens last ~1h. This server is a resource server — it never

@@ -24,7 +24,7 @@ from jsonschema.validators import validator_for
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
-from mcp.types import ToolAnnotations
+from mcp.types import TextContent, ToolAnnotations
 
 logger = logging.getLogger("jobmojito_mcp.requests")
 
@@ -331,6 +331,110 @@ class CuratedDefaultsMiddleware(Middleware):
         return await call_next(context)
 
 
+# ---------------------------------------------------------------------------
+# Response views
+# ---------------------------------------------------------------------------
+
+
+def prune_fields(data: dict, paths) -> dict:
+    """Remove ``paths`` from ``data`` in place and return it.
+
+    A path is dotted, with ``[]`` marking an array level:
+    ``transcript[].ai_analysis`` drops that field from every transcript entry.
+    Missing paths are ignored — the JobMojito response schemas are passthrough,
+    so a field named here may legitimately be absent from a given record.
+    """
+    for path in paths:
+        _prune(data, path.split("."))
+    return data
+
+
+def _prune(node, segments: list[str]) -> None:
+    head, rest = segments[0], segments[1:]
+    is_array = head.endswith("[]")
+    key = head[:-2] if is_array else head
+    if not isinstance(node, dict) or key not in node:
+        return
+    if not rest:
+        node.pop(key, None)
+        return
+    child = node[key]
+    if is_array:
+        if isinstance(child, list):
+            for item in child:
+                _prune(item, rest)
+    else:
+        _prune(child, rest)
+
+
+class ResponseViewMiddleware(Middleware):
+    """Serve the MCP-only ``view`` argument: narrow a response the API can't.
+
+    Pagination is the answer to a result that has too many rows. It is no answer
+    at all to a single record that is too wide — and
+    ``get_interview_result_details`` returns one interview whose per-answer raw
+    assessment blobs dominate the payload and interest no agent. The JobMojito
+    API has no field-selection parameter, so the projection happens here.
+
+    Two halves, and both are required:
+
+    * ``openapi_loader.inject_view_params`` puts ``view`` in the tool's input
+      schema — otherwise the model has no way to ask.
+    * this middleware removes it from the arguments *before* the upstream request
+      is built (it is not an API parameter) and prunes the response afterwards.
+
+    Pruning rebuilds the ``ToolResult`` from the pruned structured content, so
+    the text copy MCP also sends is regenerated from the same data. Trimming only
+    one of the two would leave the client holding two different answers.
+
+    Every prunable field is optional in the response schema, so a pruned result
+    still passes output validation. Register this middleware AFTER
+    ``ResultSizeGuardMiddleware`` and ``OutputValidationErrorMiddleware``:
+    registration order is execution order on the way in, which makes it the
+    innermost of the three and therefore the first to touch the result on the way
+    back out. Both of those must see what the client will actually receive.
+    """
+
+    def __init__(self, rules: dict | None = None) -> None:
+        self.rules = rules or {}
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        message = getattr(context, "message", None)
+        name = getattr(message, "name", None)
+        rules = self.rules.get(name or "")
+        if rules is None:
+            return await call_next(context)
+
+        requested = None
+        arguments = getattr(message, "arguments", None)
+        if isinstance(arguments, dict):
+            # pop, not get: `view` is ours, and the request builder would either
+            # warn about an unmapped argument or put it on the wire.
+            requested = arguments.pop(rules.parameter, None)
+
+        result = await call_next(context)
+
+        paths = rules.paths_for(requested if isinstance(requested, str) else None)
+        if not paths:
+            return result
+        if not isinstance(result, ToolResult) or result.structured_content is None:
+            return result
+
+        pruned = prune_fields(result.structured_content, paths)
+        logger.debug(
+            "%s: applied %s=%r (%d field path(s) pruned)",
+            name,
+            rules.parameter,
+            requested or rules.default,
+            len(paths),
+        )
+        return ToolResult(
+            structured_content=pruned,
+            meta=result.meta,
+            is_error=result.is_error,
+        )
+
+
 class ResultSizeGuardMiddleware(Middleware):
     """Fail loudly — and usefully — when a tool result is too big for the client.
 
@@ -344,6 +448,21 @@ class ResultSizeGuardMiddleware(Middleware):
     arguments to use. Deliberately an error rather than a silent truncation:
     truncating a structured result would corrupt it against its output schema,
     and a half-list that looks complete is worse than an explicit "narrow this".
+
+    Before refusing, it drops the DUPLICATE copy of the payload. An MCP tool
+    result carries the same JSON twice — once as text in ``content``, once in
+    ``structuredContent`` — because the spec says a tool with an output schema
+    SHOULD also return equivalent unstructured content for older clients. FastMCP
+    does that automatically (``ToolResult.__init__`` derives ``content`` from
+    ``structured_content``), so an 82,000-character record costs 164,000 on the
+    wire. When one copy fits and two do not, replacing the text copy with a short
+    pointer is strictly better than failing the call.
+
+    Only ever done as a last resort before an error, never routinely: the text
+    copy is what clients that ignore ``structuredContent`` render, so dropping it
+    trades breadth of client support for a result that at least arrives. The
+    replacement is a human-readable note rather than an empty list, so such a
+    client shows an explanation instead of silence.
     """
 
     def __init__(self, max_chars: int) -> None:
@@ -354,19 +473,73 @@ class ResultSizeGuardMiddleware(Middleware):
         if self.max_chars <= 0 or not isinstance(result, ToolResult):
             return result
 
-        size = self._measure(result)
+        structured_chars, content_chars = self._measure_parts(result)
+        size = structured_chars + content_chars
         if size <= self.max_chars:
             return result
 
         msg = getattr(context, "message", None)
         name = getattr(msg, "name", "the tool")
         args = getattr(msg, "arguments", None)
+
+        deduplicated = self._drop_duplicate_copy(result, name, structured_chars, size)
+        if deduplicated is not None:
+            return deduplicated
+
+        # The payload alone is over budget, so the caller has to ask for less.
+        # Size the suggestion against the payload rather than the doubled figure —
+        # the duplicate would have been dropped on the retry too.
+        duplicated = self._has_duplicate(result)
+        binding = structured_chars if duplicated else size
+        detail = (
+            " MCP sends the payload twice (as text and as structured content), so "
+            f"the data itself is about {structured_chars:,} characters — still over "
+            "the limit on its own."
+            if duplicated
+            else ""
+        )
         logger.warning("tool call ✗ %s result too large (%d chars)", name, size)
         raise ToolError(
             f"`{name}` returned about {size:,} characters, which exceeds this "
             f"server's {self.max_chars:,}-character result limit and would be "
-            "truncated by the client.\n\n"
-            f"What to do: {self._advice(args, size)}"
+            f"truncated by the client.{detail}\n\n"
+            f"What to do: {self._advice(args, binding)}"
+        )
+
+    @staticmethod
+    def _has_duplicate(result: ToolResult) -> bool:
+        """True when the same payload is present as both text and structured content."""
+        return result.structured_content is not None and bool(result.content)
+
+    def _drop_duplicate_copy(
+        self, result: ToolResult, name: str, structured_chars: int, size: int
+    ) -> ToolResult | None:
+        """Send only ``structuredContent`` when that is what makes the result fit.
+
+        Returns ``None`` when de-duplicating wouldn't help — no duplicate to drop,
+        or the payload is over budget by itself — so the caller raises instead.
+        """
+        if not self._has_duplicate(result):
+            return None
+        notice = (
+            f"The full result of `{name}` is in this tool result's "
+            "`structuredContent`.\n\n"
+            "MCP normally repeats the same JSON here as text. Both copies together "
+            f"would be about {size:,} characters, past this server's "
+            f"{self.max_chars:,}-character limit, so the duplicate was omitted. "
+            "Nothing was removed from `structuredContent` — read the result from "
+            "there."
+        )
+        if structured_chars + len(notice) > self.max_chars:
+            return None
+        logger.info(
+            "%s: dropped the duplicate text copy of the result (%d -> %d chars)",
+            name,
+            size,
+            structured_chars + len(notice),
+        )
+        return result.model_copy(
+            update={"content": [TextContent(type="text", text=notice)]}
         )
 
     def _advice(self, arguments, size: int) -> str:
@@ -414,20 +587,30 @@ class ResultSizeGuardMiddleware(Middleware):
         return max(1, min(fitted, current - 1))
 
     @staticmethod
-    def _measure(result: ToolResult) -> int:
-        """Approximate the serialized size of a tool result, cheaply."""
-        total = 0
+    def _measure_parts(result: ToolResult) -> tuple[int, int]:
+        """``(structuredContent chars, content chars)`` — both go over the wire.
+
+        Kept separate so the guard can tell "the payload itself is too big" from
+        "the payload fits but the protocol's duplicate copy pushes it over".
+        """
+        structured_chars = 0
         structured = getattr(result, "structured_content", None)
         if structured is not None:
             try:
-                total += len(json.dumps(structured, default=str))
+                structured_chars = len(json.dumps(structured, default=str))
             except Exception:
-                total += len(str(structured))
+                structured_chars = len(str(structured))
+        content_chars = 0
         for block in getattr(result, "content", None) or []:
             text = getattr(block, "text", None)
             if text:
-                total += len(text)
-        return total
+                content_chars += len(text)
+        return structured_chars, content_chars
+
+    @classmethod
+    def _measure(cls, result: ToolResult) -> int:
+        """Approximate the serialized size of a tool result, cheaply."""
+        return sum(cls._measure_parts(result))
 
 
 # ---------------------------------------------------------------------------

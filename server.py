@@ -37,7 +37,13 @@ import docs_tools
 import merchants
 import wellknown
 from config import settings
-from naming import IGNORED_PATHS, curated_defaults, fallback_meta, meta_for
+from naming import (
+    IGNORED_PATHS,
+    curated_defaults,
+    fallback_meta,
+    meta_for,
+    response_view_rules,
+)
 from openapi_loader import load_openapi_spec
 from upstream import build_api_client
 
@@ -46,7 +52,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.1.2"
+SERVER_VERSION = "1.2.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -388,6 +394,7 @@ def build_server() -> FastMCP:
     from middleware import (
         CuratedDefaultsMiddleware,
         OutputValidationErrorMiddleware,
+        ResponseViewMiddleware,
         ResultSizeGuardMiddleware,
         ToolCallLoggingMiddleware,
         ToolMetadataBackfillMiddleware,
@@ -415,6 +422,12 @@ def build_server() -> FastMCP:
     # names the offending field(s), so an agent knows exactly what didn't match.
     # Registered after logging so the logger still records the failed call.
     mcp.add_middleware(OutputValidationErrorMiddleware())
+    # Serves the MCP-only `view` argument on endpoints that declare projections
+    # (naming.ToolMeta.views): strips it before the upstream request is built and
+    # prunes the response afterwards. Registered LAST of the result-handling
+    # middleware, which makes it the innermost — so the size guard and the output
+    # validator above both see the pruned payload the client will actually get.
+    mcp.add_middleware(ResponseViewMiddleware(response_view_rules()))
     # Safety net: any tool registered outside the OpenAPI path (docs tools, the
     # merchant picker, future MCP App providers) still gets a title and safety
     # hints, so one forgotten registration can't fail a directory review.

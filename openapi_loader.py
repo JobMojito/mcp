@@ -24,7 +24,13 @@ from typing import Any
 import httpx
 
 from config import settings
-from naming import meta_for, operation_id_for
+from naming import (
+    VIEW_PARAM_MARKER,
+    VIEW_PARAM_NAME,
+    meta_for,
+    operation_id_for,
+    view_parameter_schema,
+)
 
 logger = logging.getLogger("jobmojito_mcp.openapi")
 
@@ -125,6 +131,62 @@ def apply_param_defaults(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def inject_view_params(spec: dict[str, Any]) -> dict[str, Any]:
+    """Add the MCP-only ``view`` argument to endpoints that declare projections.
+
+    This is the half of the feature the model can see: without a parameter in the
+    schema there is no way to ask for a narrower response. The other half is
+    ``middleware.ResponseViewMiddleware``, which removes the argument before the
+    upstream request is built and prunes the response on the way back.
+
+    Declared as a query parameter because that is what FastMCP flattens into a
+    plain tool argument for a GET. It is never transmitted — see
+    ``naming.VIEW_PARAM_NAME``.
+
+    An endpoint that already declares a real parameter of this name is left
+    alone: an API parameter must win over ours, or we would silently swallow it.
+    A parameter WE injected on an earlier load is replaced rather than kept —
+    ``_write_cache`` persists the prepared spec, so a server booting from cache
+    would otherwise be stuck with whatever views were defined when the cache was
+    written. That is what ``VIEW_PARAM_MARKER`` distinguishes.
+    """
+    injected = 0
+    for path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            meta = meta_for(method, path)
+            if not meta or not meta.views:
+                continue
+            parameters = operation.setdefault("parameters", [])
+            existing = [
+                p
+                for p in parameters
+                if isinstance(p, dict) and p.get("name") == VIEW_PARAM_NAME
+            ]
+            if any(not p.get(VIEW_PARAM_MARKER) for p in existing):
+                logger.warning(
+                    "%s %s declares its own %r parameter — not injecting the "
+                    "response-view argument.",
+                    method.upper(),
+                    path,
+                    VIEW_PARAM_NAME,
+                )
+                continue
+            for stale in existing:  # a previously injected copy, from the cache
+                parameters.remove(stale)
+            parameter = view_parameter_schema(meta)
+            if parameter is None:  # pragma: no cover - guarded by meta.views above
+                continue
+            parameters.append(parameter)
+            injected += 1
+    if injected:
+        logger.info("Injected the %r argument on %d endpoint(s).", VIEW_PARAM_NAME, injected)
+    return spec
+
+
 def _allow_null(prop: dict[str, Any]) -> None:
     """Make a single property schema accept null (it stays the same type otherwise)."""
     t = prop.get("type")
@@ -182,11 +244,19 @@ def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
 def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     """Inject curated operationIds/defaults and relax nullable response fields.
 
-    Order matters: ``apply_param_defaults`` looks endpoints up by (method, path)
-    in ``TOOL_META``, so it is independent of the operationId pass, but both must
-    run before ``relax_nullable_schemas`` walks the tree.
+    Order matters: ``apply_param_defaults`` and ``inject_view_params`` look
+    endpoints up by (method, path) in ``TOOL_META``, so they are independent of
+    the operationId pass, but all of them must run before
+    ``relax_nullable_schemas`` walks the tree.
+
+    ``relax_nullable_schemas`` only touches schemas reached through
+    ``properties``, so the injected ``view`` enum is left alone — which is what
+    we want: it is an INPUT, and adding ``null`` to its enum would advertise a
+    value that means nothing.
     """
-    return relax_nullable_schemas(apply_param_defaults(inject_operation_ids(spec)))
+    return relax_nullable_schemas(
+        inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+    )
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

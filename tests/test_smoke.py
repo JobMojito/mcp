@@ -8,6 +8,7 @@ loader falls back to the committed snapshot.
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -447,3 +448,376 @@ def test_mintlify_token_caching():
     assert auth._access_token == "abc123"
     assert auth._token_valid() is True
     assert auth._expiry > time.time()
+
+
+# ---------------------------------------------------------------------------
+# Response views + the protocol's duplicate payload copy
+#
+# `get_interview_result_details` returned 164,779 characters on a plain call and
+# was refused. Two separate causes, and both are pinned here:
+#
+#   1. One interview result is a WIDE record — the per-answer
+#      `answer_assessment_raw_data` blobs dominate it — and pagination cannot
+#      narrow a single record. Hence the MCP-only `view` argument.
+#   2. An MCP result carries the same JSON twice, as `content` text AND as
+#      `structuredContent`, so ~82,000 characters of data costs ~164,000 on the
+#      wire. The guard now drops the duplicate when that is the difference
+#      between answering and failing.
+# ---------------------------------------------------------------------------
+
+
+def _snapshot_spec():
+    import json
+    import pathlib
+
+    return json.loads(
+        (pathlib.Path(__file__).resolve().parent.parent / "data/openapi.snapshot.json").read_text()
+    )
+
+
+def test_client_result_ceilings_are_documented_and_not_exceeded():
+    """150,000 is Claude.ai's cap — the strictest published ceiling we target.
+
+    Raising it past a real client limit doesn't buy anything: the host truncates
+    or drops the result and the user sees a broken tool instead of a clear error.
+    """
+    from config import load_settings
+
+    assert load_settings().max_tool_result_chars == 150_000
+
+
+def test_view_argument_is_injected_into_the_schema():
+    from naming import VIEW_PARAM_NAME
+    from openapi_loader import inject_view_params
+
+    spec = inject_view_params(_snapshot_spec())
+    params = {
+        p["name"]: p for p in spec["paths"]["/job-interview-details"]["get"]["parameters"]
+    }
+    assert VIEW_PARAM_NAME in params, "the model cannot ask for a view that isn't advertised"
+    schema = params[VIEW_PARAM_NAME]["schema"]
+    assert schema["enum"] == ["summary", "standard", "full"]
+    assert schema["default"] == "standard"
+
+
+def test_view_default_advertised_matches_the_default_applied():
+    """The schema default and the runtime fallback must be the same projection.
+
+    FastMCP never transmits an OpenAPI `default` the model omitted, so the
+    advertised value is documentation only — the middleware's fallback is what
+    actually decides. If they drift, the tool promises one shape and returns
+    another.
+    """
+    from naming import TOOL_META, response_view_rules, view_parameter_schema
+
+    meta = TOOL_META[("GET", "/job-interview-details")]
+    advertised = view_parameter_schema(meta)["schema"]["default"]
+    applied = response_view_rules()["get_interview_result_details"].default
+    assert advertised == applied == "standard"
+
+
+def test_view_argument_never_reaches_the_upstream_api():
+    """`view` is ours. If it survives into the arguments, it goes on the wire.
+
+    The Edge Functions' zod query schemas are non-strict and would drop it rather
+    than 422, but relying on that would make this a silent contract with another
+    repo. Strip it here.
+    """
+    import asyncio
+    import types
+
+    from middleware import ResponseViewMiddleware
+    from naming import response_view_rules
+
+    middleware = ResponseViewMiddleware(response_view_rules())
+    seen = {}
+
+    async def run(arguments):
+        context = types.SimpleNamespace(
+            message=types.SimpleNamespace(
+                name="get_interview_result_details", arguments=arguments
+            )
+        )
+
+        async def call_next(_):
+            seen["arguments"] = dict(arguments)
+            return None
+
+        await middleware.on_call_tool(context, call_next)
+
+    asyncio.run(run({"interview_result_id": "x", "view": "summary"}))
+    assert seen["arguments"] == {"interview_result_id": "x"}
+
+    # A tool with no views is passed through untouched.
+    asyncio.run(run({"interview_result_id": "x"}))
+    assert seen["arguments"] == {"interview_result_id": "x"}
+
+
+def test_prune_fields_walks_arrays_and_ignores_missing_paths():
+    from middleware import prune_fields
+
+    data = {
+        "score": 5,
+        "transcript": [
+            {"answer": "a", "answer_assessment_raw_data": {"big": "blob"}},
+            {"answer": "b"},  # field legitimately absent
+        ],
+        "nested": {"keep": 1, "drop": 2},
+    }
+    prune_fields(data, ("transcript[].answer_assessment_raw_data", "nested.drop", "absent[].x"))
+    assert data == {
+        "score": 5,
+        "transcript": [{"answer": "a"}, {"answer": "b"}],
+        "nested": {"keep": 1},
+    }
+
+
+@pytest.mark.asyncio
+async def test_every_view_still_validates_against_the_output_schema():
+    """Pruning must never produce a result the SDK then rejects.
+
+    Output validation stays ON, so a view that drops a field the schema marks
+    required would turn a large-but-working call into a -32602. Build a response
+    carrying every declared field, prune it through each view, and validate.
+    """
+    import jsonschema
+
+    import server
+    from middleware import prune_fields
+    from naming import response_view_rules
+
+    tools = await server.mcp.list_tools()
+    tool = next(t for t in tools if t.name == "get_interview_result_details")
+    schema = tool.output_schema
+    assert schema, "output validation is on; this test is meaningless without a schema"
+
+    spec = _snapshot_spec()
+    item_props = spec["components"]["schemas"]["JobInterviewDetailsResponse"][
+        "properties"
+    ]["transcript"]["items"]["properties"]
+    response = {
+        "score": 7.5,
+        "score_text": "good",
+        "status": "completed",
+        "ai_analysis": "overall",
+        "transcript": [{name: None for name in item_props}],
+    }
+
+    rules = response_view_rules()["get_interview_result_details"]
+    for view in ("summary", "standard", "full"):
+        import copy
+
+        pruned = prune_fields(copy.deepcopy(response), rules.paths_for(view))
+        jsonschema.validate(instance=pruned, schema=schema)
+
+    # And the views actually differ, or none of this is doing anything.
+    assert len(rules.paths_for("summary")) > len(rules.paths_for("standard")) > 0
+    assert rules.paths_for("full") == ()
+    # An unknown view narrows to the default rather than failing the call.
+    assert rules.paths_for("nonsense") == rules.paths_for("standard")
+    assert rules.paths_for(None) == rules.paths_for("standard")
+
+
+@pytest.mark.asyncio
+async def test_oversized_result_drops_the_duplicate_copy_instead_of_failing():
+    """The protocol's second copy must not be what refuses a result that fits."""
+    import types
+
+    from fastmcp.tools.base import ToolResult
+
+    from middleware import ResultSizeGuardMiddleware
+
+    guard = ResultSizeGuardMiddleware(150_000)
+    payload = {"result": "x" * 80_000}  # ~80k of data, ~160k once duplicated
+
+    context = types.SimpleNamespace(
+        message=types.SimpleNamespace(name="get_interview_result_details", arguments={})
+    )
+
+    async def call_next(_):
+        return ToolResult(structured_content=payload)
+
+    original = await call_next(None)
+    structured_chars, content_chars = guard._measure_parts(original)
+    assert structured_chars + content_chars > 150_000, "fixture must exceed the budget"
+    assert structured_chars < 150_000, "fixture must fit once de-duplicated"
+
+    result = await guard.on_call_tool(context, call_next)
+    assert result.structured_content == payload, "no data may be removed"
+    assert len(result.content) == 1
+    assert "structuredContent" in result.content[0].text
+    assert sum(guard._measure_parts(result)) <= 150_000
+
+
+@pytest.mark.asyncio
+async def test_result_over_budget_on_its_own_still_raises():
+    """De-duplication is a last resort, not a way to hide an oversized payload."""
+    import types
+
+    from fastmcp.exceptions import ToolError
+    from fastmcp.tools.base import ToolResult
+
+    from middleware import ResultSizeGuardMiddleware
+
+    guard = ResultSizeGuardMiddleware(150_000)
+
+    context = types.SimpleNamespace(
+        message=types.SimpleNamespace(name="list_avatars", arguments={"limit": 50})
+    )
+
+    async def call_next(_):
+        return ToolResult(structured_content={"result": "x" * 200_000})
+
+    with pytest.raises(ToolError) as excinfo:
+        await guard.on_call_tool(context, call_next)
+    message = str(excinfo.value)
+    assert "exceeds this server's 150,000-character result limit" in message
+    # The model is told the doubled figure isn't the whole story, and is given a
+    # page size solved from the payload rather than from the doubled number.
+    assert "sends the payload twice" in message
+    assert "limit=" in message
+
+
+@pytest.mark.asyncio
+async def test_results_within_budget_keep_both_copies():
+    """Nothing changes for the ordinary case — the text copy is still sent."""
+    import types
+
+    from fastmcp.tools.base import ToolResult
+
+    from middleware import ResultSizeGuardMiddleware
+
+    guard = ResultSizeGuardMiddleware(150_000)
+    context = types.SimpleNamespace(
+        message=types.SimpleNamespace(name="list_languages", arguments={})
+    )
+
+    async def call_next(_):
+        return ToolResult(structured_content={"result": "small"})
+
+    result = await guard.on_call_tool(context, call_next)
+    assert "small" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_view_and_dedup_work_together_through_the_real_middleware_stack(monkeypatch):
+    """The three fixes only work if they run in the right order.
+
+    Registration order is execution order on the way IN, which reverses on the
+    way out — so `ResponseViewMiddleware` must be registered LAST to be the first
+    to touch the result, or the size guard measures a payload the client never
+    receives. That ordering is invisible in unit tests; this exercises the built
+    server end to end against a mocked upstream.
+    """
+    import httpx
+    from fastmcp import Client
+    from fastmcp.exceptions import ToolError
+
+    import server
+
+    blob = {"words": [{"w": f"w{i}", "phonemes": ["a"] * 20} for i in range(120)]}
+    turn = {
+        "id": "t",
+        "is_answer": True,
+        "question_asked": "Tell me about yourself.",
+        "answer": "I have ten years of experience. " * 40,
+        "ai_analysis": "Analysis. " * 60,
+        "ai_analysis_recruiter": "Recruiter analysis. " * 60,
+        "score": 7.0,
+        "answer_assessment_raw_data": blob,
+        "external_data": {"x": "y" * 500},
+    }
+    upstream = {
+        "score": 7.0,
+        "status": "completed",
+        "transcript": [dict(turn, id=f"t{i}") for i in range(26)],
+    }
+    seen_urls = []
+
+    async def fake_send(self, request, **kwargs):
+        seen_urls.append(str(request.url))
+        return httpx.Response(200, json=upstream, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    args = {"interview_result_id": "93c98d21-e04d-4a84-9afa-ed154cf73636"}
+
+    async with Client(server.mcp) as client:
+        # 1. Omitting `view` applies the default projection, and the argument is
+        #    never sent upstream.
+        default_result = await client.call_tool("get_interview_result_details", args)
+        assert "view=" not in seen_urls[-1]
+        first_turn = default_result.structured_content["transcript"][0]
+        assert "answer_assessment_raw_data" not in first_turn
+        assert "ai_analysis" in first_turn, "`standard` keeps per-answer analysis"
+
+        # 2. The result now fits only because the duplicate copy was dropped.
+        structured = len(json.dumps(default_result.structured_content))
+        content = sum(len(b.text) for b in default_result.content if hasattr(b, "text"))
+        assert structured * 2 > 150_000, "fixture must be big enough to need de-duplication"
+        assert content < 1_000, "the duplicate text copy should have been replaced by a note"
+        assert structured + content <= 150_000
+
+        # 3. `summary` narrows further and needs no de-duplication.
+        summary = await client.call_tool(
+            "get_interview_result_details", {**args, "view": "summary"}
+        )
+        assert "view=" not in seen_urls[-1]
+        assert "ai_analysis" not in summary.structured_content["transcript"][0]
+        assert len(json.dumps(summary.structured_content)) < structured
+
+        # 4. `full` is honestly refused rather than silently truncated.
+        with pytest.raises(ToolError, match="exceeds this server's 150,000-character"):
+            await client.call_tool("get_interview_result_details", {**args, "view": "full"})
+
+
+def test_injected_view_param_is_refreshed_not_duplicated_from_cache():
+    """The runtime cache stores the PREPARED spec, so injection re-runs over its own output.
+
+    Two failure modes if this isn't handled: a duplicate `view` parameter, or —
+    worse — a server booting from cache silently keeping the view definitions
+    that were current when the cache was written.
+    """
+    from naming import VIEW_PARAM_NAME
+    from openapi_loader import inject_view_params
+
+    spec = inject_view_params(_snapshot_spec())
+    # Simulate a cache written before the views were edited.
+    cached = next(
+        p
+        for p in spec["paths"]["/job-interview-details"]["get"]["parameters"]
+        if p["name"] == VIEW_PARAM_NAME
+    )
+    cached["schema"]["enum"] = ["stale"]
+    cached["schema"]["default"] = "stale"
+
+    inject_view_params(spec)
+    params = [
+        p
+        for p in spec["paths"]["/job-interview-details"]["get"]["parameters"]
+        if p["name"] == VIEW_PARAM_NAME
+    ]
+    assert len(params) == 1, "re-preparing a cached spec must not duplicate the parameter"
+    assert params[0]["schema"]["enum"] == ["summary", "standard", "full"]
+
+
+def test_a_real_api_view_parameter_wins_over_the_injected_one():
+    """If JobMojito ever ships its own `view`, ours must get out of the way."""
+    from naming import VIEW_PARAM_NAME
+    from openapi_loader import inject_view_params
+
+    spec = _snapshot_spec()
+    api_param = {
+        "name": VIEW_PARAM_NAME,
+        "in": "query",
+        "required": False,
+        "schema": {"type": "string", "description": "The API's own parameter."},
+    }
+    spec["paths"]["/job-interview-details"]["get"]["parameters"].append(api_param)
+
+    inject_view_params(spec)
+    params = [
+        p
+        for p in spec["paths"]["/job-interview-details"]["get"]["parameters"]
+        if p["name"] == VIEW_PARAM_NAME
+    ]
+    assert params == [api_param], "an API parameter must never be shadowed or removed"

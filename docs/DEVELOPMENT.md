@@ -92,7 +92,7 @@ Selected keys:
 | `OAUTH_CONSENT_PATH` | `/oauth/consent` | Consent path on the app. |
 | `IGNORED_TOOL_PATHS` | – | Comma-separated extra endpoint paths to exclude. |
 | `OPENAPI_CACHE_PATH` | temp dir | Override the runtime spec cache location. |
-| `MAX_TOOL_RESULT_CHARS` | `120000` | Result-size ceiling; oversized results are refused with pagination guidance. `0` disables. |
+| `MAX_TOOL_RESULT_CHARS` | `150000` | Result-size ceiling, counting both wire copies. Over it, the guard first drops the duplicate `content` copy, then refuses with pagination guidance. `0` disables. |
 | `FEATUREBASE_API_KEY` | – | Enables the Featurebase REST help-center source. |
 | `DEVELOPER_DOCS_MCP_URL` | `https://developer.jobmojito.com/mcp` | Mintlify developer-docs MCP (public). |
 | `DOCS_CACHE_TTL_MINUTES` | `60` | How long doc search results/indexes are cached. |
@@ -174,6 +174,67 @@ The second is not optional. An OpenAPI `default` is advisory — FastMCP's
 default the model omits is never sent and the API applies its own. Changing just
 the spec makes the tool description promise a page size the server never uses.
 Mention the page size in the tool's `hint` too, so the model knows to page.
+
+### Shrink a single record that's too big to return (`view`)
+
+Pagination is the fix for a list with too many rows. It is no fix for one record
+that is too *wide* — there is no `limit` to lower, and the JobMojito API has no
+field-selection parameter. `get_interview_result_details` is the case: one
+interview carries a raw pronunciation/sentiment blob per answer, which dominates
+the payload and interests no agent.
+
+Declare named projections on the endpoint's `ToolMeta`:
+
+```python
+("GET", "/job-interview-details"): _read(
+    "get_interview_result_details", ...,
+    views=(
+        ResponseView("summary",  "…what it keeps…", drop=("transcript[].ai_analysis", …)),
+        ResponseView("standard", "…", drop=("transcript[].answer_assessment_raw_data", …)),
+        ResponseView("full",     "the API response verbatim", drop=()),
+    ),
+    default_view="standard",
+),
+```
+
+`drop` paths are dotted, with `[]` for an array level — `transcript[].answer`
+removes that field from every entry. Missing paths are ignored (the response
+schemas are passthrough). That one declaration feeds **two** places, and both are
+needed:
+
+- `openapi_loader.inject_view_params` adds `view` to the tool's input schema —
+  without it the model has no way to ask for a projection;
+- `middleware.ResponseViewMiddleware` removes the argument from the arguments
+  before the request is built (**it is not an API parameter — it must never go on
+  the wire**) and prunes the response afterwards.
+
+Three things to get right:
+
+- **Every dropped field must be optional in the response schema.** Output
+  validation stays on, so pruning a required field turns a large-but-working call
+  into a `-32602`.
+- **Register `ResponseViewMiddleware` last.** Registration order is execution
+  order inbound and reverses outbound, so being registered last makes it the
+  first to touch the result — which is what lets `ResultSizeGuardMiddleware` and
+  `OutputValidationErrorMiddleware` see the pruned payload.
+- **Injection must survive the cache.** `_write_cache` stores the *prepared*
+  spec, so injection re-runs over its own output; the injected parameter is
+  tagged with `x-mcp-injected` and replaced rather than kept, or a server booting
+  from cache would be stuck with stale view definitions.
+
+### The result is over budget even after narrowing it
+
+`ResultSizeGuardMiddleware` will already have tried dropping the duplicate copy
+MCP sends (the same JSON goes out as both `content` text and `structuredContent`;
+when only one fits, the text copy is replaced by a pointer). If it still refuses,
+the payload itself is over `MAX_TOOL_RESULT_CHARS` and the caller genuinely has
+to ask for less — a smaller page, a narrower filter, or a leaner `view`.
+
+Do **not** raise `MAX_TOOL_RESULT_CHARS` past a real client ceiling to make this
+go away. 150,000 is Claude.ai's; Claude Code stops at 25,000 tokens (~100,000
+chars) and ChatGPT/Cursor/Copilot truncate silently at undocumented sizes. Above
+the host's own limit the result is dropped or cut in half, which looks like a
+broken tool instead of an actionable error. Per-client numbers are in `config.py`.
 
 ### Add a configuration field
 Add it to `config.py::Settings`, populate it in `load_settings()` with an env

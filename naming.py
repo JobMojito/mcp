@@ -39,6 +39,44 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 MAX_TOOL_NAME_LENGTH = 64
 
 
+#: Name of the MCP-only argument that selects a response projection.
+#:
+#: It is NOT an API parameter. ``openapi_loader.inject_view_params`` adds it to
+#: the tool's input schema and ``middleware.ResponseViewMiddleware`` removes it
+#: from the arguments before the upstream request is built, so it never reaches
+#: JobMojito. (If it ever leaked, the Edge Functions' non-strict zod query
+#: schemas would drop it rather than 422 — but the middleware is the contract.)
+VIEW_PARAM_NAME = "view"
+
+#: Marks a parameter this server injected, so a later load can tell it apart from
+#: a parameter the API genuinely declares. Needed because the runtime OpenAPI
+#: cache stores the PREPARED spec: without the marker, a cached copy of an
+#: injected parameter would look like an API parameter, and an edited
+#: ``ResponseView`` would never reach a server booting from cache.
+VIEW_PARAM_MARKER = "x-mcp-injected"
+
+
+@dataclass(frozen=True)
+class ResponseView:
+    """One named projection of a tool's response.
+
+    ``drop`` lists dotted field paths to remove from the JSON before it is
+    returned. ``[]`` marks an array level, so ``transcript[].ai_analysis``
+    removes that field from every transcript entry. Paths that don't exist in a
+    given response are simply ignored — the API's schema is passthrough
+    (``catchall``) and fields come and go.
+
+    Every field named here MUST be optional in the response schema, or output
+    validation will reject the pruned result. ``tests/test_smoke.py`` pins that.
+    """
+
+    name: str
+    #: One line, shown to the model in the `view` parameter description. Say what
+    #: is KEPT and what is dropped — this is how the model picks.
+    summary: str
+    drop: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True)
 class ToolMeta:
     """Curated metadata for one API endpoint."""
@@ -59,6 +97,27 @@ class ToolMeta:
     #: The only reason to use this is a spec default that cannot fit in a tool
     #: result. See ``PAGE_SIZE_WHY``.
     param_defaults: tuple[tuple[str, object], ...] = ()
+    #: Response projections offered through the MCP-only ``view`` argument, and
+    #: which of them applies when the model doesn't pass one. Empty (the default)
+    #: means the endpoint has no ``view`` argument and its response is returned
+    #: verbatim. See ``RESPONSE_VIEW_WHY``.
+    views: tuple[ResponseView, ...] = ()
+    default_view: str = ""
+
+    @property
+    def effective_default_view(self) -> str:
+        """The view applied when the model passes none.
+
+        Both the advertised schema default (``view_parameter_schema``) and the
+        runtime fallback (``response_view_rules``) read this one property, so the
+        tool cannot promise one projection and return another.
+        """
+        if not self.views:
+            return ""
+        known = {view.name for view in self.views}
+        if self.default_view in known:
+            return self.default_view
+        return self.views[-1].name
 
     def annotations(self) -> dict[str, object]:
         """The MCP `annotations` payload for this tool."""
@@ -77,8 +136,10 @@ class ToolMeta:
 #: protocol carries the same payload in both ``content`` (as text) and
 #: ``structuredContent``, and ``MAX_TOOL_RESULT_CHARS`` counts both — correctly,
 #: since both go over the wire. So an endpoint whose rows are large can blow the
-#: 120,000-char budget at a page size the API considers modest, and the tool then
-#: fails on its *first* call with default arguments, which reads as "broken".
+#: ``MAX_TOOL_RESULT_CHARS`` budget at a page size the API considers modest, and
+#: the tool then fails on its *first* call with default arguments, which reads as
+#: "broken". (``ResultSizeGuardMiddleware`` will drop the duplicate copy rather
+#: than fail outright, but that is a last resort — don't budget against it.)
 #:
 #: Measure before setting one — `chars_per_row ≈ 2 × the API's JSON per row` —
 #: and leave headroom; row size varies with the data (long signed URLs, long
@@ -91,12 +152,79 @@ PAGE_SIZE_WHY = (
 )
 
 
+#: Why an endpoint would offer a ``view`` argument.
+#:
+#: Pagination fixes a list that is too long. It does nothing for a SINGLE record
+#: that is too fat — there is only one row, and the caller cannot ask for less of
+#: it. ``get_interview_result_details`` is the case in point: one completed
+#: interview returns the whole transcript plus, per answer, the raw
+#: pronunciation/sentiment assessment blob the scoring pipeline produced. That
+#: blob is machine intermediate state; no agent reads it, and it dominates the
+#: payload.
+#:
+#: A ``view`` therefore does for wide records what ``limit`` does for long lists:
+#: it lets the default call return the fields a reviewer actually reads, while
+#: ``view="full"`` still gets the API response verbatim for anyone who needs it.
+#: The projection happens in this server, not upstream — the API has no
+#: field-selection parameter.
+RESPONSE_VIEW_WHY = (
+    "a single record carries machine-only blobs large enough to overflow the "
+    "tool result limit, and pagination cannot narrow one record"
+)
+
+
+#: Projections for ``get_interview_result_details``.
+#:
+#: Order matters only for readability; ``default_view`` picks the default. The
+#: dropped fields are all optional in ``JobInterviewDetailsResponse`` (its zod
+#: schema marks every field ``.optional()``), so a pruned response still passes
+#: output validation.
+_INTERVIEW_RESULT_VIEWS = (
+    ResponseView(
+        "summary",
+        "scores, the overall AI analysis, and each question with the candidate's "
+        "answer — no per-answer AI commentary, recording paths or raw assessment "
+        "data. Use this to review or compare candidates.",
+        drop=(
+            "transcript[].ai_analysis",
+            "transcript[].ai_analysis_recruiter",
+            "transcript[].answer_assessment_raw_data",
+            "transcript[].external_data",
+            "transcript[].external_id",
+            "transcript[].question_original",
+            "transcript[].recording_local_path",
+            "transcript[].recording_is_video",
+            "transcript[].recording_url",
+        ),
+    ),
+    ResponseView(
+        "standard",
+        "everything a human reviewer reads: the full transcript with per-answer "
+        "analysis, scores and recordings, minus the raw machine assessment blobs. "
+        "This is the default.",
+        drop=(
+            "transcript[].answer_assessment_raw_data",
+            "transcript[].external_data",
+        ),
+    ),
+    ResponseView(
+        "full",
+        "the API response verbatim, including the raw per-answer "
+        "pronunciation/sentiment data. Large — a long interview can exceed the "
+        "result limit and fail. Only ask for this if you need those raw fields.",
+        drop=(),
+    ),
+)
+
+
 def _read(
     name: str,
     title: str,
     hint: str,
     justification: str,
     param_defaults: tuple[tuple[str, object], ...] = (),
+    views: tuple[ResponseView, ...] = (),
+    default_view: str = "",
 ) -> ToolMeta:
     """A read-only lookup tool: safe to run without user confirmation."""
     return ToolMeta(
@@ -109,6 +237,8 @@ def _read(
         idempotent=True,
         open_world=True,
         param_defaults=param_defaults,
+        views=views,
+        default_view=default_view,
     )
 
 
@@ -216,8 +346,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "get_interview_result_details",
         "Get interview result details",
         "Get full interview result details including transcript and scores. "
-        "Scores are assistive output for a human reviewer.",
+        "Scores are assistive output for a human reviewer. One result is a large "
+        "record, so `view` controls how much of it comes back — the default "
+        "(`standard`) omits only the raw machine assessment data.",
         _READ_WHY,
+        views=_INTERVIEW_RESULT_VIEWS,
+        default_view="standard",
     ),
     ("POST", "/invite-users"): _write(
         "invite_users",
@@ -387,9 +521,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         _READ_WHY,
         # Measured: ~2,700 chars of API JSON per row, ~4,900 on the wire once MCP
         # duplicates it into content + structuredContent. The spec's default of 50
-        # is ~247,000 chars — over twice MAX_TOOL_RESULT_CHARS — so list_avatars
+        # is ~247,000 chars — well past MAX_TOOL_RESULT_CHARS — so list_avatars
         # failed on every default call. 15 lands near 74,000 with room for rows
-        # whose media URLs run long. See PAGE_SIZE_WHY.
+        # whose media URLs run long. Left at 15 when the budget rose to 150,000:
+        # a page that comfortably fits beats one that only fits after the guard
+        # drops the duplicate copy. See PAGE_SIZE_WHY.
         param_defaults=(("limit", 15),),
     ),
     ("GET", "/merchant-sub-merchant-list"): _read(
@@ -481,6 +617,75 @@ def curated_defaults() -> dict[str, dict[str, object]]:
         meta.name: dict(meta.param_defaults)
         for meta in TOOL_META.values()
         if meta.param_defaults
+    }
+
+
+@dataclass(frozen=True)
+class ToolViewRules:
+    """What ``middleware.ResponseViewMiddleware`` needs for one tool."""
+
+    parameter: str
+    default: str
+    #: view name -> field paths to remove from the response
+    drop: dict[str, tuple[str, ...]]
+
+    def paths_for(self, view: str | None) -> tuple[str, ...]:
+        """Fields to drop for ``view``, falling back to the default projection.
+
+        An unknown view is treated as the default rather than an error: the value
+        only ever narrows the response, so guessing wrong must not fail a call
+        that would otherwise have succeeded.
+        """
+        if view not in self.drop:
+            view = self.default
+        return self.drop.get(view, ())
+
+
+def response_view_rules() -> dict[str, ToolViewRules]:
+    """``{tool_name: ToolViewRules}`` for every endpoint that offers a ``view``.
+
+    Consumed by ``middleware.ResponseViewMiddleware``, which both strips the
+    MCP-only argument before the upstream call and prunes the response after it.
+    ``openapi_loader.inject_view_params`` reads the same ``ToolMeta.views`` to
+    build the schema the model sees, so the two cannot describe different views.
+    """
+    return {
+        meta.name: ToolViewRules(
+            parameter=VIEW_PARAM_NAME,
+            default=meta.effective_default_view,
+            drop={view.name: view.drop for view in meta.views},
+        )
+        for meta in TOOL_META.values()
+        if meta.views
+    }
+
+
+def view_parameter_schema(meta: ToolMeta) -> dict[str, object] | None:
+    """The OpenAPI query parameter describing ``meta``'s response views.
+
+    Returned as a query parameter because that is the only parameter location
+    FastMCP turns into a flat tool argument for a GET. It is removed from the
+    arguments before the request is built, so nothing is ever sent upstream.
+    """
+    if not meta.views:
+        return None
+    lines = "\n".join(f"- `{view.name}`: {view.summary}" for view in meta.views)
+    default = meta.effective_default_view
+    return {
+        "name": VIEW_PARAM_NAME,
+        "in": "query",
+        "required": False,
+        VIEW_PARAM_MARKER: True,
+        "schema": {
+            "type": "string",
+            "enum": [view.name for view in meta.views],
+            "default": default,
+            "description": (
+                "How much of the record to return. Handled by the MCP server, not "
+                "the JobMojito API — it only narrows the response, never the query."
+                f"\n\n{lines}"
+            ),
+        },
     }
 
 

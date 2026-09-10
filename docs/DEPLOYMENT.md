@@ -63,7 +63,7 @@ Set these on the Horizon deployment (never commit them):
 | `SUPABASE_SESSION_CHECK_TTL` | `60` — seconds a successful session check is cached |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | OpenAI plugin-directory domain verification. Served verbatim at `/.well-known/openai-apps-challenge`; the route 404s while unset. |
 | `SERVER_ICON_URL` / `SERVER_ICON_MIME` | Optional override. The default is already a square 512×512 PNG (`https://jobmojito.com/favicon.png`); startup warns only if this is pointed at a `.ico`. |
-| `MAX_TOOL_RESULT_CHARS` | `120000` — refuse oversized results with pagination guidance instead of letting the client truncate them. `0` disables. |
+| `MAX_TOOL_RESULT_CHARS` | `150000` — the Claude.ai ceiling. Over it the guard drops MCP's duplicate copy of the payload, then refuses with pagination guidance rather than letting the client truncate. `0` disables. |
 | `SUPABASE_PROJECT_URL` | your Supabase project URL |
 | `SUPABASE_ANON_KEY` | project anon key (`apikey` header for Edge Functions) |
 | `SITE_URL` | `https://app.jobmojito.com` |

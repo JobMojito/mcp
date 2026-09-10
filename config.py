@@ -73,6 +73,9 @@ class Settings:
     server_icon_sizes: tuple[str, ...]
 
     # --- Result guards ---
+    #: Budget for one tool result, counting BOTH copies MCP puts on the wire
+    #: (``content`` text + ``structuredContent``). See the default in
+    #: ``load_settings`` for the per-client limits this is calibrated against.
     max_tool_result_chars: int
 
     # --- Observability (PostHog: MCP analytics + exception reporting) ---
@@ -238,7 +241,23 @@ def load_settings() -> Settings:
         # Optional "WIDTHxHEIGHT" hints, comma-separated. Omitted when blank —
         # better to say nothing than to advertise the wrong dimensions.
         server_icon_sizes=_csv(os.environ.get("SERVER_ICON_SIZES", "")),
-        max_tool_result_chars=int(os.environ.get("MAX_TOOL_RESULT_CHARS", "120000")),
+        # Every MCP client sets its own tool-result ceiling; there is no protocol
+        # limit. Measured against the strictest hosts we target (Sept 2026):
+        #
+        #   Claude.ai / Claude Desktop  ~150,000 characters
+        #   Claude Code                 25,000 tokens (MAX_MCP_OUTPUT_TOKENS,
+        #                               warns from 10,000) ~= 100,000 chars
+        #   ChatGPT connectors          no published response limit; truncates.
+        #                               (Its documented 5,000-token cap is on tool
+        #                               DEFINITIONS, not results.)
+        #   Cursor / VS Code Copilot    undocumented; truncate or degrade silently
+        #
+        # 150,000 is the Claude.ai ceiling and the highest number that is still a
+        # real limit somewhere. It is deliberately ABOVE Claude Code's ~100,000-char
+        # equivalent: a Claude Code user can raise MAX_MCP_OUTPUT_TOKENS, but nobody
+        # can raise a limit this server enforces, and refusing a result the host
+        # would have accepted is the worse failure.
+        max_tool_result_chars=int(os.environ.get("MAX_TOOL_RESULT_CHARS", "150000")),
         posthog_api_key=os.environ.get("POSTHOG_API_KEY") or None,
         # EU cloud: JobMojito's PostHog organisation is hosted in Frankfurt.
         posthog_host=os.environ.get("POSTHOG_HOST", "https://eu.i.posthog.com").rstrip("/"),
