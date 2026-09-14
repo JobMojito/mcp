@@ -560,6 +560,15 @@
               "group_by_question": {
                 "type": "boolean",
                 "description": "Group transcript answers by expected question."
+              },
+              "template": {
+                "type": "string",
+                "enum": [
+                  "classic",
+                  "modern",
+                  "one_pager"
+                ],
+                "description": "Report layout: classic (default), modern, or one_pager."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -1107,6 +1116,15 @@
               "group_by_question": {
                 "type": "boolean",
                 "description": "Group transcript answers by expected question."
+              },
+              "template": {
+                "type": "string",
+                "enum": [
+                  "classic",
+                  "modern",
+                  "one_pager"
+                ],
+                "description": "Report layout: classic (default), modern, or one_pager."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -1654,6 +1672,15 @@
               "group_by_question": {
                 "type": "boolean",
                 "description": "Group transcript answers by expected question."
+              },
+              "template": {
+                "type": "string",
+                "enum": [
+                  "classic",
+                  "modern",
+                  "one_pager"
+                ],
+                "description": "Report layout: classic (default), modern, or one_pager."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -2777,6 +2804,15 @@
               "group_by_question": {
                 "type": "boolean",
                 "description": "Group transcript answers by expected question."
+              },
+              "template": {
+                "type": "string",
+                "enum": [
+                  "classic",
+                  "modern",
+                  "one_pager"
+                ],
+                "description": "Report layout: classic (default), modern, or one_pager."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -4078,13 +4114,19 @@
             "nullable": true,
             "description": "Recruiter-facing AI analysis of the whole interview."
           },
+          "ai_analysis_other": {
+            "nullable": true,
+            "description": "Session-level AI analyses keyed by analysis name (jsonb). `hiring_reasons`: { reasons_to_hire: string[], reasons_not_to_hire: string[] } (0-4 items each, recruiter-facing). `takeaways`: { what_went_well: string[], next_steps: { text, priority: impact | quick | longterm, guidance: { kind: say | structure | length | exercise | perspective, text }, proof? }[], fixed?: string[] } (coaching / persona sessions, learner-facing; `proof` entries are { kind: quote | ai_summary | transcript_ref | document, text, ref?: { result_question_id } }; `fixed` lists the steps from the previous attempt that the learner did this time). `multi_department`: the multi-department-selection analysis. `score_rationale`: the rubric bracket of the session score and evidenced counts. `key_statement`: { quote, result_question_id }, the one verbatim quotation a recruiter would remember the candidate by (interview / persona_interview, absent when nothing distinctive was said). Further keys may be added."
+          },
           "ai_analysis_recruiter_why_hire": {
             "nullable": true,
-            "description": "Reasons to hire (list/text)."
+            "description": "Reasons to hire (list). Deprecated: a copy of ai_analysis_other.hiring_reasons.reasons_to_hire, kept for existing integrations.",
+            "deprecated": true
           },
           "ai_analysis_recruiter_why_not_hire": {
             "nullable": true,
-            "description": "Reasons not to hire (list/text)."
+            "description": "Reasons not to hire (list). Deprecated: a copy of ai_analysis_other.hiring_reasons.reasons_not_to_hire, kept for existing integrations.",
+            "deprecated": true
           },
           "recruiter_risks": {
             "nullable": true,
@@ -4352,6 +4394,16 @@
         ],
         "description": "The generated report. Exactly one of the three shapes below is returned, selected by the request `export_type`: `pdf` → `{ pdf_export_url, pdf_export_valid_until }`; `html` → `{ html_export }`; `json` → `{ json_export }`."
       },
+      "ReportTemplate": {
+        "type": "string",
+        "enum": [
+          "classic",
+          "modern",
+          "one_pager"
+        ],
+        "description": "Report layout for this export. Same values as the top-level `template`; the top-level field wins when both are given. Kept here so a saved auto-export configuration carries its template.",
+        "example": "modern"
+      },
       "InterviewPdfExportFeatures": {
         "type": "object",
         "properties": {
@@ -4440,6 +4492,9 @@
             "type": "boolean",
             "default": false,
             "description": "Group answers under their expected questions (instead of chronological order), including questions that were not reached."
+          },
+          "template": {
+            "$ref": "#/components/schemas/ReportTemplate"
           }
         }
       },
@@ -4469,6 +4524,16 @@
           },
           "export_features_result": {
             "$ref": "#/components/schemas/InterviewPdfExportFeatures"
+          },
+          "template": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportTemplate"
+              },
+              {
+                "description": "Report layout: `classic` (default), `modern` or `one_pager`."
+              }
+            ]
           },
           "store_file": {
             "type": "boolean",

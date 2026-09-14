@@ -213,8 +213,13 @@ def load_settings() -> Settings:
         session_check_ttl_seconds=int(
             os.environ.get("SUPABASE_SESSION_CHECK_TTL", "60")
         ),
+        # .strip() is load-bearing: OpenAI compares the response body to the
+        # portal's token byte for byte, and a value pasted into a deploy UI
+        # routinely carries a trailing newline or space. That produces a body a
+        # human reads as correct and the verifier rejects as "did not return the
+        # expected token" — the most common failure reported for this endpoint.
         openai_apps_challenge_token=(
-            os.environ.get("OPENAI_APPS_CHALLENGE_TOKEN") or None
+            (os.environ.get("OPENAI_APPS_CHALLENGE_TOKEN") or "").strip() or None
         ),
         registry_server_name=os.environ.get(
             "REGISTRY_SERVER_NAME", "com.jobmojito/jobmojito"
