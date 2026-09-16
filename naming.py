@@ -309,7 +309,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "this tool at all: the welcome and thank-you messages and the "
         "instructional-video screen (stored as steps, not questions), and the "
         "language, which the existing questions are already written in. Use "
-        "`tags` to place a coaching session into a catalogue directory.",
+        "`tags` to place a coaching session into a catalogue directory. "
+        "MULTI-STAGE POSITIONS: some per-interview settings do not exist at "
+        "position level and are rejected with a 422 naming the field — "
+        "`candidate_expectations_json` is the one seen in practice. Read the "
+        "position with get_interview_definition, then update the individual "
+        "stage you mean instead of sending that field to the position.",
         "readOnlyHint=false / destructiveHint=true: this overwrites the "
         "configuration of a live interview in place, which is user-visible to "
         "candidates and cannot be undone from the tool. idempotentHint=true: "
@@ -420,8 +425,16 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "plus the platform-wide public ones). Start here to find a directory id, "
         "to pick a parent for a new one, or to walk the tree with `parent_tag`; "
         "`is_start_directory` marks the page the catalogue opens on. The custom "
-        "Markdown page is not included — read it with get_catalogue_directory.",
+        "Markdown page is not included — read it with get_catalogue_directory. "
+        "Returns 25 at a time; page with `offset` while `pagination.has_more` "
+        "is true.",
         _READ_WHY,
+        # Measured in production (PostHog $mcp_tool_call, 24 Aug 2026): a default
+        # 50-row call came back at 122,984 chars on the wire, ~2,460 per row —
+        # over the 120,000 budget in force at the time and uncomfortably close to
+        # today's 150,000. 25 rows costs ~61,000, which leaves room for
+        # directories whose tag filters and sub-directory lists run long.
+        param_defaults=(("limit", 25),),
     ),
     ("GET", "/catalogue-tag-get"): _read(
         "get_catalogue_directory",
@@ -509,15 +522,28 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("GET", "/merchant-result-list"): _read(
         "list_interview_results",
         "List interview results",
-        "List the merchant's interview results.",
+        "List the merchant's interview results. Rows carry the candidate's "
+        "scores and recruiter risk flags, so this returns 20 at a time; page "
+        "with `offset` while `pagination.has_more` is true, or narrow with "
+        "`tab`/`interview_id`/`filter_text`.",
         _READ_WHY,
+        # Measured in production (PostHog $mcp_tool_call, Aug-Sep 2026): three
+        # default 50-row calls came back at 124,120 / 149,276 / 263,118 chars on
+        # the wire, i.e. ~2,480 to ~5,260 per row depending on how much analysis
+        # and how many risk flags each result carries. The worst of those three
+        # overflowed even the 150,000 budget; the other two only fitted once the
+        # guard dropped the duplicate text copy, which PAGE_SIZE_WHY says not to
+        # budget against. 20 rows costs ~105,000 at the worst observed row size.
+        param_defaults=(("limit", 20),),
     ),
     ("GET", "/merchant-avatar-list"): _read(
         "list_avatars",
         "List avatars and voice templates",
         "List available avatar/voice templates. Each item's `type` decides the "
         "interview modality: `interactive_elevenlabs` = voice-only (no video "
-        "avatar); `interactive_heygen` = realtime interactive avatar (video); "
+        "avatar); `interactive_spatius` = realtime interactive 3D avatar "
+        "(rendered in the candidate's browser, 1.25 credits, no early stop); "
+        "`interactive_heygen` = premium realtime interactive video avatar; "
         "`offline_heygen` = pre-recorded, non-interactive avatar. An item's `id` is "
         "the `interview_template_id` you pass to the create-interview tools, so pick "
         "the template whose type matches the experience you want. Note: "
@@ -627,6 +653,19 @@ def curated_defaults() -> dict[str, dict[str, object]]:
     }
 
 
+def read_only_tool_names() -> frozenset[str]:
+    """Names of the curated tools that only read.
+
+    ``middleware.ResultSizeGuardMiddleware`` consults this before re-running a
+    call with a smaller page size: repeating a GET is free, repeating anything
+    that writes is not. Deliberately built from the curated table only —
+    endpoints added to the API but not yet named here fall through to
+    ``fallback_meta`` and are absent from this set, so a new write endpoint can
+    never be retried by default.
+    """
+    return frozenset(meta.name for meta in TOOL_META.values() if meta.read_only)
+
+
 @dataclass(frozen=True)
 class ToolViewRules:
     """What ``middleware.ResponseViewMiddleware`` needs for one tool."""
@@ -646,6 +685,32 @@ class ToolViewRules:
         if view not in self.drop:
             view = self.default
         return self.drop.get(view, ())
+
+    def narrower_than(self, view: str | None) -> str | None:
+        """The narrowest view that drops strictly more than ``view`` does.
+
+        ``middleware.ResultSizeGuardMiddleware`` uses this to name the argument
+        that would actually help when a *single record* overflows the result
+        limit. Pagination advice is useless there — there is one row and no
+        `limit` to shrink — and telling the model to "request only the fields you
+        need" when the tool has a `view` argument built for exactly that is how
+        the advice failed in production (`get_interview_result_details`,
+        10 Sep 2026: 164,779 chars, answered with "try `limit=10`").
+
+        "Narrower" is measured as the number of dropped field paths, which is
+        how ``ResponseView`` projections are defined — each one lists what it
+        removes, so more paths is strictly less data. Returns None when the
+        caller is already on the narrowest view, so the advice never suggests a
+        no-op.
+        """
+        current = len(self.paths_for(view))
+        best: str | None = None
+        for name, paths in self.drop.items():
+            if len(paths) <= current:
+                continue
+            if best is None or len(paths) > len(self.drop[best]):
+                best = name
+        return best
 
 
 def response_view_rules() -> dict[str, ToolViewRules]:

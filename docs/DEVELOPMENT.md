@@ -92,7 +92,8 @@ Selected keys:
 | `OAUTH_CONSENT_PATH` | `/oauth/consent` | Consent path on the app. |
 | `IGNORED_TOOL_PATHS` | – | Comma-separated extra endpoint paths to exclude. |
 | `OPENAPI_CACHE_PATH` | temp dir | Override the runtime spec cache location. |
-| `MAX_TOOL_RESULT_CHARS` | `150000` | Result-size ceiling, counting both wire copies. Over it, the guard first drops the duplicate `content` copy, then refuses with pagination guidance. `0` disables. |
+| `MAX_TOOL_RESULT_CHARS` | `150000` | Result-size ceiling, counting both wire copies. Over it, the guard first drops the duplicate `content` copy, then retries a read-only paginated call smaller, then refuses with guidance naming the argument to narrow. `0` disables. |
+| `AUTO_NARROW_OVERSIZED_RESULTS` | `true` | Re-run an oversized **read-only** call once at a page size that fits, labelling the result as one page, instead of returning an error. Never applied to a write or to a `view`. |
 | `FEATUREBASE_API_KEY` | – | Enables the Featurebase REST help-center source. |
 | `DEVELOPER_DOCS_MCP_URL` | `https://developer.jobmojito.com/mcp` | Mintlify developer-docs MCP (public). |
 | `DOCS_CACHE_TTL_MINUTES` | `60` | How long doc search results/indexes are cached. |
@@ -224,11 +225,23 @@ Three things to get right:
 
 ### The result is over budget even after narrowing it
 
-`ResultSizeGuardMiddleware` will already have tried dropping the duplicate copy
-MCP sends (the same JSON goes out as both `content` text and `structuredContent`;
-when only one fits, the text copy is replaced by a pointer). If it still refuses,
-the payload itself is over `MAX_TOOL_RESULT_CHARS` and the caller genuinely has
-to ask for less — a smaller page, a narrower filter, or a leaner `view`.
+`ResultSizeGuardMiddleware` will already have tried two things. First, dropping
+the duplicate copy MCP sends (the same JSON goes out as both `content` text and
+`structuredContent`; when only one fits, the text copy is replaced by a pointer).
+Then, for a **read-only** tool called with a `limit`, re-running the call once at
+a page size solved from the size that just overflowed — the result comes back
+with a note saying it is one page, and `pagination.has_more` says the rest is
+there. If it still refuses, the payload itself is over `MAX_TOOL_RESULT_CHARS`
+and the caller genuinely has to ask for less — a narrower filter, or a leaner
+`view`.
+
+Two things the retry deliberately will not do. It never repeats a **write**
+(`naming.read_only_tool_names()` is the gate), and it never narrows a **`view`**:
+a short page announces itself in the response envelope, but a record that came
+back with fields removed looks exactly like a record that never had them. An
+oversized `view="full"` is refused, with the narrower view named in the message.
+`AUTO_NARROW_OVERSIZED_RESULTS=false` turns the retry off entirely; the refusal
+keeps its guidance either way.
 
 Do **not** raise `MAX_TOOL_RESULT_CHARS` past a real client ceiling to make this
 go away. 150,000 is Claude.ai's; Claude Code stops at 25,000 tokens (~100,000

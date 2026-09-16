@@ -8,6 +8,8 @@ Horizon cannot take away from us (see HOW THIS ATTACHES below):
 * ``RejectedTokenGateASGIMiddleware`` — answer with a real HTTP 401 once the
   JobMojito API has rejected a token, so clients actually re-authenticate
   instead of reading a 200-wrapped tool error. See ``session_verifier.py``.
+* ``TransportRejectionASGIMiddleware`` — report the 400/404s the transport
+  answers before any tool runs, which no tool-level metric can see.
 
 WHY LAZY AUTH
 -------------
@@ -310,6 +312,95 @@ class WWWAuthenticateScopeMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
+#: Statuses this server answers as a matter of routine, not as a fault.
+#:
+#: 401 is the entire point of lazy auth — an unauthenticated ``tools/call`` is
+#: how a client learns to start the OAuth flow, and reporting those would mean an
+#: error for every client's first call. Same reasoning as
+#: ``posthog_analytics._classify_upstream_exception``; keep the two in step.
+_EXPECTED_TRANSPORT_STATUSES = frozenset({401})
+
+
+class TransportRejectionASGIMiddleware:
+    """Report the failures that never reach a tool, and are therefore invisible.
+
+    MCP Streamable HTTP rejects a request with a missing or unrecognised
+    ``Mcp-Session-Id`` (HTTP 400) or a terminated session (404) at the transport
+    layer, before any JSON-RPC dispatch. ``middleware.py`` says so in its module
+    docstring and stops there — which means those failures reach neither the tool
+    logger nor PostHog. The MCP analytics adapter has the same horizon: it hooks
+    the request handlers, so a request that never gets that far captures nothing.
+
+    The consequence shows up in the numbers. Over 21 Aug - 15 Sep 2026 this
+    server recorded 9,457 ``$mcp_initialize`` events against 9,451
+    ``$mcp_tools_list`` — a gap with no event behind it — and a client stuck in a
+    reconnect loop against a dead session would produce exactly that shape while
+    the tool error rate stayed flat at zero. Whatever the reported error rate is,
+    it can only be read as a floor until this layer is counted too.
+
+    So: watch the status line, report what isn't routine. This never inspects or
+    buffers the body (the transport owns it, and ``LazyAuthASGIMiddleware``
+    already pays for the one replay this server does), never blocks the response,
+    and cannot fail it — a reporter that raises is swallowed.
+    """
+
+    def __init__(self, app: ASGIApp, *, mcp_path: str = "/mcp", report=None) -> None:
+        self.app = app
+        self.mcp_path = mcp_path
+        self._report = report
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("path") != self.mcp_path:
+            return await self.app(scope, receive, send)
+
+        async def send_wrapper(message: dict) -> None:
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                if status >= 400 and status not in _EXPECTED_TRANSPORT_STATUSES:
+                    self._observe(scope, status)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+    def _observe(self, scope: Scope, status: int) -> None:
+        try:
+            headers = {k.lower(): v for k, v in scope.get("headers") or []}
+            # Presence, never the value: a session id identifies a live session.
+            had_session = b"mcp-session-id" in headers
+            user_agent = headers.get(b"user-agent", b"").decode("latin-1")[:200]
+            logger.warning(
+                "Transport rejected a request before dispatch: HTTP %d on %s "
+                "(Mcp-Session-Id %s, user-agent %r). No tool ran, so this appears "
+                "in no tool-call metric.",
+                status,
+                self.mcp_path,
+                "present" if had_session else "absent",
+                user_agent,
+            )
+            report = self._report or _default_transport_reporter
+            report(
+                status=status,
+                method=scope.get("method", ""),
+                had_session_id=had_session,
+                user_agent=user_agent,
+            )
+        except Exception:
+            # Telemetry must never be able to break a response.
+            logger.debug("Transport rejection reporting failed", exc_info=True)
+
+
+def _default_transport_reporter(**properties) -> None:
+    """Hand the rejection to PostHog, if analytics is configured at all.
+
+    Imported at call time rather than at module import: this module is on the
+    auth path and must not grow a hard dependency on the telemetry one, and
+    ``posthog_analytics.install()`` runs after the auth provider is built.
+    """
+    import posthog_analytics
+
+    posthog_analytics.capture_transport_rejection(**properties)
+
+
 def lazy_auth_provider_class(base_class: type) -> type:
     """Build a subclass of ``base_class`` that injects our ASGI middleware.
 
@@ -340,6 +431,14 @@ def lazy_auth_provider_class(base_class: type) -> type:
 
         def get_middleware(self) -> list:
             middleware = list(super().get_middleware())
+            # Appended first => the outermost of our additions, so it sees the
+            # status every layer below it produces, our own 401s included (which
+            # it then declines to report).
+            middleware.append(
+                ASGIMiddleware(
+                    TransportRejectionASGIMiddleware, mcp_path=self._mcp_path
+                )
+            )
             if self._advertise_scope:
                 middleware.append(
                     ASGIMiddleware(

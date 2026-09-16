@@ -77,6 +77,11 @@ class Settings:
     #: (``content`` text + ``structuredContent``). See the default in
     #: ``load_settings`` for the per-client limits this is calibrated against.
     max_tool_result_chars: int
+    #: When a READ-ONLY paginated tool overflows that budget, re-run it once with
+    #: a page size solved from what came back, instead of returning an error the
+    #: model has to act on. Set false to go back to erroring immediately; the
+    #: refusal still names the argument to narrow either way.
+    auto_narrow_oversized_results: bool
 
     # --- Observability (PostHog: MCP analytics + exception reporting) ---
     # Unset POSTHOG_API_KEY disables both; the server runs unchanged.
@@ -263,6 +268,9 @@ def load_settings() -> Settings:
         # can raise a limit this server enforces, and refusing a result the host
         # would have accepted is the worse failure.
         max_tool_result_chars=int(os.environ.get("MAX_TOOL_RESULT_CHARS", "150000")),
+        auto_narrow_oversized_results=_bool(
+            os.environ.get("AUTO_NARROW_OVERSIZED_RESULTS"), True
+        ),
         posthog_api_key=os.environ.get("POSTHOG_API_KEY") or None,
         # EU cloud: JobMojito's PostHog organisation is hosted in Frankfurt.
         posthog_host=os.environ.get("POSTHOG_HOST", "https://eu.i.posthog.com").rstrip("/"),

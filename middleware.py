@@ -26,6 +26,9 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
 from mcp.types import TextContent, ToolAnnotations
 
+# `naming` holds no imports of its own from this module, so this stays one-way.
+from naming import VIEW_PARAM_NAME
+
 logger = logging.getLogger("jobmojito_mcp.requests")
 
 # Cap how many field paths we list, so a list endpoint where every row trips the
@@ -444,10 +447,18 @@ class ResultSizeGuardMiddleware(Middleware):
     result is silently truncated or dropped somewhere downstream — which reads to
     the user as "the tool is broken".
 
-    We check first and raise an actionable error instead, naming the pagination
-    arguments to use. Deliberately an error rather than a silent truncation:
-    truncating a structured result would corrupt it against its output schema,
-    and a half-list that looks complete is worse than an explicit "narrow this".
+    We check first and raise an actionable error instead, naming the argument to
+    narrow — `limit` for a list, `view` for a single wide record. Deliberately an
+    error rather than a silent truncation: truncating a structured result would
+    corrupt it against its output schema, and a half-list that looks complete is
+    worse than an explicit "narrow this".
+
+    For a **read-only paginated** tool it doesn't come to that: rather than hand
+    back an error the model has to act on, the call is re-run once with a page
+    size solved from what just overflowed, and the result carries a note saying
+    so. See ``_retry_smaller_page`` for why that is safe for `limit` and is never
+    done for `view`. ``AUTO_NARROW_OVERSIZED_RESULTS=false`` restores the
+    error-only behaviour without a code change.
 
     Before refusing, it drops the DUPLICATE copy of the payload. An MCP tool
     result carries the same JSON twice — once as text in ``content``, once in
@@ -465,28 +476,78 @@ class ResultSizeGuardMiddleware(Middleware):
     client shows an explanation instead of silence.
     """
 
-    def __init__(self, max_chars: int) -> None:
+    def __init__(
+        self,
+        max_chars: int,
+        *,
+        views: dict | None = None,
+        auto_narrow: bool = True,
+        retryable: frozenset[str] | None = None,
+    ) -> None:
         self.max_chars = max_chars
+        #: ``naming.response_view_rules()`` — so the advice can name the `view`
+        #: that would fit instead of a `limit` the tool may not even have.
+        self.views = views or {}
+        self.auto_narrow = auto_narrow
+        #: Tool names safe to re-run (``naming.read_only_tool_names()``).
+        self.retryable = retryable if retryable is not None else frozenset()
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
+        msg = getattr(context, "message", None)
+        name = getattr(msg, "name", "the tool")
+        args = getattr(msg, "arguments", None)
+        # Read `view` BEFORE the call: ResponseViewMiddleware runs inside this one
+        # and pops the argument, so by the time the result comes back it is gone.
+        requested_view = (
+            args.get(VIEW_PARAM_NAME) if isinstance(args, dict) else None
+        )
+
         result = await call_next(context)
         if self.max_chars <= 0 or not isinstance(result, ToolResult):
             return result
 
+        fitted = self._fit(result, name)
+        if fitted is not None:
+            return fitted
+
+        narrowed_to = None
+        if self.auto_narrow:
+            retried = await self._retry_smaller_page(
+                context, call_next, name, args, result, requested_view
+            )
+            if isinstance(retried, ToolResult):
+                fitted = self._fit(retried, name)
+                if fitted is not None:
+                    return self._note_narrowing(fitted, name, args)
+                # The smaller page is still too big. Report on THAT one: its size
+                # and page size are what the next suggestion should be solved
+                # from, and re-reporting the original would send the model back
+                # to a limit we just proved does not fit.
+                result, narrowed_to = retried, args.get("limit")
+
+        raise ToolError(
+            self._too_large_message(name, args, result, requested_view, narrowed_to)
+        )
+
+    def _fit(self, result: ToolResult, name: str) -> ToolResult | None:
+        """The result as the client should receive it, or None if it can't fit."""
         structured_chars, content_chars = self._measure_parts(result)
         size = structured_chars + content_chars
         if size <= self.max_chars:
             return result
+        return self._drop_duplicate_copy(result, name, structured_chars, size)
 
-        msg = getattr(context, "message", None)
-        name = getattr(msg, "name", "the tool")
-        args = getattr(msg, "arguments", None)
-
-        deduplicated = self._drop_duplicate_copy(result, name, structured_chars, size)
-        if deduplicated is not None:
-            return deduplicated
-
-        # The payload alone is over budget, so the caller has to ask for less.
+    def _too_large_message(
+        self,
+        name: str,
+        args,
+        result: ToolResult,
+        requested_view: str | None,
+        narrowed_to: int | None,
+    ) -> str:
+        """The refusal, sized and worded against the result we actually measured."""
+        structured_chars, content_chars = self._measure_parts(result)
+        size = structured_chars + content_chars
         # Size the suggestion against the payload rather than the doubled figure —
         # the duplicate would have been dropped on the retry too.
         duplicated = self._has_duplicate(result)
@@ -498,13 +559,116 @@ class ResultSizeGuardMiddleware(Middleware):
             if duplicated
             else ""
         )
+        attempted = (
+            f" This server already retried automatically with `limit={narrowed_to}`, "
+            "and that page was still too large, so the numbers below describe the "
+            "retry."
+            if narrowed_to is not None
+            else ""
+        )
         logger.warning("tool call ✗ %s result too large (%d chars)", name, size)
-        raise ToolError(
+        return (
             f"`{name}` returned about {size:,} characters, which exceeds this "
             f"server's {self.max_chars:,}-character result limit and would be "
-            f"truncated by the client.{detail}\n\n"
-            f"What to do: {self._advice(args, binding)}"
+            f"truncated by the client.{detail}{attempted}\n\n"
+            f"What to do: {self._advice(args, binding, name, requested_view)}"
         )
+
+    async def _retry_smaller_page(
+        self,
+        context: MiddlewareContext,
+        call_next,
+        name: str,
+        args,
+        result: ToolResult,
+        requested_view: str | None,
+    ):
+        """Re-run a read-only paginated call with a page size that fits.
+
+        WHY THIS EXISTS
+        An oversized result used to be a plain error. Production telemetry says
+        the model usually recovers from it (29 Aug 2026: failure at 22:23:44,
+        success on the suggested `limit` twelve seconds later; 3 Sep: nineteen
+        seconds) — but not always, and on 26 Aug the session simply ended at the
+        error. A second read costs ~1.2 s; a failed task costs the whole task.
+
+        WHAT IT WILL NOT DO
+        * Anything but a **read**: ``retryable`` holds the curated read-only tool
+          names, so a write is never repeated.
+        * **Narrow a `view`.** A shorter page is honest — the response envelope's
+          ``pagination.has_more`` already says there is more, and the caller asked
+          for rows, not for a specific row count. Dropping *fields* the caller
+          explicitly asked for would be a silent lie about what a record
+          contains, so an oversized `view="full"` is still refused outright.
+        * Guess. Without a `limit` argument to solve from, ``_suggested_limit``
+          returns None and this does nothing.
+
+        Returns the retried ``ToolResult``, or None when no retry was made.
+        """
+        if name not in self.retryable or not isinstance(args, dict):
+            return None
+        structured_chars, content_chars = self._measure_parts(result)
+        binding = (
+            structured_chars
+            if self._has_duplicate(result)
+            else structured_chars + content_chars
+        )
+        suggested = self._suggested_limit(args, binding)
+        if suggested is None or suggested == args.get("limit"):
+            return None
+
+        args["limit"] = suggested
+        # ResponseViewMiddleware popped `view` on the way in. Put it back, or the
+        # retry would quietly fall back to the default projection and return
+        # different fields than the caller asked for.
+        if requested_view is not None:
+            args[VIEW_PARAM_NAME] = requested_view
+        logger.info(
+            "%s: result too large; retrying automatically with limit=%d",
+            name,
+            suggested,
+        )
+        try:
+            return await call_next(context)
+        except Exception:
+            # The first call's size error is the more useful one to report — a
+            # failure on the retry tells the model nothing about what to change.
+            logger.warning("%s: automatic narrowed retry failed", name, exc_info=True)
+            return None
+
+    def _note_narrowing(self, result: ToolResult, name: str, args) -> ToolResult:
+        """Say that the page was shrunk, so a short list isn't read as a full one."""
+        limit = args.get("limit") if isinstance(args, dict) else None
+        notice = TextContent(
+            type="text",
+            text=(
+                f"Note: the full-size result of `{name}` exceeded this server's "
+                f"{self.max_chars:,}-character limit, so it was re-fetched with "
+                f"`limit={limit}`. This is ONE PAGE, not the whole list — check "
+                "`pagination.has_more` and page with `offset` if you need the rest."
+            ),
+        )
+        content = [notice, *(result.content or [])]
+        structured_chars = self._measure_parts(result)[0]
+        if structured_chars + sum(
+            len(getattr(b, "text", "") or "") for b in content
+        ) > self.max_chars:
+            # The note itself tipped it over. Keep the note and drop the text copy
+            # — the same trade `_drop_duplicate_copy` makes — and say where the
+            # data went, so a client that ignores `structuredContent` isn't left
+            # with a note and nothing else.
+            content = [
+                TextContent(
+                    type="text",
+                    text=(
+                        notice.text
+                        + "\n\nThe page itself is in this tool result's "
+                        "`structuredContent`; the duplicate text copy MCP normally "
+                        "repeats here was omitted to stay inside the limit."
+                    ),
+                )
+            ]
+        return result.model_copy(update={"content": content})
 
     @staticmethod
     def _has_duplicate(result: ToolResult) -> bool:
@@ -542,8 +706,14 @@ class ResultSizeGuardMiddleware(Middleware):
             update={"content": [TextContent(type="text", text=notice)]}
         )
 
-    def _advice(self, arguments, size: int) -> str:
-        """Name a page size that will actually fit, when we can work one out.
+    def _advice(
+        self,
+        arguments,
+        size: int,
+        name: str | None = None,
+        requested_view: str | None = None,
+    ) -> str:
+        """Name the argument that will actually make this call fit.
 
         A fixed suggestion ("try limit=25") is a guess about row size, and it was
         wrong for exactly the tool that needed it most: avatar rows cost ~4,900
@@ -551,7 +721,28 @@ class ResultSizeGuardMiddleware(Middleware):
         in a row reads as a broken tool. Since we know both the size that just
         overflowed and the page size that produced it, we can solve for one that
         fits instead of guessing.
+
+        The same mistake in the other direction is naming `limit` for a tool that
+        has no `limit`. ``get_interview_result_details`` overflowed in production
+        on 10 Sep 2026 at 164,779 characters and was told to "try `limit=10` and
+        page through with `offset`" — advice for a list, given to a tool that
+        returns one record and carries a `view` argument built for precisely this
+        situation. When the tool declares projections, name the narrower view.
         """
+        narrower = None
+        rules = self.views.get(name or "")
+        if rules is not None:
+            narrower = rules.narrower_than(requested_view)
+        if narrower is not None:
+            return (
+                f"retry with `{rules.parameter}=\"{narrower}\"`. This tool returns "
+                "ONE record, so there is nothing to page through — the "
+                f"`{rules.parameter}` argument is how you ask for less of it, and "
+                f"`{narrower}` drops the largest machine-only fields while keeping "
+                "what a human reviewer reads. The tool's schema lists what each "
+                "view returns."
+            )
+
         suggested = self._suggested_limit(arguments, size)
         if suggested is None:
             return (

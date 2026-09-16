@@ -414,6 +414,7 @@ def test_lazy_auth_provider_injects_all_middlewares():
     from lazy_auth import (
         LazyAuthASGIMiddleware,
         RejectedTokenGateASGIMiddleware,
+        TransportRejectionASGIMiddleware,
         WWWAuthenticateScopeMiddleware,
         lazy_auth_provider_class,
     )
@@ -443,13 +444,22 @@ def test_lazy_auth_provider_injects_all_middlewares():
     assert classes.index(RejectedTokenGateASGIMiddleware) > classes.index(
         LazyAuthASGIMiddleware
     )
+    # The transport reporter is the outermost of ours, so the status it observes
+    # is the one that actually leaves the server — including the 401s the layers
+    # below it produce, which it then declines to report.
+    assert TransportRejectionASGIMiddleware in classes
+    assert classes.index(TransportRejectionASGIMiddleware) < classes.index(
+        WWWAuthenticateScopeMiddleware
+    )
 
     # The gate is NOT conditional on lazy auth: an upstream-rejected token must
-    # still produce a 401 challenge on a server with lazy auth turned off.
+    # still produce a 401 challenge on a server with lazy auth turned off. Nor is
+    # the transport reporter — a dead session 400s whatever auth is configured.
     disabled = lazy_auth_provider_class(_FakeProvider)(lazy_auth_enabled=False)
     disabled_classes = [m.cls for m in disabled.get_middleware()]
     assert LazyAuthASGIMiddleware not in disabled_classes
     assert RejectedTokenGateASGIMiddleware in disabled_classes
+    assert TransportRejectionASGIMiddleware in disabled_classes
 
 
 # ---------------------------------------------------------------------------

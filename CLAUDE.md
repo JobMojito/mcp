@@ -68,7 +68,7 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
 | `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
-| `lazy_auth.py` | Auth-layer ASGI middleware: serves `initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, and 401s tokens the API has rejected. |
+| `lazy_auth.py` | Auth-layer ASGI middleware: serves `initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, 401s tokens the API has rejected, and reports the transport-level 400/404s that never reach a tool. |
 | `session_verifier.py` | Token verifier that also resolves the JWT to a live Supabase session (what the Edge Functions check), + the rejected-token registry behind the re-auth challenge. |
 | `wellknown.py` | Unauthenticated routes: `/healthz`, OpenAI domain challenge, Smithery server card. |
 | `server.json` | Official MCP Registry entry (published by `.github/workflows/publish-registry.yml`). |
@@ -131,6 +131,15 @@ More detail: `docs/ARCHITECTURE.md`.
   `PUBLIC_METHODS`, you are making it anonymous — be sure it exposes no data.
   It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<4` and
   the lazy-auth tests gate any upgrade.
+- **The tool error rate is a floor, not a total.** Streamable HTTP answers a stale
+  `Mcp-Session-Id` with a 400 and a terminated session with a 404 *before*
+  dispatch, so those failures appear in no tool-call metric and the PostHog MCP
+  adapter — which hooks the request handlers — never sees them either.
+  `lazy_auth.TransportRejectionASGIMiddleware` reports them (401 excluded: that is
+  the lazy-auth handshake, matching the `$exception` filter's carve-out). When a
+  reliability question can't be answered from `$mcp_tool_call` alone, this is the
+  layer that was missing — check it before concluding the error rate is what it
+  looks like.
 - **An MCP tool result costs ~2× the API's JSON, and OpenAPI `default`s are never
   sent.** The payload goes over the wire in both `content` and
   `structuredContent` (FastMCP's `ToolResult` derives the text copy from the
@@ -157,6 +166,17 @@ More detail: `docs/ARCHITECTURE.md`.
   text with a short pointer and lets the call succeed. That trades client breadth
   (a client that ignores `structuredContent` now sees only the note) for a result
   that arrives at all, so it must stay conditional on being over the limit.
+- **Narrowing a page is honest; narrowing a record is not.** Still over budget on
+  a **read-only** tool called with a `limit`, the guard re-runs the call once at a
+  page size solved from what just overflowed, and labels the result as one page.
+  That is safe because the response envelope's `pagination.has_more` already tells
+  the model there is more. The same move on a `view` would not be: a record that
+  came back with fields pruned is indistinguishable from one that never had them,
+  so an oversized `view` is refused with the narrower view **named** in the
+  message. Writes are never repeated — `naming.read_only_tool_names()` is the
+  gate, and it is built from the curated table so an uncurated new endpoint can
+  never opt in by accident. `AUTO_NARROW_OVERSIZED_RESULTS=false` reverts to
+  erroring immediately.
 - **Pagination cannot narrow a single wide record — that's what `view` is for.**
   `get_interview_result_details` returns one interview whose per-answer raw
   assessment blobs dominate the payload; there is no `limit` to lower and the API

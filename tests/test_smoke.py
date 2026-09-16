@@ -699,6 +699,266 @@ async def test_results_within_budget_keep_both_copies():
     assert "small" in result.content[0].text
 
 
+# ---------------------------------------------------------------------------
+# Oversized results, part 2: narrowing.
+#
+# Every number in these tests is a production measurement from PostHog
+# ($mcp_tool_call, Aug-Sep 2026), not an invented fixture — the failures they
+# encode are ones this server actually returned to a model.
+# ---------------------------------------------------------------------------
+
+
+def _guard(max_chars=150_000, **kwargs):
+    from middleware import ResultSizeGuardMiddleware
+    from naming import read_only_tool_names, response_view_rules
+
+    kwargs.setdefault("views", response_view_rules())
+    kwargs.setdefault("retryable", read_only_tool_names())
+    return ResultSizeGuardMiddleware(max_chars, **kwargs)
+
+
+def _ctx(name, arguments):
+    import types
+
+    return types.SimpleNamespace(
+        message=types.SimpleNamespace(name=name, arguments=arguments)
+    )
+
+
+def test_curated_page_sizes_cover_every_endpoint_measured_overflowing():
+    """A default page size that overflowed in production must have been lowered.
+
+    The three that did: list_avatars (246,931 chars at limit=50),
+    list_interview_results (up to 263,118) and list_catalogue_directories
+    (122,984). Tools with no measured overflow are deliberately NOT listed here —
+    PAGE_SIZE_WHY says measure first, and a guessed page size costs every caller
+    an extra round trip forever.
+    """
+    from naming import curated_defaults
+
+    defaults = curated_defaults()
+    worst_case_chars_per_row = {
+        "list_avatars": 246_931 / 50,
+        "list_interview_results": 263_118 / 50,
+        "list_catalogue_directories": 122_984 / 50,
+    }
+    for tool, per_row in worst_case_chars_per_row.items():
+        assert tool in defaults, f"{tool} overflowed in production with the spec default"
+        limit = defaults[tool]["limit"]
+        assert limit * per_row <= 150_000, (
+            f"{tool} limit={limit} still overflows at the worst observed row size"
+        )
+
+
+def test_curated_page_sizes_are_advertised_as_well_as_sent():
+    """Same contract test as list_avatars, now over every curated default."""
+    import json
+    import pathlib
+
+    from naming import TOOL_META, curated_defaults
+    from openapi_loader import apply_param_defaults
+
+    spec = json.loads(
+        (pathlib.Path(__file__).resolve().parent.parent / "data/openapi.snapshot.json").read_text()
+    )
+    apply_param_defaults(spec)
+    by_name = {meta.name: path for (_, path), meta in TOOL_META.items()}
+
+    for tool, sent in curated_defaults().items():
+        parameters = spec["paths"][by_name[tool]]["get"]["parameters"]
+        advertised = {p["name"]: p["schema"].get("default") for p in parameters}
+        for param, value in sent.items():
+            assert advertised[param] == value, (
+                f"{tool} advertises {param}={advertised[param]} but sends {value}"
+            )
+
+
+def test_a_single_wide_record_is_told_to_narrow_the_view_not_the_page():
+    """The 10 Sep 2026 failure: 164,779 chars answered with "try `limit=10`".
+
+    `get_interview_result_details` returns one record and has no `limit`. The
+    advice it needs is the `view` argument that exists for exactly this.
+    """
+    guard = _guard()
+    advice = guard._advice(
+        {"interview_result_id": "x"}, 164_779, "get_interview_result_details", None
+    )
+    assert 'view="summary"' in advice
+    assert "limit=" not in advice
+
+    # Already on the narrowest view: no no-op suggestion, fall back to the
+    # generic guidance.
+    narrowest = guard._advice(
+        {"interview_result_id": "x"}, 164_779, "get_interview_result_details", "summary"
+    )
+    assert 'view="summary"' not in narrowest
+
+    # A tool with no views is unaffected.
+    assert "limit=10" in guard._advice({}, 246_931, "list_avatars", None)
+
+
+def test_narrower_than_ranks_views_by_how_much_they_drop():
+    from naming import response_view_rules
+
+    rules = response_view_rules()["get_interview_result_details"]
+    assert rules.narrower_than("full") == "summary"
+    assert rules.narrower_than("standard") == "summary"
+    assert rules.narrower_than(None) == "summary", "None means the default view"
+    assert rules.narrower_than("summary") is None, "already the narrowest"
+
+
+@pytest.mark.asyncio
+async def test_oversized_read_is_re_fetched_at_a_page_size_that_fits():
+    """One wasted round trip beats an error the model may not recover from.
+
+    On 26 Aug 2026 `list_interview_results` overflowed and the session ended
+    there; on 29 Aug and 3 Sep the model recovered on its own, 12 and 19 seconds
+    later. Doing it server-side makes that automatic.
+    """
+    from fastmcp.tools.base import ToolResult
+
+    guard = _guard()
+    calls = []
+
+    async def call_next(ctx):
+        limit = ctx.message.arguments["limit"]
+        calls.append(limit)
+        # ~5,260 chars per row, the worst size measured in production.
+        return ToolResult(
+            structured_content={
+                "results": [{"row": "x" * 5_260} for _ in range(limit)],
+                "pagination": {"has_more": True},
+            }
+        )
+
+    args = {"limit": 50}
+    result = await guard.on_call_tool(_ctx("list_interview_results", args), call_next)
+
+    assert len(calls) == 2, "exactly one retry, never a loop"
+    assert calls[1] < calls[0]
+    assert args["limit"] == calls[1], "the arguments record the page actually fetched"
+    assert sum(guard._measure_parts(result)) <= 150_000
+    # The model must not read one page as the whole list.
+    note = result.content[0].text
+    assert f"limit={calls[1]}" in note
+    assert "ONE PAGE" in note
+    assert "has_more" in note
+
+
+@pytest.mark.asyncio
+async def test_a_write_is_never_re_run():
+    """Retrying a POST could create a second interview. Only reads are repeated."""
+    from fastmcp.exceptions import ToolError
+    from fastmcp.tools.base import ToolResult
+
+    from naming import read_only_tool_names
+
+    assert "update_interview" not in read_only_tool_names()
+    guard = _guard()
+    calls = []
+
+    async def call_next(_):
+        calls.append(1)
+        return ToolResult(structured_content={"result": "x" * 200_000})
+
+    with pytest.raises(ToolError):
+        await guard.on_call_tool(_ctx("update_interview", {"limit": 50}), call_next)
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_oversized_view_is_refused_rather_than_silently_narrowed():
+    """A shorter page is honest; quietly dropping requested fields is not.
+
+    `pagination.has_more` tells the model a page was short. Nothing tells it a
+    record came back with fields removed, so `view` is never narrowed for it.
+    """
+    from fastmcp.exceptions import ToolError
+    from fastmcp.tools.base import ToolResult
+
+    guard = _guard()
+    calls = []
+
+    async def call_next(_):
+        calls.append(1)
+        return ToolResult(structured_content={"transcript": "x" * 200_000})
+
+    args = {"interview_result_id": "x", "view": "full"}
+    with pytest.raises(ToolError) as excinfo:
+        await guard.on_call_tool(_ctx("get_interview_result_details", args), call_next)
+    assert len(calls) == 1, "no retry without a `limit` to solve from"
+    assert 'view="summary"' in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_a_retry_that_still_overflows_reports_the_retry():
+    """Sending the model back to a page size we just disproved helps nobody."""
+    from fastmcp.exceptions import ToolError
+    from fastmcp.tools.base import ToolResult
+
+    guard = _guard()
+    calls = []
+
+    async def call_next(ctx):
+        calls.append(ctx.message.arguments["limit"])
+        # Rows that get bigger as the page gets smaller: the retry cannot fit.
+        return ToolResult(structured_content={"result": "x" * 400_000})
+
+    with pytest.raises(ToolError) as excinfo:
+        await guard.on_call_tool(_ctx("list_interview_results", {"limit": 50}), call_next)
+    message = str(excinfo.value)
+    assert len(calls) == 2
+    assert f"already retried automatically with `limit={calls[1]}`" in message
+    assert "the numbers below describe the retry" in message
+
+
+@pytest.mark.asyncio
+async def test_auto_narrow_can_be_switched_off_without_a_code_change():
+    from fastmcp.exceptions import ToolError
+    from fastmcp.tools.base import ToolResult
+
+    guard = _guard(auto_narrow=False)
+    calls = []
+
+    async def call_next(_):
+        calls.append(1)
+        return ToolResult(structured_content={"result": "x" * 200_000})
+
+    with pytest.raises(ToolError):
+        await guard.on_call_tool(_ctx("list_interview_results", {"limit": 50}), call_next)
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_retry_keeps_the_view_the_caller_asked_for():
+    """ResponseViewMiddleware pops `view` on the way in; the retry must restore it.
+
+    Without this the second call silently falls back to the default projection,
+    so the caller gets different fields than they asked for — the exact failure
+    mode auto-narrowing is supposed to avoid.
+    """
+    from fastmcp.tools.base import ToolResult
+
+    from naming import VIEW_PARAM_NAME
+
+    guard = _guard()
+    seen = []
+
+    async def call_next(ctx):
+        arguments = ctx.message.arguments
+        seen.append(arguments.get(VIEW_PARAM_NAME))
+        # Stand in for ResponseViewMiddleware, which consumes the argument.
+        arguments.pop(VIEW_PARAM_NAME, None)
+        limit = arguments["limit"]
+        return ToolResult(
+            structured_content={"results": [{"row": "x" * 5_260} for _ in range(limit)]}
+        )
+
+    args = {"limit": 50, VIEW_PARAM_NAME: "summary"}
+    await guard.on_call_tool(_ctx("list_interview_results", args), call_next)
+    assert seen == ["summary", "summary"]
+
+
 @pytest.mark.asyncio
 async def test_view_and_dedup_work_together_through_the_real_middleware_stack(monkeypatch):
     """The three fixes only work if they run in the right order.
@@ -768,6 +1028,65 @@ async def test_view_and_dedup_work_together_through_the_real_middleware_stack(mo
         # 4. `full` is honestly refused rather than silently truncated.
         with pytest.raises(ToolError, match="exceeds this server's 150,000-character"):
             await client.call_tool("get_interview_result_details", {**args, "view": "full"})
+
+
+@pytest.mark.asyncio
+async def test_auto_narrowing_through_the_real_middleware_stack(monkeypatch):
+    """Curated default, overflow, retry, note — in the order they really run.
+
+    Unit tests drive the guard with a hand-made context. This drives the built
+    server, so it also pins that the narrowed retry goes all the way back out to
+    a real upstream request.
+
+    The call passes `limit=50` explicitly, which is what production actually did
+    — the curated default of 20 fits on its own, and an explicit page size always
+    wins over it. That is the case auto-narrowing exists for: a model that asked
+    for more than the budget allows.
+    """
+    import urllib.parse
+
+    import httpx
+    from fastmcp import Client
+
+    import server
+
+    requested_limits = []
+
+    async def fake_send(self, request, **kwargs):
+        query = urllib.parse.parse_qs(request.url.query.decode())
+        limit = int(query["limit"][0])
+        requested_limits.append(limit)
+        # ~5,260 chars per row: the worst size measured in production for this
+        # endpoint (263,118 chars at limit=50, PostHog, 3 Sep 2026).
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"id": f"r{i}", "candidate_name": "x" * 5_200}
+                    for i in range(limit)
+                ],
+                "pagination": {
+                    "total": 137,
+                    "limit": limit,
+                    "offset": 0,
+                    "has_more": True,
+                },
+            },
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("list_interview_results", {"limit": 50})
+
+    assert requested_limits[0] == 50, "an explicit page size wins over the default"
+    assert len(requested_limits) == 2, "one automatic retry, not a loop"
+    assert requested_limits[1] < 50
+    assert len(result.structured_content["data"]) == requested_limits[1]
+    note = result.content[0].text
+    assert f"limit={requested_limits[1]}" in note
+    assert "ONE PAGE" in note
 
 
 def test_injected_view_param_is_refreshed_not_duplicated_from_cache():

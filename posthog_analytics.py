@@ -137,6 +137,71 @@ def _classify_upstream_exception(event: Any) -> Any:
         logger.debug("posthog.mcp before_send filter failed", exc_info=True)
     return event
 
+#: Set by ``install()`` so ``capture_transport_rejection`` can reach PostHog
+#: without the ASGI layer holding a reference to it. None until analytics is
+#: configured, and None forever when it is not — which is what makes the
+#: transport reporter inert on a server running without a POSTHOG_API_KEY.
+_client: Any | None = None
+_event_tags: dict[str, str] = {}
+
+
+def capture_transport_rejection(
+    *,
+    status: int,
+    method: str = "",
+    had_session_id: bool = False,
+    user_agent: str = "",
+) -> None:
+    """Record a request the transport refused before any tool could run.
+
+    Called by ``lazy_auth.TransportRejectionASGIMiddleware`` — see that class for
+    why this layer is otherwise invisible. Captured as ``$exception`` so it lands
+    in Error Tracking beside the tool failures rather than in a metric nobody
+    opens, and stamped with the same ``service``/``tier`` tags as everything else
+    the adapter sends.
+
+    Deliberately anonymous: these requests have no verified user by definition,
+    so there is no identity to attach. ``$process_person_profile: False`` matches
+    what the MCP adapter does for unauthenticated traffic and keeps a reconnect
+    loop from minting a person per attempt.
+
+    The message avoids the ``HTTP error <status>`` / ``with HTTP <status>``
+    wording that ``_classify_upstream_exception`` parses: this is our own
+    transport answering, not an upstream status, and grouping the two together
+    would be wrong.
+    """
+    client = _client
+    if client is None:
+        return
+    summary = (
+        f"MCP transport rejected a request before dispatch: status {status}"
+        f" ({'session id present' if had_session_id else 'no session id'})"
+    )
+    try:
+        client.capture(
+            "$exception",
+            distinct_id=f"transport-{status}",
+            properties={
+                **_event_tags,
+                "$exception_list": [
+                    {
+                        "type": "MCPTransportRejection",
+                        "value": summary,
+                        "mechanism": {"handled": True, "synthetic": True},
+                    }
+                ],
+                "$process_person_profile": False,
+                "transport_status": status,
+                "transport_http_method": method,
+                "transport_had_session_id": had_session_id,
+                "$raw_user_agent": user_agent,
+                "error_class": "client" if 400 <= status < 500 else "server",
+            },
+        )
+    except Exception:
+        logger.debug("Failed to capture a transport rejection", exc_info=True)
+
+
 def _build_client(api_key: str | None, host: str, *, debug: bool) -> Any | None:
     """Construct the PostHog client, or None when analytics is not configured.
 
@@ -287,6 +352,15 @@ def install(
             "internals it hooks may have changed. Analytics will not be captured."
         )
         return None
+
+    # Only now, on the fully-working path: `_register_shutdown` is what flushes
+    # the batch on exit, so publishing the client before instrumentation is known
+    # to have succeeded would mean captures queued against a client nothing
+    # drains. A failed install leaves `_client` None and the transport reporter
+    # inert, which matches the rest of the module's "no telemetry" posture.
+    global _client, _event_tags
+    _client = client
+    _event_tags = {"service": service, "tier": tier}
 
     _register_shutdown(client, analytics)
     logger.info(

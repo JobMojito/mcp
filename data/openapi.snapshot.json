@@ -568,7 +568,7 @@
                   "modern",
                   "one_pager"
                 ],
-                "description": "Report layout: classic (default), modern, or one_pager."
+                "description": "Report layout: classic, modern, or one_pager. Omit for the merchant default (modern when unset)."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -1124,7 +1124,7 @@
                   "modern",
                   "one_pager"
                 ],
-                "description": "Report layout: classic (default), modern, or one_pager."
+                "description": "Report layout: classic, modern, or one_pager. Omit for the merchant default (modern when unset)."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -1680,7 +1680,7 @@
                   "modern",
                   "one_pager"
                 ],
-                "description": "Report layout: classic (default), modern, or one_pager."
+                "description": "Report layout: classic, modern, or one_pager. Omit for the merchant default (modern when unset)."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -2116,9 +2116,10 @@
               "offline_synthesia",
               "interactive_heygen",
               "offline_heygen",
-              "interactive_elevenlabs"
+              "interactive_elevenlabs",
+              "interactive_spatius"
             ],
-            "description": "Type of the linked interview template. `interactive_elevenlabs` is voice-only; the others (`interactive_heygen`, `offline_heygen`, `offline_elai`, `offline_synthesia`) are avatar-based. Null when the template could not be resolved."
+            "description": "Type of the linked interview template. `interactive_elevenlabs` is voice-only; the others (`interactive_spatius`, `interactive_heygen`, `offline_heygen`, `offline_elai`, `offline_synthesia`) are avatar-based. Null when the template could not be resolved."
           },
           "is_voice_only": {
             "type": "boolean",
@@ -2812,7 +2813,7 @@
                   "modern",
                   "one_pager"
                 ],
-                "description": "Report layout: classic (default), modern, or one_pager."
+                "description": "Report layout: classic, modern, or one_pager. Omit for the merchant default (modern when unset)."
               }
             },
             "description": "Auto-generate a candidate PDF report with these options once the interview completes. null disables auto-export."
@@ -4116,16 +4117,16 @@
           },
           "ai_analysis_other": {
             "nullable": true,
-            "description": "Session-level AI analyses keyed by analysis name (jsonb). `hiring_reasons`: { reasons_to_hire: string[], reasons_not_to_hire: string[] } (0-4 items each, recruiter-facing). `takeaways`: { what_went_well: string[], next_steps: { text, priority: impact | quick | longterm, guidance: { kind: say | structure | length | exercise | perspective, text }, proof? }[], fixed?: string[] } (coaching / persona sessions, learner-facing; `proof` entries are { kind: quote | ai_summary | transcript_ref | document, text, ref?: { result_question_id } }; `fixed` lists the steps from the previous attempt that the learner did this time). `multi_department`: the multi-department-selection analysis. `score_rationale`: the rubric bracket of the session score and evidenced counts. `key_statement`: { quote, result_question_id }, the one verbatim quotation a recruiter would remember the candidate by (interview / persona_interview, absent when nothing distinctive was said). Further keys may be added."
+            "description": "Session-level AI analyses keyed by analysis name (jsonb). `strengths_concerns`: { strengths: string[], concerns: string[] } (0-4 items each, recruiter-facing; called `hiring_reasons` with `reasons_to_hire` / `reasons_not_to_hire` inside before 2026-09-15, and rows written before then may still carry that shape). `takeaways`: { what_went_well: string[], next_steps: { text, priority: impact | quick | longterm, guidance: { kind: say | structure | length | exercise | perspective, text }, proof? }[], fixed?: string[] } (coaching / persona sessions, learner-facing; `proof` entries are { kind: quote | ai_summary | transcript_ref | document, text, ref?: { result_question_id } }; `fixed` lists the steps from the previous attempt that the learner did this time). `multi_department`: the multi-department-selection analysis. `score_rationale`: the rubric bracket of the session score and evidenced counts. `key_statement`: { quote, result_question_id }, the one verbatim quotation a recruiter would remember the candidate by (interview / persona_interview, absent when nothing distinctive was said). Further keys may be added."
           },
           "ai_analysis_recruiter_why_hire": {
             "nullable": true,
-            "description": "Reasons to hire (list). Deprecated: a copy of ai_analysis_other.hiring_reasons.reasons_to_hire, kept for existing integrations.",
+            "description": "Reasons to hire (list). Deprecated: a copy of ai_analysis_other.strengths_concerns.strengths, kept for existing integrations.",
             "deprecated": true
           },
           "ai_analysis_recruiter_why_not_hire": {
             "nullable": true,
-            "description": "Reasons not to hire (list). Deprecated: a copy of ai_analysis_other.hiring_reasons.reasons_not_to_hire, kept for existing integrations.",
+            "description": "Reasons not to hire (list). Deprecated: a copy of ai_analysis_other.strengths_concerns.concerns, kept for existing integrations.",
             "deprecated": true
           },
           "recruiter_risks": {
@@ -4531,7 +4532,7 @@
                 "$ref": "#/components/schemas/ReportTemplate"
               },
               {
-                "description": "Report layout: `classic` (default), `modern` or `one_pager`."
+                "description": "Report layout: `classic`, `modern` or `one_pager`. Omit for the merchant default (modern when unset)."
               }
             ]
           },
@@ -9281,6 +9282,7 @@
               "enum": [
                 "interactive_heygen",
                 "interactive_elevenlabs",
+                "interactive_spatius",
                 "offline_heygen",
                 "offline_elai",
                 "offline_synthesia"

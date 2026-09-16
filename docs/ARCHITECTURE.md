@@ -148,10 +148,10 @@ The table is in registration order.
 
 | Middleware | What it does |
 |------------|--------------|
-| `ToolCallLoggingMiddleware` | Logs tool name, argument **keys** (never values), outcome and timing. Cannot see transport-level 400/404s — those are rejected before any tool runs. |
+| `ToolCallLoggingMiddleware` | Logs tool name, argument **keys** (never values), outcome and timing. Cannot see transport-level 400/404s — those are rejected before any tool runs, and are reported by `lazy_auth.TransportRejectionASGIMiddleware` instead. |
 | `CuratedDefaultsMiddleware` | Puts `ToolMeta.param_defaults` on the wire. FastMCP serialises only the arguments the model supplied, so an OpenAPI `default` it omits is advertised but never sent — without this, `list_avatars` would still fetch the API's 50 rows. |
 | `UpstreamErrorMiddleware` | Turns `HTTP error 403: Forbidden - {...}` into cause + concrete next step (keeping a capped upstream detail), so the model stops permuting arguments against a permissions problem. Unrecognised errors are re-raised untouched. |
-| `ResultSizeGuardMiddleware` | Guards `MAX_TOOL_RESULT_CHARS` (default 150 000, counting both wire copies). Over budget it first drops the protocol's duplicate `content` copy (replaced by a pointer to `structuredContent`), and only refuses — with pagination guidance — if the payload is over on its own. Deliberately an error, not a truncation: a half-list that looks complete is worse, and truncating structured content would break its output schema. |
+| `ResultSizeGuardMiddleware` | Guards `MAX_TOOL_RESULT_CHARS` (default 150 000, counting both wire copies). Over budget it first drops the protocol's duplicate `content` copy (replaced by a pointer to `structuredContent`); if the payload is still over on its own it re-runs a **read-only paginated** call once at a page size solved from what came back, labelling the result as one page (`AUTO_NARROW_OVERSIZED_RESULTS=false` disables that). Anything else is refused with guidance naming the argument to narrow — `limit` for a list, `view` for a single wide record. Never a truncation: a half-list that looks complete is worse, and truncating structured content would break its output schema. A `view` is never narrowed automatically — a short page announces itself through `pagination.has_more`, a record missing fields does not. |
 | `OutputValidationErrorMiddleware` | Rewrites the SDK's path-less "Output validation error" into one that names the offending field(s). |
 | `ResponseViewMiddleware` | Serves the MCP-only `view` argument on endpoints with `ToolMeta.views`: strips it before the upstream request is built (it is not an API parameter) and prunes the declared field paths out of the response. Does for a wide single record what `limit` does for a long list. |
 | `ToolMetadataBackfillMiddleware` | Safety net at `tools/list` time: any tool registered outside the OpenAPI path gets a title and annotations, defaulting to the *safe* (destructive) assumption. |
@@ -168,6 +168,12 @@ directory and the MCP Registry without code changes.
   `WWWAuthenticateScopeMiddleware` adds `scope="openid email"` to the 401
   challenge. This hooks undocumented FastMCP internals, which is why `fastmcp` is
   pinned `<4` and the lazy-auth tests gate any upgrade.
+- **`TransportRejectionASGIMiddleware`** (same module, same slot) reports the
+  statuses this layer produces *before* dispatch — a stale `Mcp-Session-Id` is a
+  400, a terminated session a 404 — which no tool-level metric can see. Without
+  it a client stuck in a reconnect loop reads as a zero error rate. 401 is
+  excluded: it is the lazy-auth handshake, not a fault, the same carve-out
+  `posthog_analytics._classify_upstream_exception` makes.
 - **`wellknown.py`** registers unauthenticated routes: `GET /healthz` (uptime
   probe), `GET /.well-known/openai-apps-challenge` (domain verification; 404s
   while `OPENAI_APPS_CHALLENGE_TOKEN` is unset) and

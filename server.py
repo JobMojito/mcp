@@ -42,6 +42,7 @@ from naming import (
     curated_defaults,
     fallback_meta,
     meta_for,
+    read_only_tool_names,
     response_view_rules,
 )
 from openapi_loader import load_openapi_spec
@@ -52,7 +53,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.2.2"
+SERVER_VERSION = "1.3.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -444,9 +445,19 @@ def build_server() -> FastMCP:
     # Turns raw "HTTP error 403: Forbidden - {...}" into a cause + next step, so the
     # model stops permuting arguments against a permissions problem.
     mcp.add_middleware(UpstreamErrorMiddleware())
-    # Refuse oversized results with pagination guidance rather than letting the
-    # client silently truncate them.
-    mcp.add_middleware(ResultSizeGuardMiddleware(settings.max_tool_result_chars))
+    # Keep oversized results from being silently truncated by the client: re-run
+    # a read-only paginated call with a page size that fits, and refuse anything
+    # else with guidance naming the argument to narrow (`limit`, or `view` for a
+    # single wide record — the view rules are passed in so the advice can tell
+    # those two cases apart).
+    mcp.add_middleware(
+        ResultSizeGuardMiddleware(
+            settings.max_tool_result_chars,
+            views=response_view_rules(),
+            auto_narrow=settings.auto_narrow_oversized_results,
+            retryable=read_only_tool_names(),
+        )
+    )
     # Rewrites the SDK's path-less "Output validation error: <msg>" into one that
     # names the offending field(s), so an agent knows exactly what didn't match.
     # Registered after logging so the logger still records the failed call.
