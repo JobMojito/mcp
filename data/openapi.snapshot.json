@@ -113,7 +113,7 @@
           "location": {
             "type": "string",
             "minLength": 1,
-            "description": "Job location.",
+            "description": "Job location — a city/country, or `remote`. Required and must not be empty: when the job description gives no location, pass `Not specified`.",
             "example": "remote"
           },
           "interview_template_id": {
@@ -215,6 +215,17 @@
             "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
             "example": "video_all"
           },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "example": "production"
+          },
           "interview_type": {
             "type": "string",
             "enum": [
@@ -281,7 +292,14 @@
           "interview_tone": {
             "type": "string",
             "nullable": true,
-            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups; omit to default to relaxed. Suggested values — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate.. Case-insensitive; other strings are accepted but unknown tones fall back to the default.",
+            "enum": [
+              "relaxed",
+              "simple",
+              "professional",
+              "persuasive",
+              "exact"
+            ],
+            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
             "example": "professional"
           },
           "interview_length": {
@@ -522,7 +540,43 @@
             "properties": {
               "mojito_language_code": {
                 "type": "string",
-                "description": "Report language code (platform-languages.json code).",
+                "enum": [
+                  "ar",
+                  "bg",
+                  "zh",
+                  "hr",
+                  "cs",
+                  "da",
+                  "nl",
+                  "en",
+                  "fil",
+                  "fi",
+                  "fr",
+                  "de",
+                  "el",
+                  "hi",
+                  "hu",
+                  "id",
+                  "it",
+                  "ja",
+                  "ko",
+                  "ms",
+                  "no",
+                  "pl",
+                  "pt",
+                  "br",
+                  "ro",
+                  "ru",
+                  "sk",
+                  "es",
+                  "sv",
+                  "ta",
+                  "th",
+                  "tr",
+                  "uk",
+                  "vi"
+                ],
+                "description": "Report language code (a platform-languages.json code).",
                 "example": "en"
               },
               "contact_details": {
@@ -772,7 +826,7 @@
           "location": {
             "type": "string",
             "minLength": 1,
-            "description": "Interview location.",
+            "description": "Job location — a city/country, or `remote`. Required and must not be empty: when the job description gives no location, pass `Not specified`.",
             "example": "remote"
           },
           "interview_template_id": {
@@ -887,6 +941,17 @@
             "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
             "example": "video_all"
           },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "example": "production"
+          },
           "interview_type": {
             "type": "string",
             "nullable": true,
@@ -953,7 +1018,14 @@
           "interview_tone": {
             "type": "string",
             "nullable": true,
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Omit to default to relaxed. Suggested values — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate.. Case-insensitive; other strings are accepted but unknown tones fall back to the default.",
+            "enum": [
+              "relaxed",
+              "simple",
+              "professional",
+              "persuasive",
+              "exact"
+            ],
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
             "example": "professional"
           },
           "interview_attempts": {
@@ -1078,7 +1150,43 @@
             "properties": {
               "mojito_language_code": {
                 "type": "string",
-                "description": "Report language code (platform-languages.json code).",
+                "enum": [
+                  "ar",
+                  "bg",
+                  "zh",
+                  "hr",
+                  "cs",
+                  "da",
+                  "nl",
+                  "en",
+                  "fil",
+                  "fi",
+                  "fr",
+                  "de",
+                  "el",
+                  "hi",
+                  "hu",
+                  "id",
+                  "it",
+                  "ja",
+                  "ko",
+                  "ms",
+                  "no",
+                  "pl",
+                  "pt",
+                  "br",
+                  "ro",
+                  "ru",
+                  "sk",
+                  "es",
+                  "sv",
+                  "ta",
+                  "th",
+                  "tr",
+                  "uk",
+                  "vi"
+                ],
+                "description": "Report language code (a platform-languages.json code).",
                 "example": "en"
               },
               "contact_details": {
@@ -1543,6 +1651,17 @@
             "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
             "example": "normal"
           },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "example": "production"
+          },
           "max_followups": {
             "type": "integer",
             "nullable": true,
@@ -1634,7 +1753,43 @@
             "properties": {
               "mojito_language_code": {
                 "type": "string",
-                "description": "Report language code (platform-languages.json code).",
+                "enum": [
+                  "ar",
+                  "bg",
+                  "zh",
+                  "hr",
+                  "cs",
+                  "da",
+                  "nl",
+                  "en",
+                  "fil",
+                  "fi",
+                  "fr",
+                  "de",
+                  "el",
+                  "hi",
+                  "hu",
+                  "id",
+                  "it",
+                  "ja",
+                  "ko",
+                  "ms",
+                  "no",
+                  "pl",
+                  "pt",
+                  "br",
+                  "ro",
+                  "ru",
+                  "sk",
+                  "es",
+                  "sv",
+                  "ta",
+                  "th",
+                  "tr",
+                  "uk",
+                  "vi"
+                ],
+                "description": "Report language code (a platform-languages.json code).",
                 "example": "en"
               },
               "contact_details": {
@@ -1864,6 +2019,17 @@
             "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
             "example": "video_all"
           },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "example": "production"
+          },
           "result_view": {
             "type": "string",
             "nullable": true,
@@ -2082,6 +2248,18 @@
               "assessment"
             ],
             "description": "Interview type. Null for multi-stage positions."
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which webhook environment this interview's results are delivered to. Null for multi-stage positions, whose stages each carry their own.",
+            "example": "production"
           },
           "code": {
             "type": "string",
@@ -2329,6 +2507,7 @@
           "visibility",
           "stage",
           "type",
+          "environment",
           "code",
           "interview_location",
           "cover_image_url",
@@ -2495,6 +2674,17 @@
             ],
             "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
             "example": "merchant_public"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "uat",
+              "development",
+              "demo"
+            ],
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "example": "production"
           },
           "name": {
             "type": "string",
@@ -2767,7 +2957,43 @@
             "properties": {
               "mojito_language_code": {
                 "type": "string",
-                "description": "Report language code (platform-languages.json code).",
+                "enum": [
+                  "ar",
+                  "bg",
+                  "zh",
+                  "hr",
+                  "cs",
+                  "da",
+                  "nl",
+                  "en",
+                  "fil",
+                  "fi",
+                  "fr",
+                  "de",
+                  "el",
+                  "hi",
+                  "hu",
+                  "id",
+                  "it",
+                  "ja",
+                  "ko",
+                  "ms",
+                  "no",
+                  "pl",
+                  "pt",
+                  "br",
+                  "ro",
+                  "ru",
+                  "sk",
+                  "es",
+                  "sv",
+                  "ta",
+                  "th",
+                  "tr",
+                  "uk",
+                  "vi"
+                ],
+                "description": "Report language code (a platform-languages.json code).",
                 "example": "en"
               },
               "contact_details": {
@@ -2836,7 +3062,14 @@
           "interview_tone": {
             "type": "string",
             "nullable": true,
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Suggested values — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate.. Case-insensitive; other strings are accepted but unknown tones fall back to the default.",
+            "enum": [
+              "relaxed",
+              "simple",
+              "professional",
+              "persuasive",
+              "exact"
+            ],
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
             "example": "professional"
           },
           "seniority_level": {
@@ -5522,7 +5755,13 @@
           "visibility": {
             "type": "string",
             "nullable": true,
-            "description": "Position visibility. Defaults to \"merchant_invite\" on create."
+            "enum": [
+              "merchant_public",
+              "merchant_invite",
+              "merchant_unlisted"
+            ],
+            "description": "Position visibility. Defaults to `merchant_invite` on create. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "example": "merchant_public"
           },
           "kombo_parameters": {
             "nullable": true,
@@ -5953,6 +6192,14 @@
                   "type": "string",
                   "nullable": true,
                   "description": "Invite type — selects which kind of account is created. Defaults to 'user'. Admin / merchant-team roles (manage the recruiting dashboard): `merchant_owner`, `merchant`, `merchant_selection`. Coaching-portal users: `user`, `mentor`. Interview candidate: `candidate` (requires `interview_id`). An invalid value yields a per-item error result rather than a request-level failure.",
+                  "enum": [
+                    "user",
+                    "mentor",
+                    "merchant",
+                    "merchant_owner",
+                    "merchant_selection",
+                    "candidate"
+                  ],
                   "example": "merchant"
                 },
                 "interview_id": {
@@ -7732,7 +7979,44 @@
           {
             "schema": {
               "type": "string",
-              "description": "Filter by the directory language (a platform-languages.json code, e.g. `en`)."
+              "enum": [
+                "ar",
+                "bg",
+                "zh",
+                "hr",
+                "cs",
+                "da",
+                "nl",
+                "en",
+                "fil",
+                "fi",
+                "fr",
+                "de",
+                "el",
+                "hi",
+                "hu",
+                "id",
+                "it",
+                "ja",
+                "ko",
+                "ms",
+                "no",
+                "pl",
+                "pt",
+                "br",
+                "ro",
+                "ru",
+                "sk",
+                "es",
+                "sv",
+                "ta",
+                "th",
+                "tr",
+                "uk",
+                "vi"
+              ],
+              "description": "Filter by the directory language. Omit for all languages.",
+              "example": "en"
             },
             "required": false,
             "name": "mojito_language_code",
@@ -9313,7 +9597,44 @@
           {
             "schema": {
               "type": "string",
-              "description": "Filter by platform language code."
+              "enum": [
+                "ar",
+                "bg",
+                "zh",
+                "hr",
+                "cs",
+                "da",
+                "nl",
+                "en",
+                "fil",
+                "fi",
+                "fr",
+                "de",
+                "el",
+                "hi",
+                "hu",
+                "id",
+                "it",
+                "ja",
+                "ko",
+                "ms",
+                "no",
+                "pl",
+                "pt",
+                "br",
+                "ro",
+                "ru",
+                "sk",
+                "es",
+                "sv",
+                "ta",
+                "th",
+                "tr",
+                "uk",
+                "vi"
+              ],
+              "description": "Filter by platform language code. Omit for all languages.",
+              "example": "en"
             },
             "required": false,
             "name": "mojito_language_code",

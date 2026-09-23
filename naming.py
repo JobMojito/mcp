@@ -386,7 +386,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-create-from-array"): _write(
         "create_interview_from_questions",
         "Create interview from questions",
-        "Create a new interview from an explicit array of questions.",
+        "Create a new interview from an explicit array of questions. The AI "
+        "rephrases your wording by default; pass `interview_tone=\"exact\"` to "
+        "have each question asked verbatim, which is what you want when the "
+        "wording is a script (compliance, translated, or legally reviewed text).",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "interview definition on the account and consumes credits. " + _OPEN_WORLD,
     ),
