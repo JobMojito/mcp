@@ -1365,7 +1365,7 @@
           },
           "interview_def_set_id": {
             "type": "string",
-            "description": "Created/resolved interview definition set id."
+            "description": "Created/resolved interview definition set id: the position's first interview step. Absent when the position has no interview step."
           },
           "profile_interview_id": {
             "type": "string",
@@ -1373,7 +1373,7 @@
           },
           "interview_url": {
             "type": "string",
-            "description": "URL the candidate should open to continue."
+            "description": "URL the candidate should open to continue: the interview of the current interview step, otherwise the application page (pre-screening outcome, meeting booking, waiting for the recruiter)."
           },
           "reason": {
             "type": "string",
@@ -1386,6 +1386,182 @@
           "embed_signing_key": {
             "type": "string",
             "description": "Embed signing key, present only when is_embedded=true."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "position_def_step_id": {
+                  "type": "string",
+                  "description": "Position step definition id."
+                },
+                "sequence_no": {
+                  "type": "number",
+                  "description": "Order of the step in the position process."
+                },
+                "index": {
+                  "type": "number",
+                  "description": "1-based index of the step."
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "pre-screening",
+                    "interview",
+                    "meeting",
+                    "invited"
+                  ],
+                  "description": "Step type."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Step label (custom name, or the default label of its type)."
+                },
+                "custom_name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Custom step name, null when the default label applies."
+                },
+                "advance": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "How the candidate moves on after this step is accepted: 'auto' or 'manual'."
+                },
+                "position_result_step_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "The candidate's step id, null while the step is not reached."
+                },
+                "status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Status of the candidate's step."
+                },
+                "decision_status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Decision on the step (candidate_action, recruiter_action, ai_accept, recruiter_reject, ...)."
+                },
+                "is_current": {
+                  "type": "boolean",
+                  "nullable": true,
+                  "description": "Whether this is the candidate's current step."
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "done",
+                    "rejected",
+                    "current",
+                    "waiting",
+                    "scheduled",
+                    "upcoming"
+                  ],
+                  "description": "Progress state of the step for this candidate."
+                },
+                "score": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "Score of the step (interview score, pre-screening score), when available."
+                },
+                "start_at": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "When the candidate reached the step (ISO 8601)."
+                },
+                "decided_at": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "When the step was decided (ISO 8601)."
+                },
+                "interview_set_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Interview definition of an interview step."
+                },
+                "interview_pre_screening_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Pre-screening definition of a pre-screening step."
+                },
+                "interview_result_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Interview result of an interview step."
+                },
+                "interview_result_pre_screening_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Pre-screening result of a pre-screening step."
+                },
+                "interview_attempts": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "Number of interview attempts on the step."
+                },
+                "recruiter_notes": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Recruiter notes on the step."
+                },
+                "meeting": {
+                  "type": "object",
+                  "nullable": true,
+                  "properties": {
+                    "booking_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "booking_status": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "slot_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "start_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "duration_minutes": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "location": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "meeting_url": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "instructions": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cutoff_at": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "description": "Booking details of a meeting step; null for other step types."
+                }
+              },
+              "required": [
+                "position_def_step_id",
+                "sequence_no",
+                "index",
+                "type",
+                "name",
+                "position_result_step_id",
+                "status",
+                "decision_status",
+                "state"
+              ]
+            },
+            "description": "The candidate's progress through the position's steps (pre-screening, interviews, meetings), in order."
           }
         },
         "required": [
@@ -2426,6 +2602,16 @@
             "nullable": true,
             "description": "ISO date/time after which the interview is no longer available to candidates. Null means always available."
           },
+          "candidate_notification_channel": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "reminders",
+              "last_reminder",
+              "all"
+            ],
+            "description": "SMS / WhatsApp candidate notifications: null = off, reminders = with both e-mail reminders, last_reminder = only with the final reminder, all = invitation + reminders + pre-screening accepted."
+          },
           "recruiter_profile_id": {
             "type": "string",
             "nullable": true,
@@ -2530,6 +2716,7 @@
           "interview_department",
           "interview_salary",
           "interview_available_till",
+          "candidate_notification_channel",
           "recruiter_profile_id",
           "slug",
           "tags",
@@ -2740,6 +2927,16 @@
             "type": "string",
             "nullable": true,
             "description": "Profile id of the recruiter owning this interview. Must be a merchant/merchant_owner/admin profile of the same merchant. null clears it."
+          },
+          "candidate_notification_channel": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "reminders",
+              "last_reminder",
+              "all"
+            ],
+            "description": "SMS / WhatsApp notifications to the candidate, sent alongside the e-mails: \"reminders\" = with both e-mail reminders (day 1 and day 3); \"last_reminder\" = only with the final day-3 reminder; \"all\" = invitation, both reminders and the pre-screening-accepted step. null switches them off. WhatsApp is tried first, SMS when the number is not on WhatsApp. Available on paid plans (Starter and above) and needs a phone number on the candidate."
           },
           "tags": {
             "type": "array",
@@ -3262,6 +3459,10 @@
               "type": "string",
               "nullable": true
             },
+            "phone": {
+              "type": "string",
+              "nullable": true
+            },
             "result": {
               "type": "string",
               "description": "\"ok\" on success, otherwise an \"Error: ...\" message for that user.",
@@ -3298,6 +3499,12 @@
             "nullable": true,
             "description": "Optional caller-supplied id, stored on the candidate profile.",
             "example": "abcd"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional mobile number in international format (E.164, e.g. +421903123456). Enables SMS / WhatsApp invitation and reminder notifications when the interview has candidate_notification_channel set. Never overwrites a phone already stored on the candidate.",
+            "example": "+421903123456"
           }
         }
       },
@@ -4978,6 +5185,26 @@
                   "type": "string",
                   "nullable": true,
                   "description": "Position result step id."
+                },
+                "position_def_step_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Position step definition id the row belongs to (null for single-stage interviews)."
+                },
+                "position_step_name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Custom name of the position step, null when the step uses its default label."
+                },
+                "position_step_index": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "1-based position of the step in the position process."
+                },
+                "position_step_count": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "Number of steps in the position process."
                 },
                 "created_at": {
                   "type": "string",
@@ -8437,9 +8664,10 @@
               "type": "string",
               "enum": [
                 "pre-screening",
-                "interview"
+                "interview",
+                "meeting"
               ],
-              "description": "Filter by pipeline step (pre-screening vs interview). Omit for both.",
+              "description": "Filter by pipeline step type (pre-screening, interview or meeting). Omit for all.",
               "example": "interview"
             },
             "required": false,
