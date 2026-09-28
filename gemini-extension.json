@@ -1,0 +1,11 @@
+{
+  "name": "jobmojito",
+  "version": "1.0.0",
+  "description": "Run AI interviews, simulated personas and coaching sessions on JobMojito — create them, invite people, and read back transcripts, scores and reports.",
+  "mcpServers": {
+    "jobmojito": {
+      "httpUrl": "https://mcp.jobmojito.com/mcp",
+      "timeout": 60000
+    }
+  }
+}

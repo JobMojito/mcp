@@ -2,28 +2,37 @@
 
 ## Welcome
 
-[JobMojito](https://jobmojito.com) is an AI interview platform for hiring teams:
-**let AI interview every candidate — you make the call.** Lifelike avatar and
-voice agents run structured, multilingual interviews at any scale, score them in
-real time, and hand recruiters the transcripts, summaries and reports they need
-to make the actual decision. Everything the platform produces is decision
-support for a qualified human reviewer — never the hiring decision itself.
+[JobMojito](https://jobmojito.com) runs AI-led conversational sessions in three
+shapes. The difference between them matters, because one tool builds two of them:
 
-What the platform offers:
+- **Interviews** — a scored Q&A for hiring. Generate the questions from a job
+  description or supply your own; run them with a voice-only interviewer, a live
+  video avatar or a pre-recorded one, in 30+ languages, with a fully branded
+  candidate experience.
+- **Simulated personas** — instead of a question list, the avatar plays a defined
+  character in free-form conversation — a sceptical buyer, an angry customer, a
+  difficult stakeholder — and the person is scored on how they handle it. Same
+  invitation, billing and result flow as an interview, so these land in the
+  recruiter's result list alongside everything else.
+- **Coaching** — the same persona engine pointed at practice rather than
+  assessment. Learners start sessions themselves from a browsable catalogue,
+  spend their own coaching credits, and their results stay private from
+  recruiters. Organise it with directories, tag filters and Markdown pages.
 
-- **AI avatar & voice interviews** — real-time conversational interviews with
-  configurable avatars, generated from a job description or built from your own
-  question set, with a fully branded candidate experience.
-- **Scoring, transcripts & reports** — consistent structured assessment with
-  real-time scoring, plus shareable interview reports for the hiring team.
-- **Candidate management & invitations** — register candidates in bulk, send
-  each one a personal interview link, grant extra attempts, track results.
-- **Role-play & coaching personas** — avatars that play a defined role, for
-  screening scenarios or candidate practice on the coaching portal.
-- **Knowledge base** — upload company documents so interviews and evaluations
-  reflect your organisation's context.
-- **Workspaces & analytics** — merchants and sub-merchants, credit usage, and
-  hiring analytics across positions.
+> **The one trap.** `create_persona` builds both the second and the third product,
+> selected by its `portal` argument — and it **defaults to `coaching`**. For
+> anything used to assess or screen, pass `portal="interview"` explicitly, or you
+> silently get the wrong product: billed to the wrong credits and invisible to the
+> recruiter.
+
+Across all three: register candidates in bulk and give each a personal link,
+upload documents to a **knowledge base** the AI draws on, read back transcripts,
+structured analysis and shareable HTML or PDF reports, and manage **workspaces,
+credits and analytics** across merchants and sub-merchants.
+
+Everything the platform produces is decision support for a qualified human
+reviewer — never the hiring decision itself, and candidates are told AI is part
+of the process.
 
 Around the product: the admin console at [app.jobmojito.com](https://app.jobmojito.com),
 developer/API docs at [developer.jobmojito.com](https://developer.jobmojito.com),
@@ -42,8 +51,8 @@ team — `app.prefect.cloud` → Horizon).
 
 It exposes:
 
-- **25 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews
-  and role-play personas, the coaching catalogue, candidates and results,
+- **27 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews,
+  simulated personas and the coaching catalogue, candidates and results,
   knowledge base, merchant lists/analytics). All endpoints — including the `GET`
   lists — are surfaced as tools with clean, curated names, each with a title and
   read-only/destructive annotations.
@@ -351,19 +360,25 @@ curl -s https://mcp.jobmojito.com/.well-known/oauth-protected-resource/mcp
 curl -s https://mcp.jobmojito.com/healthz
 ```
 
+### Where it's listed
+
+| Directory | Status |
+|---|---|
+| [Official MCP Registry](https://registry.modelcontextprotocol.io) (`com.jobmojito/jobmojito`) | Published — `publish-registry.yml` fires when `server.py:SERVER_VERSION` changes on `main`, not on a git tag. Registry versions are immutable, so a description change needs a version bump. |
+| OpenAI plugin directory (ChatGPT + Codex) | Listed |
+| Anthropic Connectors Directory | In review |
+| [Glama](https://glama.ai/mcp/connectors/com.jobmojito/jobmojito) | Listed |
+| [Smithery](https://smithery.ai) | Listed |
+
 ### Still to do outside this repo
 
 The code is ready; these are not code problems:
 
-1. **A Claude Team or Enterprise plan.** The Anthropic submission portal lives
-   under `claude.ai/admin-settings/` and is unavailable on individual plans.
-2. **A public "Connect JobMojito to Claude & ChatGPT" docs page** — required by
-   Anthropic (documentation URL) and OpenAI (support URL).
-3. **A populated reviewer test account** with no MFA and no email confirmation
-   step; OpenAI rejects submissions whose test account requires either.
-4. **DNS TXT record on `jobmojito.com`** for the `com.jobmojito/*` registry
-   namespace, and the `MCP_REGISTRY_PRIVATE_KEY` repo secret — see the header
-   comment in `.github/workflows/publish-registry.yml`.
-5. **Allowlist Anthropic's egress range `160.79.104.0/21`** on the MCP host and
+1. **Allowlist Anthropic's egress range `160.79.104.0/21`** on the MCP host and
    anything in front of Supabase. A blocking WAF is Anthropic's most common
    documented failure mode.
+2. **Cache-bypass at the CDN** for `/.well-known/*`, `llms.txt` and `*.md`, and
+   confirm nothing in front of the server buffers SSE.
+3. **Keep the reviewer test account usable.** Both directories may re-test after
+   listing; an account that runs out of credits fails in a way that looks like a
+   broken server.
