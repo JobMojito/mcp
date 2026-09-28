@@ -7096,6 +7096,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error (missing required field, invalid enum value, out-of-range number, or unresolved template/language/knowledge-base id).",
             "content": {
@@ -7107,7 +7117,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and unhandled exceptions).",
+            "description": "Server error (includes unhandled exceptions).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7163,6 +7173,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error.",
             "content": {
@@ -7174,7 +7194,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and unresolved template/knowledge-base/language ids).",
+            "description": "Server error (includes unresolved template/knowledge-base/language ids).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7230,6 +7250,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The requested position_def_set_id could not be found.",
             "content": {
@@ -7251,7 +7281,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and unhandled exceptions).",
+            "description": "Server error (includes unhandled exceptions).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7307,6 +7337,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error (missing required field, invalid enum value, out-of-range number, or unresolved template/language id).",
             "content": {
@@ -7318,7 +7358,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and unhandled exceptions).",
+            "description": "Server error (includes unhandled exceptions).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7455,6 +7495,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No interview or position found for the given id (or hidden by row-level security).",
             "content": {
@@ -7476,7 +7526,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7532,6 +7582,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error.",
             "content": {
@@ -7543,7 +7603,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and unresolved position/interview ids).",
+            "description": "Server error (includes unresolved position/interview ids).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7944,6 +8004,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "A directory with this id already exists. Use catalogue-tag-update to change it.",
             "content": {
@@ -7965,7 +8035,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8021,6 +8091,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No directory with this id (or hidden / not writable by row-level security).",
             "content": {
@@ -8042,7 +8122,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9292,6 +9372,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error.",
             "content": {
@@ -9303,7 +9393,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures and a missing/invalid file or store).",
+            "description": "Server error (includes a missing/invalid file or store).",
             "content": {
               "application/json": {
                 "schema": {
@@ -9359,6 +9449,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Pre-screening step not found for the given position (update path).",
             "content": {
@@ -9380,7 +9480,7 @@
             }
           },
           "500": {
-            "description": "Server error (includes authorization failures).",
+            "description": "Server error.",
             "content": {
               "application/json": {
                 "schema": {
