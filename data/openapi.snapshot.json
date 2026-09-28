@@ -5499,6 +5499,14 @@
                   "type": "string",
                   "nullable": true,
                   "description": "Deletion timestamp (ISO 8601), if deleted."
+                },
+                "skills": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Skills read from the candidate's latest CV; null until extracted."
                 }
               },
               "required": [
@@ -9149,7 +9157,7 @@
           {
             "schema": {
               "type": "string",
-              "description": "Case-insensitive search on candidate name or email."
+              "description": "Search on candidate name, email, external id, phone and CV skills. Every word must match (case and accents ignored; longer words tolerate typos). Without order_by, the best matches come first."
             },
             "required": false,
             "name": "filter_text",
