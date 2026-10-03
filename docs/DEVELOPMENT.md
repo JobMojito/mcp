@@ -192,7 +192,9 @@ Declare named projections on the endpoint's `ToolMeta`:
     views=(
         ResponseView("summary",  "…what it keeps…", drop=("transcript[].ai_analysis", …)),
         ResponseView("standard", "…", drop=("transcript[].answer_assessment_raw_data", …)),
-        ResponseView("full",     "the API response verbatim", drop=()),
+        ResponseView("full",     "…", drop=(),
+                     condense=(("transcript[].answer_assessment_raw_data",
+                                condense_answer_assessment),)),
     ),
     default_view="standard",
 ),
@@ -200,7 +202,13 @@ Declare named projections on the endpoint's `ToolMeta`:
 
 `drop` paths are dotted, with `[]` for an array level — `transcript[].answer`
 removes that field from every entry. Missing paths are ignored (the response
-schemas are passthrough). That one declaration feeds **two** places, and both are
+schemas are passthrough). `condense` uses the same paths but replaces the value
+with a smaller one instead of removing it — for a field worth returning, just not
+raw. `view="full"` returned the API response verbatim until it failed on every
+real interview it was asked for (477k–806k characters, ~96% of it word timings and
+per-frame gaze); `raw_assessment.py` keeps the summaries and names what it left
+out in `_omitted`. Condense only a field the schema leaves untyped, so the new
+shape still validates. That one declaration feeds **two** places, and both are
 needed:
 
 - `openapi_loader.inject_view_params` adds `view` to the tool's input schema —

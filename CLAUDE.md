@@ -63,6 +63,7 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `config.py` | `Settings` dataclass loaded from env (+ `.env` via dotenv). Single source of config. |
 | `openapi_loader.py` | Loads spec (live → cache → snapshot), injects curated `operationId`s, **relaxes nullable/enum schemas** for output validation. |
 | `naming.py` | `TOOL_META` maps `(METHOD, path)` → curated tool name + hint. `IGNORED_PATHS` excludes endpoints. |
+| `raw_assessment.py` | Condenses the per-answer raw assessment blob for `get_interview_result_details` `view="full"`. |
 | `upstream.py` | httpx `AsyncClient` + `SupabaseTokenForwardAuth` (forwards end-user JWT; `apikey` header; dev-token fallback). |
 | `docs_tools.py` | `search_documentation` (help + developer in parallel) and `get_documentation`. |
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
@@ -184,7 +185,9 @@ More detail: `docs/ARCHITECTURE.md`.
   and needs *both* halves: `openapi_loader.inject_view_params` puts the argument
   in the schema (or the model can't ask for it) and
   `middleware.ResponseViewMiddleware` strips it before the upstream call (it is
-  **not** an API parameter) and prunes the response. Every prunable field must be
+  **not** an API parameter) and prunes the response. `view="full"` is not
+  verbatim: `raw_assessment.py` condenses each `answer_assessment_raw_data` to its
+  summaries (verbatim, it overflowed on every real interview). Every prunable field must be
   optional in the response schema, or output validation rejects the pruned
   result. Register `ResponseViewMiddleware` **last** so it is innermost and the
   size guard measures what the client actually gets. Recipe in

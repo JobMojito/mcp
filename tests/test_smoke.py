@@ -583,7 +583,7 @@ async def test_every_view_still_validates_against_the_output_schema():
     import jsonschema
 
     import server
-    from middleware import prune_fields
+    from middleware import condense_fields, prune_fields
     from naming import response_view_rules
 
     tools = await server.mcp.list_tools()
@@ -600,7 +600,10 @@ async def test_every_view_still_validates_against_the_output_schema():
         "score_text": "good",
         "status": "completed",
         "ai_analysis": "overall",
-        "transcript": [{name: None for name in item_props}],
+        "transcript": [
+            {name: None for name in item_props},
+            {**{name: None for name in item_props}, "answer_assessment_raw_data": _raw_assessment()},
+        ],
     }
 
     rules = response_view_rules()["get_interview_result_details"]
@@ -608,6 +611,7 @@ async def test_every_view_still_validates_against_the_output_schema():
         import copy
 
         pruned = prune_fields(copy.deepcopy(response), rules.paths_for(view))
+        condense_fields(pruned, rules.condensers_for(view))
         jsonschema.validate(instance=pruned, schema=schema)
 
     # And the views actually differ, or none of this is doing anything.
@@ -616,6 +620,146 @@ async def test_every_view_still_validates_against_the_output_schema():
     # An unknown view narrows to the default rather than failing the call.
     assert rules.paths_for("nonsense") == rules.paths_for("standard")
     assert rules.paths_for(None) == rules.paths_for("standard")
+
+
+def _raw_assessment():
+    """One answer's `answer_assessment_raw_data`, shaped like production rows."""
+    words = [
+        {"Word": w, "Offset": i * 1_000_000, "Duration": 400_000,
+         "PronunciationAssessment": {"ErrorType": "None", "AccuracyScore": score}}
+        for i, (w, score) in enumerate(
+            [("i", 100), ("built", 41), ("data", 95), ("centres", 22), ("in", 59), ("finland", 88)]
+        )
+    ]
+    return {
+        "type": "assemblyai",
+        "model": "slam-1",
+        "language": "en-IN",
+        "is_question_answered": True,
+        "score_answer_ai_raw": 7,
+        "reading_stats": {"reading_score": 0.17, "reading_is_risk": False},
+        "stt_reliability": {"score": 0.87, "flagged": False},
+        "proctor_status": "completed",
+        "voice": [{
+            "ITN": "i built data centres in finland",
+            "Lexical": "i built data centres in finland",
+            "MaskedITN": "i built data centres in finland",
+            "Display": "I built data centres in Finland.",
+            "Confidence": 0.86,
+            "Words": words,
+            "PronunciationAssessment": {"PronScore": 83.2, "FluencyScore": 85, "AccuracyScore": 82},
+            "SentimentAnalysis": {"positive": 0.6, "sentiment_score": 9.69},
+        }],
+        "assemblyai": [{"type": "Turn", "words": [{"text": "I", "start": 1, "end": 2}] * 50}],
+        "elevenlabs": [{"text": "I", "characters": [{"text": "I", "start": 0, "end": 1}]}],
+        "reading_detection_results": [{"frame_number": n, "gaze_direction": "up"} for n in range(120)],
+        "candidate_images": [{"filename": "m/r/q/candidate-000001.jpg"}, {"filename": "m/r/q/candidate-000002.jpg"}],
+        "audio_mp3_local_path": "m/r/q/answer.mp3",
+        "pyannote": {
+            "diarization": [
+                {"start": 0.5, "end": 3.0, "speaker": "SPEAKER_00"},
+                {"start": 3.2, "end": 4.0, "speaker": "SPEAKER_01"},
+                {"start": 4.1, "end": 6.1, "speaker": "SPEAKER_00"},
+            ],
+            "identification": [
+                {"start": 0.5, "end": 3.0, "match": "Candidate"},
+                {"start": 3.2, "end": 4.0, "match": None},
+            ],
+            "voiceprints": [{"match": "Candidate", "speaker": "SPEAKER_00"}],
+            "confidence": {"resolution": 0.02, "score": [100] * 400},
+        },
+        "future_small_summary": {"ok": True},
+        "future_frame_dump": [{"frame": n} for n in range(1_000)],
+    }
+
+
+def test_full_view_condenses_the_raw_assessment():
+    """`view="full"` failed on every real interview it was asked for.
+
+    30 Sep and 2 Oct 2026: 477k-806k characters of data against a 150k limit,
+    and ~96% of the raw assessment was word timings (Azure `voice`, AssemblyAI)
+    and per-frame gaze (`reading_detection_results`). The summaries sitting next
+    to those arrays are what a "full" reader wants; pin that they survive and the
+    arrays don't.
+    """
+    from raw_assessment import condense_answer_assessment
+
+    raw = _raw_assessment()
+    out = condense_answer_assessment(raw)
+
+    # Small keys, including ones added after the condenser was written, pass.
+    for key in ("type", "model", "language", "is_question_answered", "score_answer_ai_raw",
+                "reading_stats", "stt_reliability", "proctor_status", "future_small_summary"):
+        assert out[key] == raw[key], key
+
+    # Bulk is gone and SAYS so, so "removed here" isn't read as "never recorded".
+    for key in ("assemblyai", "elevenlabs", "reading_detection_results", "candidate_images",
+                "audio_mp3_local_path", "future_frame_dump"):
+        assert key not in out, key
+        assert key in out["_omitted"], key
+    assert out["candidate_images_count"] == 2
+
+    # Azure: the scores and its own transcription stay; the word list becomes
+    # the weak words only, in spoken order.
+    (segment,) = out["voice"]
+    assert set(segment) == {"Display", "Confidence", "PronunciationAssessment",
+                            "SentimentAnalysis", "LowAccuracyWords"}
+    assert [w["Word"] for w in segment["LowAccuracyWords"]] == ["built", "centres", "in"]
+
+    # Diarisation and identification become seconds per voice.
+    pyannote = out["pyannote"]
+    assert pyannote["speaker_seconds"] == {"SPEAKER_00": 4.5, "SPEAKER_01": 0.8}
+    assert pyannote["turns"] == 3
+    assert pyannote["identified_seconds"] == {"Candidate": 2.5, "unmatched": 0.8}
+    assert pyannote["voiceprints"] == raw["pyannote"]["voiceprints"]
+    assert pyannote["_omitted"] == ["confidence"]
+
+    assert len(json.dumps(out)) < len(json.dumps(raw)) / 10
+
+    # Older rows wrap the object in a list; nulls stay null.
+    assert condense_answer_assessment([None, raw]) == [None, out]
+    assert condense_answer_assessment(None) is None
+
+
+def test_full_view_condenses_through_the_middleware():
+    """The view rules carry the condenser, and the middleware applies it."""
+    import asyncio
+    import types
+
+    from fastmcp.tools.base import ToolResult
+
+    from middleware import ResponseViewMiddleware
+    from naming import response_view_rules
+
+    middleware = ResponseViewMiddleware(response_view_rules())
+
+    def run(view):
+        context = types.SimpleNamespace(
+            message=types.SimpleNamespace(
+                name="get_interview_result_details",
+                arguments={"interview_result_id": "x", "view": view},
+            )
+        )
+
+        async def call_next(_):
+            return ToolResult(structured_content={
+                "score": 7,
+                "transcript": [
+                    {"answer": "a", "answer_assessment_raw_data": _raw_assessment()},
+                    {"answer": "b", "answer_assessment_raw_data": None},
+                ],
+            })
+
+        return asyncio.run(middleware.on_call_tool(context, call_next)).structured_content
+
+    full = run("full")
+    first, second = full["transcript"]
+    assert "voice" in first["answer_assessment_raw_data"]
+    assert "assemblyai" not in first["answer_assessment_raw_data"]
+    assert second["answer_assessment_raw_data"] is None
+
+    # The narrower views still drop the field outright.
+    assert "answer_assessment_raw_data" not in run("standard")["transcript"][0]
 
 
 @pytest.mark.asyncio
@@ -1025,7 +1169,20 @@ async def test_view_and_dedup_work_together_through_the_real_middleware_stack(mo
         assert "ai_analysis" not in summary.structured_content["transcript"][0]
         assert len(json.dumps(summary.structured_content)) < structured
 
-        # 4. `full` is honestly refused rather than silently truncated.
+        # 4. `full` keeps the raw assessment field but condenses it: the bulky
+        #    array is gone and named, so the record fits.
+        full = await client.call_tool(
+            "get_interview_result_details", {**args, "view": "full"}
+        )
+        assert "view=" not in seen_urls[-1]
+        raw = full.structured_content["transcript"][0]["answer_assessment_raw_data"]
+        assert raw == {"_omitted": ["words"]}
+        assert full.structured_content["transcript"][0]["external_data"] == turn["external_data"]
+
+        # 5. A record still too big after condensing is honestly refused rather
+        #    than silently truncated.
+        for item in upstream["transcript"]:
+            item["answer"] = "I have ten years of experience. " * 200
         with pytest.raises(ToolError, match="exceeds this server's 150,000-character"):
             await client.call_tool("get_interview_result_details", {**args, "view": "full"})
 

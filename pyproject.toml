@@ -36,6 +36,7 @@ py-modules = [
     "config",
     "openapi_loader",
     "naming",
+    "raw_assessment",
     "upstream",
     "docs_tools",
     "featurebase",

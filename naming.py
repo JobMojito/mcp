@@ -30,7 +30,10 @@ receive an auto-generated name and method-derived annotations (see
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Callable
+
+from raw_assessment import condense_answer_assessment
 
 # HTTP methods that are safe/read-only by definition (RFC 9110).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -68,6 +71,11 @@ class ResponseView:
 
     Every field named here MUST be optional in the response schema, or output
     validation will reject the pruned result. ``tests/test_smoke.py`` pins that.
+
+    ``condense`` pairs a path (same syntax) with a function that replaces the
+    value there with a smaller one, for a field that is worth returning but not
+    in its raw form. Only use it on a field the schema leaves untyped (`z.any`),
+    so the condensed shape still validates.
     """
 
     name: str
@@ -75,6 +83,7 @@ class ResponseView:
     #: is KEPT and what is dropped — this is how the model picks.
     summary: str
     drop: tuple[str, ...] = ()
+    condense: tuple[tuple[str, Callable], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -164,9 +173,10 @@ PAGE_SIZE_WHY = (
 #:
 #: A ``view`` therefore does for wide records what ``limit`` does for long lists:
 #: it lets the default call return the fields a reviewer actually reads, while
-#: ``view="full"`` still gets the API response verbatim for anyone who needs it.
-#: The projection happens in this server, not upstream — the API has no
-#: field-selection parameter.
+#: ``view="full"`` still returns every field for anyone who needs it — with the
+#: raw blob condensed to its summaries, because verbatim it never fit (see
+#: ``raw_assessment.py``). The projection happens in this server, not upstream —
+#: the API has no field-selection parameter.
 RESPONSE_VIEW_WHY = (
     "a single record carries machine-only blobs large enough to overflow the "
     "tool result limit, and pagination cannot narrow one record"
@@ -209,10 +219,19 @@ _INTERVIEW_RESULT_VIEWS = (
     ),
     ResponseView(
         "full",
-        "the API response verbatim, including the raw per-answer "
-        "pronunciation/sentiment data. Large — a long interview can exceed the "
-        "result limit and fail. Only ask for this if you need those raw fields.",
+        "every field, including the per-answer raw assessment data — condensed: "
+        "pronunciation and sentiment scores per recognised segment with the "
+        "lowest-scoring words, reading/gaze statistics, STT reliability, proctor "
+        "status and seconds per detected speaker. Word-, character- and "
+        "frame-level arrays are left out (listed in `_omitted`). Only ask for "
+        "this if you need those assessment details.",
         drop=(),
+        # Verbatim, this view failed on every real interview it was asked for
+        # (30 Sep / 2 Oct 2026: 477k-806k characters against a 150k limit, ~96%
+        # of it word timings and per-frame gaze). See raw_assessment.py.
+        condense=(
+            ("transcript[].answer_assessment_raw_data", condense_answer_assessment),
+        ),
     ),
 )
 
@@ -677,6 +696,8 @@ class ToolViewRules:
     default: str
     #: view name -> field paths to remove from the response
     drop: dict[str, tuple[str, ...]]
+    #: view name -> (field path, function) pairs that shrink a value in place
+    condense: dict[str, tuple[tuple[str, Callable], ...]] = field(default_factory=dict)
 
     def paths_for(self, view: str | None) -> tuple[str, ...]:
         """Fields to drop for ``view``, falling back to the default projection.
@@ -688,6 +709,12 @@ class ToolViewRules:
         if view not in self.drop:
             view = self.default
         return self.drop.get(view, ())
+
+    def condensers_for(self, view: str | None) -> tuple[tuple[str, Callable], ...]:
+        """Fields to condense for ``view``, with the same default fallback."""
+        if view not in self.drop:
+            view = self.default
+        return self.condense.get(view, ())
 
     def narrower_than(self, view: str | None) -> str | None:
         """The narrowest view that drops strictly more than ``view`` does.
@@ -729,6 +756,7 @@ def response_view_rules() -> dict[str, ToolViewRules]:
             parameter=VIEW_PARAM_NAME,
             default=meta.effective_default_view,
             drop={view.name: view.drop for view in meta.views},
+            condense={view.name: view.condense for view in meta.views if view.condense},
         )
         for meta in TOOL_META.values()
         if meta.views

@@ -370,6 +370,36 @@ def _prune(node, segments: list[str]) -> None:
         _prune(child, rest)
 
 
+def condense_fields(data: dict, condensers) -> dict:
+    """Replace the value at each path with ``fn(value)``, in place; return ``data``.
+
+    Same path syntax as :func:`prune_fields`. A missing path is ignored, and so
+    is an explicit null — there is nothing to condense.
+    """
+    for path, fn in condensers:
+        _condense(data, path.split("."), fn)
+    return data
+
+
+def _condense(node, segments: list[str], fn) -> None:
+    head, rest = segments[0], segments[1:]
+    is_array = head.endswith("[]")
+    key = head[:-2] if is_array else head
+    if not isinstance(node, dict) or key not in node:
+        return
+    if not rest:
+        if node[key] is not None:
+            node[key] = fn(node[key])
+        return
+    child = node[key]
+    if is_array:
+        if isinstance(child, list):
+            for item in child:
+                _condense(item, rest, fn)
+    else:
+        _condense(child, rest, fn)
+
+
 class ResponseViewMiddleware(Middleware):
     """Serve the MCP-only ``view`` argument: narrow a response the API can't.
 
@@ -417,19 +447,23 @@ class ResponseViewMiddleware(Middleware):
 
         result = await call_next(context)
 
-        paths = rules.paths_for(requested if isinstance(requested, str) else None)
-        if not paths:
+        view = requested if isinstance(requested, str) else None
+        paths = rules.paths_for(view)
+        condensers = rules.condensers_for(view)
+        if not paths and not condensers:
             return result
         if not isinstance(result, ToolResult) or result.structured_content is None:
             return result
 
         pruned = prune_fields(result.structured_content, paths)
+        condense_fields(pruned, condensers)
         logger.debug(
-            "%s: applied %s=%r (%d field path(s) pruned)",
+            "%s: applied %s=%r (%d field path(s) pruned, %d condensed)",
             name,
             rules.parameter,
             requested or rules.default,
             len(paths),
+            len(condensers),
         )
         return ToolResult(
             structured_content=pruned,
