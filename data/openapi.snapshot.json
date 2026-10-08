@@ -4403,11 +4403,17 @@
             "items": {
               "type": "string"
             },
-            "description": "Every language the directory has, the default (`mojito_language_code`) first. `matched_sessions` and `sub_directories` describe the default language; a version lists its own via its `tags_interview_set_filter` / `tags_sub`.",
+            "description": "Every language the directory has, the default (`mojito_language_code`) first. `matched_sessions` and `sub_directories` describe the default language unless the request names another one in `mojito_language_code`.",
             "example": [
               "en",
               "sk"
             ]
+          },
+          "viewed_language": {
+            "type": "string",
+            "nullable": true,
+            "description": "The language version `sub_directories` and `matched_sessions` were resolved for: the requested `mojito_language_code`, else the default.",
+            "example": "sk"
           },
           "merged_into": {
             "type": "string",
@@ -4567,6 +4573,7 @@
           "content_md",
           "translations",
           "languages",
+          "viewed_language",
           "merged_into",
           "created_at",
           "updated_at",
@@ -8395,6 +8402,52 @@
             },
             "required": false,
             "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ar",
+                "bg",
+                "zh",
+                "hr",
+                "cs",
+                "da",
+                "nl",
+                "en",
+                "fil",
+                "fi",
+                "fr",
+                "de",
+                "el",
+                "hi",
+                "hu",
+                "id",
+                "it",
+                "ja",
+                "ko",
+                "ms",
+                "no",
+                "pl",
+                "pt",
+                "br",
+                "ro",
+                "ru",
+                "sk",
+                "es",
+                "sv",
+                "ta",
+                "th",
+                "tr",
+                "uk",
+                "vi"
+              ],
+              "description": "Show `sub_directories` and `matched_sessions` for this language version of the directory (one of its `languages`) instead of the default one - how you verify a translation lists the right sessions.",
+              "example": "en"
+            },
+            "required": false,
+            "name": "mojito_language_code",
             "in": "query"
           }
         ],

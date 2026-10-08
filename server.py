@@ -180,6 +180,13 @@ Typical flows:
 - "Add a practice session learners can start themselves" → create_persona (default
   coaching portal) with `tags` → the catalogue directory whose
   `tags_interview_set_filter` those tags satisfy lists it automatically.
+- "Offer a coaching page in several languages" → one session per language
+  (create_interview / create_persona with its `mojito_language_code` and a
+  language tag such as `sales-sk`) → ONE directory: create_catalogue_directory with
+  the default language at the top level and the others in `translations`, each with
+  its own `tags_interview_set_filter` → check each language with
+  get_catalogue_directory(`mojito_language_code`=…). Never one directory per
+  language.
 """
 
 
