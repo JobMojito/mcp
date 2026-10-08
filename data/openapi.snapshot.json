@@ -488,7 +488,7 @@
           "is_embedded": {
             "type": "boolean",
             "nullable": true,
-            "description": "Set true when the interview will be embedded as an iframe on an external page. Provisions an embed key and returns embed_id / embed_signing_key, which are used to authenticate/sign the iframe embed.",
+            "description": "Set true when the interview will be embedded as an iframe on an external page. Provisions an embed key and returns embed_id / embed_signing_key, which are used to authenticate/sign the iframe embed. Where it runs depends on the type: interviews, assessments and interview role-plays embed on the interview portal (`https://<interview portal domain>/embed?embed_id=...`); coaching sessions and coaching personas embed on the consumer (coaching) portal (`https://<coaching portal domain>/embed?embed_id=...`, a link built on the interview portal is forwarded there). A signed coaching embed (name, email, signature) signs the visitor in as a learner of that portal, and the session is charged to the merchant's interview credits on completion, not to the learner's coaching credits; it cannot start while the merchant has none.",
             "example": false
           },
           "include_rapport_question": {
@@ -2321,7 +2321,7 @@
           "is_embedded": {
             "type": "boolean",
             "nullable": true,
-            "description": "Set true when the persona will be embedded as an iframe on an external page. Provisions an embed key and returns embed_id / embed_signing_key.",
+            "description": "Set true when the persona will be embedded as an iframe on an external page. Provisions an embed key and returns embed_id / embed_signing_key, used to sign the iframe link. Where it runs depends on the type: interviews, assessments and interview role-plays embed on the interview portal (`https://<interview portal domain>/embed?embed_id=...`); coaching sessions and coaching personas embed on the consumer (coaching) portal (`https://<coaching portal domain>/embed?embed_id=...`, a link built on the interview portal is forwarded there). A signed coaching embed (name, email, signature) signs the visitor in as a learner of that portal, and the session is charged to the merchant's interview credits on completion, not to the learner's coaching credits; it cannot start while the merchant has none.",
             "example": false
           }
         },
@@ -2611,6 +2611,10 @@
               "all"
             ],
             "description": "SMS / WhatsApp candidate notifications: null = off, reminders = with both e-mail reminders, last_reminder = only with the final reminder, all = invitation + reminders + pre-screening accepted."
+          },
+          "country_availability": {
+            "nullable": true,
+            "description": "Portal availability by the candidate's country: {countries_allowed?: string[], countries_allowed_eu?: boolean, countries_blocked?: string[], countries_blocked_eu?: boolean} (ISO 3166-1 alpha-2, EU = EU + EEA + Switzerland; blocked wins), judged by the candidate's IP on the portal; invited candidates keep access. Null = not used, every country. Set it with job-interview-update."
           },
           "recruiter_profile_id": {
             "type": "string",
@@ -2937,6 +2941,44 @@
               "all"
             ],
             "description": "SMS / WhatsApp notifications to the candidate, sent alongside the e-mails: \"reminders\" = with both e-mail reminders (day 1 and day 3); \"last_reminder\" = only with the final day-3 reminder; \"all\" = invitation, both reminders and the pre-screening-accepted step. null switches them off. WhatsApp is tried first, SMS when the number is not on WhatsApp. Available on paid plans (Starter and above) and needs a phone number on the candidate."
+          },
+          "country_availability": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "countries_allowed": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z]{2}$"
+                },
+                "description": "Available ONLY to candidates in these countries (ISO 3166-1 alpha-2).",
+                "example": [
+                  "PH",
+                  "IN"
+                ]
+              },
+              "countries_allowed_eu": {
+                "type": "boolean",
+                "description": "Adds every EU country (plus EEA and Switzerland) to countries_allowed."
+              },
+              "countries_blocked": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z]{2}$"
+                },
+                "description": "NOT available to candidates in these countries (ISO 3166-1 alpha-2). Wins over the allowed side.",
+                "example": [
+                  "US"
+                ]
+              },
+              "countries_blocked_eu": {
+                "type": "boolean",
+                "description": "Adds every EU country (plus EEA and Switzerland) to countries_blocked."
+              }
+            },
+            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (register_users / invite links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
           },
           "tags": {
             "type": "array",
@@ -3385,7 +3427,7 @@
           "is_embedded": {
             "type": "boolean",
             "nullable": true,
-            "description": "Controls iframe embedding of the interview on an external page. When true, ensures an embed key exists (returns embed_id/embed_signing_key, used to authenticate/sign the iframe embed). When false, removes the embed keys (disables embedding)."
+            "description": "Controls iframe embedding of the interview on an external page. When true, ensures an embed key exists (returns embed_id/embed_signing_key, used to authenticate/sign the iframe embed). When false, removes the embed keys (disables embedding). Where it runs depends on the type: interviews, assessments and interview role-plays embed on the interview portal (`https://<interview portal domain>/embed?embed_id=...`); coaching sessions and coaching personas embed on the consumer (coaching) portal (`https://<coaching portal domain>/embed?embed_id=...`, a link built on the interview portal is forwarded there). A signed coaching embed (name, email, signature) signs the visitor in as a learner of that portal, and the session is charged to the merchant's interview credits on completion, not to the learner's coaching credits; it cannot start while the merchant has none."
           }
         },
         "required": [
@@ -3938,6 +3980,74 @@
             "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
             "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
           },
+          "translations": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Page title and card name in this language.",
+                  "example": "Obchodný koučing"
+                },
+                "description": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Card description in this language."
+                },
+                "content_md": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
+                  "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
+                },
+                "cover_image_url": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Cover image for this language. Omit to show the default language's cover."
+                },
+                "tags_interview_set_filter": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Tag filter selecting which coaching sessions this directory lists: a session appears when its own `tags` contain EVERY tag here (an AND, not an OR). Only `active` coaching/persona sessions with visibility `public` or `merchant_public` are listed. Set the matching tags on the session with the create-interview / job-interview-update `tags` field.",
+                  "example": [
+                    "sales",
+                    "objection-handling"
+                  ]
+                },
+                "tags_sub": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Ids of the directories nested under this one, in display order. Replaces the whole list — send the full set, not just the additions. A referenced directory only appears if it exists and is visible to the viewer.",
+                  "example": [
+                    "sales-coaching-objections-en",
+                    "sales-coaching-closing-en"
+                  ]
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Other language versions of the directory, keyed by mojito language code. The top-level fields are the default language (`mojito_language_code`); each version is a page of its own (name, Markdown, session filter, sub-directories) shown to learners who pick that language. A key may not equal `mojito_language_code`.",
+            "example": {
+              "sk": {
+                "name": "Obchodný koučing",
+                "tags_interview_set_filter": [
+                  "sales-sk"
+                ]
+              }
+            }
+          },
           "parent_tag": {
             "type": "string",
             "nullable": true,
@@ -3996,7 +4106,7 @@
             "type": "string",
             "minLength": 1,
             "pattern": "^[a-z0-9]+(?:(?:-|_)+[a-z0-9]+)*$",
-            "description": "Id of the directory to update (the catalogue URL segment). The id itself cannot be changed — create a new directory instead.",
+            "description": "Id of the directory to update (the catalogue URL segment). The id itself is not changed here — rename a directory in the admin catalogue editor, which moves every link to it.",
             "example": "sales-coaching-en"
           },
           "name": {
@@ -4122,6 +4232,75 @@
             "nullable": true,
             "description": "Markdown for the custom directory page. Sending null removes the custom page and restores the default grid; sending a string replaces the whole page. Directives, each ALONE on its own line: `[plan-progress]`, `[directory:<tag-id>]`, `[session:<interview-id>]`, `[sessions]`, `[sessions:<term>]`, `[sessions:filter=<term>,limit=<n>]`. Chips, callouts, cards, columns and buttons are available too — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
             "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
+          },
+          "translations": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "object",
+              "nullable": true,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Page title and card name in this language.",
+                  "example": "Obchodný koučing"
+                },
+                "description": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Card description in this language."
+                },
+                "content_md": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
+                  "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
+                },
+                "cover_image_url": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Cover image for this language. Omit to show the default language's cover."
+                },
+                "tags_interview_set_filter": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Tag filter selecting which coaching sessions this directory lists: a session appears when its own `tags` contain EVERY tag here (an AND, not an OR). Only `active` coaching/persona sessions with visibility `public` or `merchant_public` are listed. Set the matching tags on the session with the create-interview / job-interview-update `tags` field.",
+                  "example": [
+                    "sales",
+                    "objection-handling"
+                  ]
+                },
+                "tags_sub": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Ids of the directories nested under this one, in display order. Replaces the whole list — send the full set, not just the additions. A referenced directory only appears if it exists and is visible to the viewer.",
+                  "example": [
+                    "sales-coaching-objections-en",
+                    "sales-coaching-closing-en"
+                  ]
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The directory's OTHER language versions, keyed by mojito language code. The top-level fields are the default language (`mojito_language_code`); each version here is a page of its own with its own name, Markdown, session filter and sub-directories, shown to learners who pick that language in the catalogue (falling back to English, then the default). A key may not equal `mojito_language_code`. Only the languages you send change: an object replaces that version, null removes it. Send `translations: null` to remove every version.",
+            "example": {
+              "sk": {
+                "name": "Obchodný koučing",
+                "tags_interview_set_filter": [
+                  "sales-sk"
+                ]
+              }
+            }
           }
         },
         "required": [
@@ -4206,6 +4385,34 @@
             "nullable": true,
             "description": "Markdown for a custom directory page. When set (even as an empty string) the markdown replaces the default grid and decides the layout itself; null renders the plain grid of sub-directories and sessions. Alongside normal Markdown you can place these directives, each ALONE on its own line: `[plan-progress]` (the learner's coaching-plan progress), `[directory:<tag-id>]` (a card for one sub-directory), `[session:<interview-id>]` (a card for one session), `[sessions]` (every session in this directory), `[sessions:<term>]` (sessions matching a term), `[sessions:filter=<term>,limit=<n>]` (a filtered, capped list). A directive on a line with other text is rendered as ordinary text. Chips, callouts, cards, columns and buttons are available here too — full vocabulary: https://developer.jobmojito.com/cookbooks/format-content-with-markdown",
             "example": "## Sales coaching\n\nPick a session to practise with.\n\n[chip:6 sessions] [chip:Beginner,tone=accent]\n\n[sessions:filter=objection-handling,limit=6]\n"
+          },
+          "translations": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "The directory's OTHER language versions, keyed by mojito language code. The top-level fields are the default language (`mojito_language_code`); each version here is a page of its own with its own name, Markdown, session filter and sub-directories, shown to learners who pick that language in the catalogue (falling back to English, then the default). A key may not equal `mojito_language_code`."
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every language the directory has, the default (`mojito_language_code`) first. `matched_sessions` and `sub_directories` describe the default language; a version lists its own via its `tags_interview_set_filter` / `tags_sub`.",
+            "example": [
+              "en",
+              "sk"
+            ]
+          },
+          "merged_into": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set when this directory was folded into another as one of its language versions: the directory to edit instead. Its old URL redirects there."
           },
           "created_at": {
             "type": "string",
@@ -4358,6 +4565,9 @@
           "tags_sub",
           "tags_interview_set_filter",
           "content_md",
+          "translations",
+          "languages",
+          "merged_into",
           "created_at",
           "updated_at",
           "catalogue_url",
@@ -4438,6 +4648,22 @@
                   },
                   "description": "Tag filter selecting the coaching sessions this directory lists: a session appears when its own `tags` contain every tag here."
                 },
+                "languages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Every language the directory has, its default (`mojito_language_code`) first. Read a version with catalogue-tag-get (`translations`).",
+                  "example": [
+                    "en",
+                    "sk"
+                  ]
+                },
+                "merged_into": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Set when this directory was folded into another as one of its language versions (it is archived; its URL redirects there)."
+                },
                 "has_content_page": {
                   "type": "boolean",
                   "description": "True when the directory has a custom Markdown page. Read the Markdown itself with catalogue-tag-get."
@@ -4459,6 +4685,7 @@
               },
               "required": [
                 "id",
+                "languages",
                 "has_content_page",
                 "is_start_directory"
               ],
@@ -8054,7 +8281,7 @@
           "Coaching catalogue"
         ],
         "summary": "Update a coaching catalogue directory",
-        "description": "Updates a directory (page) of the coaching portal catalogue. Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. Use it to rename a directory, re-point which sessions it lists (`tags_interview_set_filter`), re-order or replace its sub-directories (`tags_sub`), or author its custom Markdown page (`content_md`).",
+        "description": "Updates a directory (page) of the coaching portal catalogue. Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. Use it to rename a directory, re-point which sessions it lists (`tags_interview_set_filter`), re-order or replace its sub-directories (`tags_sub`), author its custom Markdown page (`content_md`), or add, replace and remove its other language versions (`translations`).",
         "security": [
           {
             "bearerAuth": []
@@ -8152,7 +8379,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Id of the catalogue directory to read (the catalogue URL segment).",
+              "description": "Id of the catalogue directory to read (the catalogue URL segment). The old id of a renamed directory also works; the response carries its current `id`.",
               "example": "sales-coaching-en"
             },
             "required": true,
@@ -8330,7 +8557,7 @@
                 "uk",
                 "vi"
               ],
-              "description": "Filter by the directory language. Omit for all languages.",
+              "description": "Filter by language: directories whose default language or one of whose language versions is this one. Omit for all languages.",
               "example": "en"
             },
             "required": false,

@@ -175,9 +175,36 @@ def test_transport_rejection_is_not_mistaken_for_an_upstream_status(recording_cl
     """
     from posthog_analytics import capture_transport_rejection, _http_status
 
-    capture_transport_rejection(status=404, method="POST", had_session_id=False)
+    capture_transport_rejection(status=404, method="POST", had_session_id=True)
     value = recording_client.events[0][1]["properties"]["$exception_list"][0]["value"]
     assert _http_status(value) is None
+
+
+@pytest.mark.parametrize("status", [400, 406, 404])
+def test_sessionless_client_rejection_is_an_event_not_an_exception(recording_client, status):
+    """A 4xx without an Mcp-Session-Id is a probe or a client skipping
+    `initialize`: nothing was lost, so it must not open an Error Tracking issue."""
+    from posthog_analytics import capture_transport_rejection
+
+    capture_transport_rejection(status=status, method="GET", had_session_id=False)
+
+    (event, kwargs), = recording_client.events
+    assert event == "mcp_transport_rejected"
+    properties = kwargs["properties"]
+    assert "$exception_list" not in properties
+    assert properties["transport_status"] == status
+    assert properties["transport_had_session_id"] is False
+    assert properties["service"] == "mcp"
+    assert properties["$process_person_profile"] is False
+
+
+def test_sessionless_server_error_is_still_an_exception(recording_client):
+    from posthog_analytics import capture_transport_rejection
+
+    capture_transport_rejection(status=500, method="POST", had_session_id=False)
+
+    (event, _), = recording_client.events
+    assert event == "$exception"
 
 
 def test_transport_reporting_is_inert_without_analytics(monkeypatch):

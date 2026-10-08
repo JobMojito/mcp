@@ -173,6 +173,30 @@ def capture_transport_rejection(
     client = _client
     if client is None:
         return
+    properties_common = {
+        **_event_tags,
+        "$process_person_profile": False,
+        "transport_status": status,
+        "transport_http_method": method,
+        "transport_had_session_id": had_session_id,
+        "$raw_user_agent": user_agent,
+        "error_class": "client" if 400 <= status < 500 else "server",
+    }
+    # A 4xx on a request that carried no Mcp-Session-Id is the protocol working:
+    # a client probing GET for an SSE stream (406) or skipping `initialize`
+    # (400). No session existed, so no user lost anything. Filed as $exception
+    # these were ~97% of Error Tracking and buried the real failures, so they
+    # become a plain event: still countable, no longer an issue.
+    if 400 <= status < 500 and not had_session_id:
+        try:
+            client.capture(
+                "mcp_transport_rejected",
+                distinct_id=f"transport-{status}",
+                properties=properties_common,
+            )
+        except Exception:
+            logger.debug("Failed to capture a transport rejection", exc_info=True)
+        return
     summary = (
         f"MCP transport rejected a request before dispatch: status {status}"
         f" ({'session id present' if had_session_id else 'no session id'})"
@@ -182,7 +206,6 @@ def capture_transport_rejection(
             "$exception",
             distinct_id=f"transport-{status}",
             properties={
-                **_event_tags,
                 "$exception_list": [
                     {
                         "type": "MCPTransportRejection",
@@ -190,12 +213,7 @@ def capture_transport_rejection(
                         "mechanism": {"handled": True, "synthetic": True},
                     }
                 ],
-                "$process_person_profile": False,
-                "transport_status": status,
-                "transport_http_method": method,
-                "transport_had_session_id": had_session_id,
-                "$raw_user_agent": user_agent,
-                "error_class": "client" if 400 <= status < 500 else "server",
+                **properties_common,
             },
         )
     except Exception:

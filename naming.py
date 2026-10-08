@@ -466,7 +466,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "sessions its tag filter currently matches — which is how you verify that "
         "a session's `tags` actually place it in this directory. Read before "
         "updating: `content_md`, `tags_sub` and `tags_interview_set_filter` are "
-        "replaced wholesale, so you need the current value to extend it.",
+        "replaced wholesale, so you need the current value to extend it. Other "
+        "language versions of the page are in `translations` (`languages` lists "
+        "them, default first).",
         _READ_WHY,
     ),
     ("POST", "/catalogue-tag-create"): _write(
@@ -476,7 +478,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "nests other directories (`tags_sub`), lists coaching sessions whose own "
         "`tags` match its `tags_interview_set_filter`, and can carry a fully "
         "custom Markdown page (`content_md`) with `[sessions]`, `[directory:…]`, "
-        "`[session:…]` and `[plan-progress]` directives. Coaching-platform feature.",
+        "`[session:…]` and `[plan-progress]` directives. One directory can hold "
+        "several languages: the top-level fields are the default language, "
+        "`translations` adds the others. Coaching-platform feature.",
         "readOnlyHint=false / destructiveHint=true: creates a persistent, "
         "publicly reachable catalogue page on the merchant's coaching portal. "
         + _OPEN_WORLD,
@@ -486,8 +490,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Update coaching catalogue directory",
         "Update a coaching catalogue directory: rename it, change which sessions "
         "it lists (`tags_interview_set_filter`), re-order its sub-directories "
-        "(`tags_sub`), or author its custom Markdown page (`content_md`). Only "
-        "the fields you send are changed. Coaching-platform feature.",
+        "(`tags_sub`), author its custom Markdown page (`content_md`), or add, "
+        "replace or remove a language version (`translations`, per language; "
+        "null removes one). Only the fields you send are changed. "
+        "Coaching-platform feature.",
         "readOnlyHint=false / destructiveHint=true: overwrites a live, publicly "
         "reachable catalogue page in place. idempotentHint=true: sending the same "
         "body twice leaves the same stored state. " + _OPEN_WORLD,
