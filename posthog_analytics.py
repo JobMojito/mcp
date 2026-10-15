@@ -41,6 +41,14 @@ logger = logging.getLogger(__name__)
 # that matching arbitrary error prose would not be.
 _HTTP_STATUS_RE = re.compile(r"(?:HTTP error|with HTTP)\s+(\d{3})\b")
 
+# The refusal middleware.ResultSizeGuardMiddleware raises when a result would not
+# fit the client (built in ``_too_large_message``; keep the two in step). It is a
+# deliberate, handled guard whose message already tells the model how to narrow
+# the call, not a fault.
+_RESULT_TOO_LARGE_RE = re.compile(
+    r"returned about [\d,]+ characters, which exceeds this server's"
+)
+
 
 def _http_status(message: str) -> int | None:
     """The upstream HTTP status named in an error message, if it names one."""
@@ -86,26 +94,27 @@ def _exception_messages(properties: dict) -> list[str]:
 
 
 def _classify_upstream_exception(event: Any) -> Any:
-    """Report upstream failures, except the ones that are part of normal auth.
+    """Report server-side failures; drop the ones that are the caller's to fix.
 
-    WHAT IS DROPPED, AND WHY ONLY THAT
-    A **401** is not a failure here: an unauthenticated `tools/call` is exactly
-    how an MCP client discovers it needs to run the OAuth flow, and lazy_auth
-    answers it before any tool executes. Reporting those would mean an
-    `$exception` for every client's first call. Everything else — 4xx and 5xx
-    alike — is reported.
+    WHAT IS DROPPED, AND WHY
+    * **401** — not a failure: an unauthenticated `tools/call` is exactly how an
+      MCP client discovers it needs to run the OAuth flow, and lazy_auth answers
+      it before any tool executes.
+    * **Every other 4xx** — a 422 on a bad field, a 404 on a mistyped id. The
+      caller made the mistake and UpstreamErrorMiddleware already handed the
+      model the fix. Reported as `$exception` these filled Error Tracking with
+      one issue per tool per validation message and buried the real failures.
+    * **The result-size guard** — ResultSizeGuardMiddleware refusing a result
+      the client would truncate. Intentional and handled; the message names the
+      `limit` or `view` to narrow.
 
-    THIS IS DELIBERATELY NOISIER THAN THE ALTERNATIVE
-    An earlier version dropped every 4xx on the grounds that a missing argument
-    or an unresolvable id is the caller's mistake rather than the server's; the
-    first three tool errors this server recorded in production were all one
-    missing `position_id`. Reporting them is a considered choice: a 4xx can also
-    mean a tool schema that misleads the model, or a permission the product
-    should have granted, and neither is visible if the whole class is hidden.
+    Only the `$exception` is dropped. The `$mcp_tool_call` sibling still carries
+    `$mcp_is_error` and `$mcp_error_message`, so these stay countable on the MCP
+    dashboard — a tool schema that misleads the model shows up there as a
+    climbing 4xx rate rather than as an Error Tracking issue.
 
-    So that the choice stays reversible, every reported exception is stamped with
-    `upstream_status` and `error_class`. Suppressing one noisy status later is
-    then a filter on a property rather than a code change and a redeploy.
+    5xx and anything without a recognisable status are always reported, stamped
+    with `upstream_status` / `error_class` when the status is known.
     """
     try:
         if event.get("event") != "$exception":
@@ -116,8 +125,12 @@ def _classify_upstream_exception(event: Any) -> Any:
             properties = {}
             event["properties"] = properties
 
+        messages = _exception_messages(properties)
+        if any(_RESULT_TOO_LARGE_RE.search(message) for message in messages):
+            return None
+
         status = None
-        for message in _exception_messages(properties):
+        for message in messages:
             status = _http_status(message)
             if status is not None:
                 break
@@ -126,12 +139,12 @@ def _classify_upstream_exception(event: Any) -> Any:
             # No recognisable status: an unexpected exception, always reported.
             return event
 
-        # Normal OAuth handshake, not a fault.
-        if status == 401:
+        # OAuth handshake (401) or the caller's own mistake (other 4xx).
+        if 400 <= status < 500:
             return None
 
         properties["upstream_status"] = status
-        properties["error_class"] = "client" if 400 <= status < 500 else "server"
+        properties["error_class"] = "server"
     except Exception:
         # A filter that throws must not cost us the error report.
         logger.debug("posthog.mcp before_send filter failed", exc_info=True)
@@ -155,10 +168,11 @@ def capture_transport_rejection(
     """Record a request the transport refused before any tool could run.
 
     Called by ``lazy_auth.TransportRejectionASGIMiddleware`` — see that class for
-    why this layer is otherwise invisible. Captured as ``$exception`` so it lands
-    in Error Tracking beside the tool failures rather than in a metric nobody
-    opens, and stamped with the same ``service``/``tier`` tags as everything else
-    the adapter sends.
+    why this layer is otherwise invisible. A 4xx is the client's protocol error
+    and becomes a plain ``mcp_transport_rejected`` event; a 5xx is ours and is
+    captured as ``$exception`` so it lands in Error Tracking beside the tool
+    failures. Both carry the same ``service``/``tier`` tags as everything else the
+    adapter sends.
 
     Deliberately anonymous: these requests have no verified user by definition,
     so there is no identity to attach. ``$process_person_profile: False`` matches
@@ -182,12 +196,13 @@ def capture_transport_rejection(
         "$raw_user_agent": user_agent,
         "error_class": "client" if 400 <= status < 500 else "server",
     }
-    # A 4xx on a request that carried no Mcp-Session-Id is the protocol working:
-    # a client probing GET for an SSE stream (406) or skipping `initialize`
-    # (400). No session existed, so no user lost anything. Filed as $exception
-    # these were ~97% of Error Tracking and buried the real failures, so they
-    # become a plain event: still countable, no longer an issue.
-    if 400 <= status < 500 and not had_session_id:
+    # A 4xx is the transport refusing a request the client got wrong: probing
+    # GET for an SSE stream (406), skipping `initialize` (400), or presenting a
+    # session id the server no longer knows (400/404 — the client re-initializes).
+    # Filed as $exception these were ~97% of Error Tracking and buried the real
+    # failures, so they become a plain event: still countable (split by
+    # `transport_had_session_id` to spot a reconnect loop), no longer an issue.
+    if 400 <= status < 500:
         try:
             client.capture(
                 "mcp_transport_rejected",

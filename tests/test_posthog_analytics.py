@@ -1,12 +1,12 @@
 """Which upstream failures reach Error Tracking, and how they are labelled.
 
 The MCP SDK promotes every failed tool call to an `$exception` alongside its
-`$mcp_tool_call`. Only **401** is dropped: an unauthenticated `tools/call` is how
-a client learns it must run the OAuth flow, and lazy_auth answers it before any
-tool executes, so reporting those would mean an exception for every client's
-first call. Every other status — 4xx and 5xx alike — is reported and stamped
-with `upstream_status` / `error_class`, so a status that turns out to be noisy
-can be suppressed with a filter instead of a redeploy.
+`$mcp_tool_call`. Every **4xx** is dropped: 401 is how a client learns it must
+run the OAuth flow, and the rest (422 validation, 404 unknown id, ...) are the
+caller's mistake, already answered with guidance. The result-size guard's refusal
+is dropped too — intentional and handled. The `$mcp_tool_call` sibling still
+counts all of them. 5xx and unrecognised errors are reported, stamped with
+`upstream_status` / `error_class` when the status is known.
 
 PAYLOADS ARE BUILT BY THE SDK, NOT HAND-WRITTEN
 `_exception_payload` calls `posthog.mcp._exceptions.capture_exception`, the same
@@ -67,19 +67,42 @@ def test_401_is_dropped(message):
 
 
 @pytest.mark.parametrize(
-    "message,status,klass",
+    "message",
     [
-        (REWRITTEN_422, 422, "client"),
-        (REWRITTEN_404, 404, "client"),
-        (RAW_403, 403, "client"),
-        (REWRITTEN_502, 502, "server"),
+        REWRITTEN_422,
+        REWRITTEN_404,
+        RAW_403,
+        "`update_catalogue_directory` failed with HTTP 422: the JobMojito API understood "
+        "the request but rejected its contents.\n\nUpstream detail: Provide at least one field",
     ],
 )
-def test_other_statuses_are_reported_and_labelled(message, status, klass):
+def test_client_errors_are_dropped(message):
+    """The caller's mistake, already returned to the model with guidance."""
+    assert _classify_upstream_exception(_exception_payload(message)) is None
+
+
+@pytest.mark.parametrize(
+    "message,status",
+    [(REWRITTEN_502, 502), ("HTTP error 500: Internal Server Error - boom", 500)],
+)
+def test_server_errors_are_reported_and_labelled(message, status):
     result = _classify_upstream_exception(_exception_payload(message))
     assert result is not None
     assert result["properties"]["upstream_status"] == status
-    assert result["properties"]["error_class"] == klass
+    assert result["properties"]["error_class"] == "server"
+
+
+def test_result_size_guard_refusal_is_dropped():
+    """Built by the real guard, so a rewording there cannot silently re-open the issue."""
+    from fastmcp.tools.tool import ToolResult
+
+    from middleware import ResultSizeGuardMiddleware
+
+    guard = ResultSizeGuardMiddleware(1_000)
+    result = ToolResult(structured_content={"data": [{"text": "x" * 5_000}]})
+    message = guard._too_large_message("list_avatars", {"limit": 50}, result, None, None)
+
+    assert _classify_upstream_exception(_exception_payload(message)) is None
 
 
 @pytest.mark.parametrize("message", ["upstream exploded", ""])
@@ -147,18 +170,18 @@ def recording_client(monkeypatch):
     return client
 
 
-def test_transport_rejection_is_reported_as_an_exception(recording_client):
+def test_transport_server_error_is_reported_as_an_exception(recording_client):
     from posthog_analytics import capture_transport_rejection
 
-    capture_transport_rejection(status=400, method="POST", had_session_id=True)
+    capture_transport_rejection(status=500, method="POST", had_session_id=True)
 
     (event, kwargs), = recording_client.events
     assert event == "$exception"
     properties = kwargs["properties"]
     assert properties["$exception_list"][0]["type"] == "MCPTransportRejection"
-    assert properties["transport_status"] == 400
+    assert properties["transport_status"] == 500
     assert properties["transport_had_session_id"] is True
-    assert properties["error_class"] == "client"
+    assert properties["error_class"] == "server"
     # Same discriminators as every other event this module sends.
     assert properties["service"] == "mcp" and properties["tier"] == "backend"
     # These requests have no verified user; a reconnect loop must not mint one
@@ -175,25 +198,29 @@ def test_transport_rejection_is_not_mistaken_for_an_upstream_status(recording_cl
     """
     from posthog_analytics import capture_transport_rejection, _http_status
 
-    capture_transport_rejection(status=404, method="POST", had_session_id=True)
+    capture_transport_rejection(status=502, method="POST", had_session_id=True)
     value = recording_client.events[0][1]["properties"]["$exception_list"][0]["value"]
     assert _http_status(value) is None
 
 
+@pytest.mark.parametrize("had_session_id", [False, True])
 @pytest.mark.parametrize("status", [400, 406, 404])
-def test_sessionless_client_rejection_is_an_event_not_an_exception(recording_client, status):
-    """A 4xx without an Mcp-Session-Id is a probe or a client skipping
-    `initialize`: nothing was lost, so it must not open an Error Tracking issue."""
+def test_client_transport_rejection_is_an_event_not_an_exception(
+    recording_client, status, had_session_id
+):
+    """A 4xx is a probe, a client skipping `initialize`, or a stale session id
+    the client re-initializes from: the client's protocol error, so it must not
+    open an Error Tracking issue."""
     from posthog_analytics import capture_transport_rejection
 
-    capture_transport_rejection(status=status, method="GET", had_session_id=False)
+    capture_transport_rejection(status=status, method="GET", had_session_id=had_session_id)
 
     (event, kwargs), = recording_client.events
     assert event == "mcp_transport_rejected"
     properties = kwargs["properties"]
     assert "$exception_list" not in properties
     assert properties["transport_status"] == status
-    assert properties["transport_had_session_id"] is False
+    assert properties["transport_had_session_id"] is had_session_id
     assert properties["service"] == "mcp"
     assert properties["$process_person_profile"] is False
 
