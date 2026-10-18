@@ -53,7 +53,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.3.2"
+SERVER_VERSION = "1.4.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -107,6 +107,13 @@ THREE PRODUCTS, and they are easy to confuse:
 `portal` defaults to "coaching". For ANY hiring, screening or assessment use,
 pass `portal="interview"` explicitly — omitting it silently builds the wrong
 product, billed to the wrong credits and invisible to the recruiter.
+
+CUSTOM REPORTS: a report is a JSON definition (schema "jobmojito.report/v1")
+the user also edits in the admin. Always call `list_report_fields` first and use
+only the dataset, dimension and measure ids it returns; check the definition with
+`preview_report` (nothing is saved) before `create_report` / `update_report`.
+New reports are private to the user; they share them from the returned admin_url.
+`update_report` on a shared report saves a draft the owner publishes in the admin.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,

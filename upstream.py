@@ -70,7 +70,9 @@ class SupabaseTokenForwardAuth(httpx.Auth):
 
 def build_api_client() -> httpx.AsyncClient:
     """Create the AsyncClient FastMCP uses for all generated API tools."""
-    headers: dict[str, str] = {"Accept": "application/json"}
+    # X-JobMojito-Client lets the API record where a change came from (custom
+    # reports store created_via = mcp, and a shared report only gets a draft).
+    headers: dict[str, str] = {"Accept": "application/json", "X-JobMojito-Client": "mcp"}
     if settings.supabase_anon_key:
         # Edge Functions gateway often requires the anon key as `apikey`.
         headers["apikey"] = settings.supabase_anon_key

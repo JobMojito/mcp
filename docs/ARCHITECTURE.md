@@ -130,8 +130,8 @@ write live in separate tools — never add a catch-all `api_request(method=…)`
 
 `IGNORED_PATHS` lists endpoints that must never be exposed (user invites, the
 candidate-token one-shot flow, the pre-screening endpoints); `_ignored_paths()`
-in `server.py` merges it with the `IGNORED_TOOL_PATHS` env var. Currently 30 spec
-endpoints minus 5 ignored = **25 generated API tools**, plus the four
+in `server.py` merges it with the `IGNORED_TOOL_PATHS` env var. Currently 37 spec
+endpoints minus 5 ignored = **32 generated API tools**, plus the four
 hand-written ones (`search_documentation`, `get_documentation`,
 `jobmojito_configuration`, `list_my_merchants`).
 

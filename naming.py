@@ -622,6 +622,79 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "enablement flags, and Azure speech accents.",
         _READ_WHY,
     ),
+    # --- Custom reports (SQL 133). Flow: list_report_fields -> write a
+    # definition -> preview_report -> create_report / update_report.
+    ("GET", "/report-catalog"): _read(
+        "list_report_fields",
+        "List report datasets and fields",
+        "List what a custom report can use on this account: datasets (interview "
+        "results, invitations, position pipeline, ATS pipeline, credits, coaching "
+        "sessions - only those the account and your role include), their dimensions "
+        "(group by / conditions, with allowed values) and measures. Call this first: "
+        "a report definition may only use ids listed here. Custom reports are "
+        "switched on per account by JobMojito; while they are off, every report "
+        "tool is refused with 403 'Custom reports are not enabled for this account.' "
+        "Tell the user to contact JobMojito rather than retrying.",
+        _READ_WHY,
+    ),
+    ("GET", "/report-list"): _read(
+        "list_reports",
+        "List custom reports",
+        "List custom reports you can open (yours, shared with you) and the "
+        "JobMojito templates, with id, title, visibility, your access and version.",
+        _READ_WHY,
+    ),
+    ("GET", "/report-get"): _read(
+        "get_report",
+        "Get custom report",
+        "Get a custom report's JSON definition, visibility, your access and its "
+        "version. Read it before update_report: the definition is replaced whole "
+        "and the version must match.",
+        _READ_WHY,
+    ),
+    ("GET", "/report-run"): _read(
+        "run_report",
+        "Run custom report",
+        "Run a saved custom report and return each block's rows (aggregated "
+        "numbers, at most 500 rows per block). Optional `filters` JSON overrides "
+        "the period / positions / interviews for this run only. Report numbers are "
+        "decision-support material for a human reviewer.",
+        _READ_WHY,
+    ),
+    ("POST", "/report-preview"): _read(
+        "preview_report",
+        "Check and preview a report definition",
+        "Validate a report definition against the catalogue and run it without "
+        "saving anything. Use it before create_report / update_report: a block "
+        "that is wrong comes back with ok=false and an error naming the field and "
+        "the valid ids.",
+        "readOnlyHint=true: although the request is a POST (the definition is a "
+        "JSON body), nothing is stored or changed; it only reads and aggregates "
+        "existing records. idempotentHint=true: the same body returns the same "
+        "data. " + _OPEN_WORLD,
+    ),
+    ("POST", "/report-create"): _write(
+        "create_report",
+        "Create custom report",
+        "Save a new custom report from a definition (schema jobmojito.report/v1). "
+        "It is created as Only me: tell the user they can share it from the "
+        "returned admin_url. Check the definition with preview_report first.",
+        "readOnlyHint=false / destructiveHint=true: stores a new report on the "
+        "merchant account. idempotentHint=false: each call creates another report. "
+        + _OPEN_WORLD,
+    ),
+    ("POST", "/report-update"): _write(
+        "update_report",
+        "Update custom report",
+        "Replace a custom report's definition (send the whole definition and the "
+        "version from get_report). On a report shared with other people the change "
+        "is saved as a draft that the owner publishes in the admin; a private "
+        "report updates at once.",
+        "readOnlyHint=false / destructiveHint=true: overwrites the stored "
+        "definition (or its draft). idempotentHint=false: every save bumps the "
+        "version, so repeating the call with the old version is refused. "
+        + _OPEN_WORLD,
+    ),
 }
 
 

@@ -49,6 +49,11 @@ EXPECTED_READ_ONLY = {
     "list_languages",
     "list_catalogue_directories",
     "get_catalogue_directory",
+    "list_report_fields",
+    "list_reports",
+    "get_report",
+    "run_report",
+    "preview_report",
     "search_documentation",
     "get_documentation",
 }

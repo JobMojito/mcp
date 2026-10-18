@@ -7,12 +7,12 @@ deeper docs under `docs/` when a task needs them.
 
 A **FastMCP** server that exposes the **JobMojito** hiring API (interviews and
 role-play personas, the coaching catalogue, candidates and results, knowledge
-bases, merchants/analytics) plus documentation search as MCP tools, secured with
+bases, merchants/analytics, custom reports) plus documentation search as MCP tools, secured with
 **Supabase OAuth**. Tools are generated from the live JobMojito **OpenAPI** spec
 at startup; end-user Supabase JWTs are forwarded to the API so every call runs
 with that user's own permissions.
 
-Current surface: **25 API tools** (30 spec endpoints minus the 5 in
+Current surface: **32 API tools** (37 spec endpoints minus the 5 in
 `IGNORED_PATHS`) + `search_documentation`, `get_documentation`,
 `jobmojito_configuration`, `list_my_merchants`. `naming.py` is the inventory —
 don't maintain a tool list anywhere else.
