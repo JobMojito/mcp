@@ -16,7 +16,7 @@ shapes. The difference between them matters, because one tool builds two of them
   recruiter's result list alongside everything else.
 - **Coaching** — the same persona engine pointed at practice rather than
   assessment. Learners start sessions themselves from a browsable catalogue,
-  spend their own coaching credits, and their results stay private from
+  pay per second from their own coaching minutes, and their results stay private from
   recruiters. Organise it with directories, tag filters and Markdown pages.
 
 > **The one trap.** `create_persona` builds both the second and the third product,

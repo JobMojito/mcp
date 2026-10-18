@@ -101,8 +101,8 @@ THREE PRODUCTS, and they are easy to confuse:
   like an interview.
 • Coaching — the same role-play engine for practice. `create_persona` with
   `portal="coaching"` (THE DEFAULT when omitted): the learner starts it from the
-  catalogue, it spends their own coaching credits, and recruiters never see the
-  result. The catalogue tools (`*_catalogue_directory`) apply to this one only.
+  catalogue, it is paid per second from their own coaching minutes, and recruiters
+  never see the result. The catalogue tools (`*_catalogue_directory`) apply to this one only.
 
 `portal` defaults to "coaching". For ANY hiring, screening or assessment use,
 pass `portal="interview"` explicitly — omitting it silently builds the wrong
