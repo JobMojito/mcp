@@ -239,9 +239,10 @@
               "remote-freelancer-verification",
               "strength-based-interview",
               "potential-based-interview",
-              "process-verification-from-knowledge-base"
+              "process-verification-from-knowledge-base",
+              "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and shapes both the AI-generated questions and the follow-up questions asked during the interview. Defaults to pre-screening when omitted. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents..",
+            "description": "Interview style — configures the AI avatar and shapes both the AI-generated questions and the follow-up questions asked during the interview. Defaults to pre-screening when omitted. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
             "example": "pre-screening-with-test-questions"
           },
           "seniority_level": {
@@ -966,9 +967,10 @@
               "remote-freelancer-verification",
               "strength-based-interview",
               "potential-based-interview",
-              "process-verification-from-knowledge-base"
+              "process-verification-from-knowledge-base",
+              "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. The base `questions` you supply are used as-is and are NOT affected by this setting. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents..",
+            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. The base `questions` you supply are used as-is and are NOT affected by this setting. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
             "example": "pre-screening-with-test-questions"
           },
           "seniority_level": {
@@ -3297,9 +3299,10 @@
               "remote-freelancer-verification",
               "strength-based-interview",
               "potential-based-interview",
-              "process-verification-from-knowledge-base"
+              "process-verification-from-knowledge-base",
+              "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. Stored in creation_parameters; existing questions are NOT regenerated. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents..",
+            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. Stored in creation_parameters; existing questions are NOT regenerated. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
             "example": "pre-screening-with-test-questions"
           },
           "interview_tone": {
@@ -5606,6 +5609,803 @@
           "pagination"
         ]
       },
+      "ReportCatalog": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "Datasets you may use: id, label, description, snapshot (ignores the period), and fields: id, kind (dimension | measure), type, label, description, values (allowed values of a text dimension), grains (date), table_only, format."
+          },
+          "block_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "where_ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "period_presets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "can_share": {
+            "type": "boolean",
+            "description": "false for hiring managers (read-only role)."
+          }
+        },
+        "required": [
+          "schema",
+          "datasets",
+          "block_types",
+          "where_ops",
+          "period_presets",
+          "limits",
+          "can_share"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "merchant",
+              "people",
+              "template"
+            ],
+            "description": "private (only the owner), merchant (everyone at the company), people (chosen people), template (JobMojito template)."
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "edit",
+              "view"
+            ]
+          },
+          "owner": {
+            "nullable": true
+          },
+          "is_mine": {
+            "nullable": true
+          },
+          "created_via": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "has_draft": {
+            "type": "boolean"
+          },
+          "block_count": {
+            "type": "integer"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "visibility",
+          "access",
+          "created_via",
+          "version",
+          "has_draft",
+          "block_count",
+          "datasets",
+          "pinned",
+          "updated_at"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportSummary"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReportDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "merchant",
+              "people",
+              "template"
+            ]
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "edit",
+              "view"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          },
+          "definition": {
+            "nullable": true,
+            "description": "The published ReportDefinition."
+          },
+          "draft_definition": {
+            "nullable": true,
+            "description": "Unpublished edits (only for people who can edit), or null."
+          },
+          "admin_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "visibility",
+          "access",
+          "version",
+          "admin_url"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportBlockResult": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean",
+            "description": "false when this block could not run; see error. Other blocks are unaffected."
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "Each column: id, kind (dimension | measure), type, label, and for measures a format."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "nullable": true
+              }
+            },
+            "description": "One object per row, keyed by column id."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "More rows exist than the block limit."
+          },
+          "previous": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "compare previous_period: the same measures for the period before."
+          },
+          "period": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "The period the block covered: from, to (inclusive), snapshot (true when the dataset ignores the period)."
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "block_id",
+          "ok"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportRunResponse": {
+        "type": "object",
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "filters": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "The filters the blocks ran with (report defaults, then your saved filters, then the ones you passed)."
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportBlockResult"
+            }
+          }
+        },
+        "required": [
+          "filters",
+          "blocks"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportFilters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "preset": {
+                    "type": "string",
+                    "enum": [
+                      "last_7_days",
+                      "last_30_days",
+                      "last_90_days",
+                      "this_month",
+                      "last_month",
+                      "this_quarter",
+                      "last_quarter",
+                      "this_year",
+                      "last_year",
+                      "all_time"
+                    ]
+                  }
+                },
+                "required": [
+                  "preset"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "Either a preset, or from and to dates (YYYY-MM-DD, both inclusive, UTC). Default: last_30_days.",
+            "example": {
+              "preset": "last_30_days"
+            }
+          },
+          "position_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 200,
+            "description": "Only these positions (position ids from list_interviews). Empty or missing = all."
+          },
+          "interview_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 200,
+            "description": "Only these interviews (interview ids from list_interviews). Empty or missing = all."
+          },
+          "include_test": {
+            "type": "boolean",
+            "description": "Include test runs. Default false."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Filters for every block of the report. Each viewer can override them for themselves."
+      },
+      "ReportBlock": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,40}$",
+            "example": "by_position"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "kpi",
+              "table",
+              "bar",
+              "stacked_bar",
+              "line",
+              "funnel",
+              "text"
+            ],
+            "description": "kpi: one total per measure (no dimensions; add compare previous_period for a change). funnel: 2+ measures as steps (no dimensions). table: 0-2 dimensions. bar: 1-2 dimensions. stacked_bar: exactly 2 dimensions. line: first dimension a date. text: a note, only `text`."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "dataset": {
+            "type": "string",
+            "description": "Dataset id from report-catalog. Not used by a text block.",
+            "example": "interview_results"
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,40}$"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,40}$"
+                    },
+                    "grain": {
+                      "type": "string",
+                      "enum": [
+                        "day",
+                        "week",
+                        "month",
+                        "quarter",
+                        "year"
+                      ],
+                      "description": "For a date field: day (default), week, month, quarter or year."
+                    }
+                  },
+                  "required": [
+                    "field"
+                  ],
+                  "additionalProperties": false
+                }
+              ],
+              "description": "A dimension field id, or {\"field\", \"grain\"} for a date."
+            },
+            "maxItems": 2
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,40}$"
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "description": "1 to 6 measure ids of the dataset.",
+            "example": [
+              "completed",
+              "avg_score"
+            ]
+          },
+          "where": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,40}$",
+                  "description": "A dimension of the block's dataset."
+                },
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq",
+                    "in",
+                    "not_in",
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "between",
+                    "is_empty",
+                    "is_not_empty"
+                  ]
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "description": "One value for eq / neq / gt / gte / lt / lte, a list for in / not_in, [low, high] for between, nothing for is_empty / is_not_empty."
+                }
+              },
+              "required": [
+                "field",
+                "op"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,40}$",
+                  "description": "A dimension or measure the block selects."
+                },
+                "dir": {
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 3
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "description": "Rows for a table / bar / line. Default 100 (line 500)."
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Columns of a 12-column grid. Default 12."
+          },
+          "compare": {
+            "type": "string",
+            "enum": [
+              "previous_period"
+            ],
+            "description": "kpi / funnel only: also return the same numbers for the period before."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Text block only: the note (plain text, line breaks kept)."
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "ReportDefinition": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": [
+              "jobmojito.report/v1"
+            ],
+            "description": "Always \"jobmojito.report/v1\"."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ReportFilters"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportBlock"
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "schema",
+          "title",
+          "blocks"
+        ],
+        "additionalProperties": false,
+        "description": "A custom report: report-wide filters and up to 12 blocks. Read report-catalog first for the dataset, field and measure ids.",
+        "example": {
+          "schema": "jobmojito.report/v1",
+          "title": "Weekly hiring pulse",
+          "filters": {
+            "period": {
+              "preset": "last_30_days"
+            }
+          },
+          "blocks": [
+            {
+              "id": "headline",
+              "type": "kpi",
+              "dataset": "interview_results",
+              "measures": [
+                "completed",
+                "avg_score",
+                "shortlisted"
+              ],
+              "compare": "previous_period"
+            },
+            {
+              "id": "trend",
+              "type": "line",
+              "title": "Completed per week",
+              "dataset": "interview_results",
+              "dimensions": [
+                {
+                  "field": "date",
+                  "grain": "week"
+                }
+              ],
+              "measures": [
+                "completed"
+              ],
+              "width": 8
+            },
+            {
+              "id": "by_position",
+              "type": "table",
+              "title": "By position",
+              "dataset": "interview_results",
+              "dimensions": [
+                "position"
+              ],
+              "measures": [
+                "completed",
+                "avg_score",
+                "shortlisted"
+              ],
+              "sort": [
+                {
+                  "field": "completed",
+                  "dir": "desc"
+                }
+              ],
+              "limit": 25
+            }
+          ]
+        }
+      },
+      "ReportPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          },
+          "filters": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportFilters"
+              },
+              {
+                "description": "Applied on top of definition.filters."
+              }
+            ]
+          },
+          "block_id": {
+            "type": "string",
+            "description": "Run only this block."
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "additionalProperties": false
+      },
+      "ReportSaveResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Send it back with the next update."
+          },
+          "published": {
+            "type": "boolean",
+            "description": "false when the change was stored as a draft the owner publishes in the admin."
+          },
+          "admin_url": {
+            "type": "string",
+            "description": "Open the report in the JobMojito admin."
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "published",
+          "admin_url"
+        ],
+        "additionalProperties": {
+          "nullable": true
+        }
+      },
+      "ReportCreateRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "additionalProperties": false
+      },
+      "ReportUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Report id (from list_reports)."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The version you read (get_report / list_reports). A stale version is refused with 409."
+          },
+          "definition": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition"
+              },
+              {
+                "description": "The whole new definition (it replaces the old one)."
+              }
+            ]
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "published",
+              "draft"
+            ],
+            "description": "published (default) or draft. A private report always publishes. Through the MCP server a shared report always gets a draft that its owner publishes in the admin."
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "definition"
+        ],
+        "additionalProperties": false
+      },
       "MerchantCandidateListResponse": {
         "type": "object",
         "properties": {
@@ -7286,803 +8086,6 @@
         "required": [
           "languages"
         ]
-      },
-      "ReportCatalog": {
-        "type": "object",
-        "properties": {
-          "schema": {
-            "type": "string"
-          },
-          "datasets": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": {
-                "nullable": true
-              }
-            },
-            "description": "Datasets you may use: id, label, description, snapshot (ignores the period), and fields: id, kind (dimension | measure), type, label, description, values (allowed values of a text dimension), grains (date), table_only, format."
-          },
-          "block_types": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "where_ops": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "period_presets": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "limits": {
-            "type": "object",
-            "additionalProperties": {
-              "nullable": true
-            }
-          },
-          "can_share": {
-            "type": "boolean",
-            "description": "false for hiring managers (read-only role)."
-          }
-        },
-        "required": [
-          "schema",
-          "datasets",
-          "block_types",
-          "where_ops",
-          "period_presets",
-          "limits",
-          "can_share"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true
-          },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "private",
-              "merchant",
-              "people",
-              "template"
-            ],
-            "description": "private (only the owner), merchant (everyone at the company), people (chosen people), template (JobMojito template)."
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "edit",
-              "view"
-            ]
-          },
-          "owner": {
-            "nullable": true
-          },
-          "is_mine": {
-            "nullable": true
-          },
-          "created_via": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          },
-          "has_draft": {
-            "type": "boolean"
-          },
-          "block_count": {
-            "type": "integer"
-          },
-          "datasets": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "pinned": {
-            "type": "boolean"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "visibility",
-          "access",
-          "created_via",
-          "version",
-          "has_draft",
-          "block_count",
-          "datasets",
-          "pinned",
-          "updated_at"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportListResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReportSummary"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "ReportDetail": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "private",
-              "merchant",
-              "people",
-              "template"
-            ]
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "edit",
-              "view"
-            ]
-          },
-          "version": {
-            "type": "integer"
-          },
-          "definition": {
-            "nullable": true,
-            "description": "The published ReportDefinition."
-          },
-          "draft_definition": {
-            "nullable": true,
-            "description": "Unpublished edits (only for people who can edit), or null."
-          },
-          "admin_url": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "visibility",
-          "access",
-          "version",
-          "admin_url"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportBlockResult": {
-        "type": "object",
-        "properties": {
-          "block_id": {
-            "type": "string"
-          },
-          "ok": {
-            "type": "boolean",
-            "description": "false when this block could not run; see error. Other blocks are unaffected."
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": {
-                "nullable": true
-              }
-            },
-            "description": "Each column: id, kind (dimension | measure), type, label, and for measures a format."
-          },
-          "rows": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": {
-                "nullable": true
-              }
-            },
-            "description": "One object per row, keyed by column id."
-          },
-          "truncated": {
-            "type": "boolean",
-            "description": "More rows exist than the block limit."
-          },
-          "previous": {
-            "type": "object",
-            "additionalProperties": {
-              "nullable": true
-            },
-            "description": "compare previous_period: the same measures for the period before."
-          },
-          "period": {
-            "type": "object",
-            "additionalProperties": {
-              "nullable": true
-            },
-            "description": "The period the block covered: from, to (inclusive), snapshot (true when the dataset ignores the period)."
-          },
-          "error": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "block_id",
-          "ok"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportRunResponse": {
-        "type": "object",
-        "properties": {
-          "report_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          },
-          "filters": {
-            "type": "object",
-            "additionalProperties": {
-              "nullable": true
-            },
-            "description": "The filters the blocks ran with (report defaults, then your saved filters, then the ones you passed)."
-          },
-          "blocks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReportBlockResult"
-            }
-          }
-        },
-        "required": [
-          "filters",
-          "blocks"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportFilters": {
-        "type": "object",
-        "properties": {
-          "period": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "preset": {
-                    "type": "string",
-                    "enum": [
-                      "last_7_days",
-                      "last_30_days",
-                      "last_90_days",
-                      "this_month",
-                      "last_month",
-                      "this_quarter",
-                      "last_quarter",
-                      "this_year",
-                      "last_year",
-                      "all_time"
-                    ]
-                  }
-                },
-                "required": [
-                  "preset"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "from": {
-                    "type": "string",
-                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                  },
-                  "to": {
-                    "type": "string",
-                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                  }
-                },
-                "required": [
-                  "from",
-                  "to"
-                ],
-                "additionalProperties": false
-              }
-            ],
-            "description": "Either a preset, or from and to dates (YYYY-MM-DD, both inclusive, UTC). Default: last_30_days.",
-            "example": {
-              "preset": "last_30_days"
-            }
-          },
-          "position_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "maxItems": 200,
-            "description": "Only these positions (position ids from list_interviews). Empty or missing = all."
-          },
-          "interview_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "maxItems": 200,
-            "description": "Only these interviews (interview ids from list_interviews). Empty or missing = all."
-          },
-          "include_test": {
-            "type": "boolean",
-            "description": "Include test runs. Default false."
-          }
-        },
-        "additionalProperties": false,
-        "description": "Filters for every block of the report. Each viewer can override them for themselves."
-      },
-      "ReportBlock": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{1,40}$",
-            "example": "by_position"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "kpi",
-              "table",
-              "bar",
-              "stacked_bar",
-              "line",
-              "funnel",
-              "text"
-            ],
-            "description": "kpi: one total per measure (no dimensions; add compare previous_period for a change). funnel: 2+ measures as steps (no dimensions). table: 0-2 dimensions. bar: 1-2 dimensions. stacked_bar: exactly 2 dimensions. line: first dimension a date. text: a note, only `text`."
-          },
-          "title": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "dataset": {
-            "type": "string",
-            "description": "Dataset id from report-catalog. Not used by a text block.",
-            "example": "interview_results"
-          },
-          "dimensions": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,40}$"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "field": {
-                      "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,40}$"
-                    },
-                    "grain": {
-                      "type": "string",
-                      "enum": [
-                        "day",
-                        "week",
-                        "month",
-                        "quarter",
-                        "year"
-                      ],
-                      "description": "For a date field: day (default), week, month, quarter or year."
-                    }
-                  },
-                  "required": [
-                    "field"
-                  ],
-                  "additionalProperties": false
-                }
-              ],
-              "description": "A dimension field id, or {\"field\", \"grain\"} for a date."
-            },
-            "maxItems": 2
-          },
-          "measures": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,40}$"
-            },
-            "minItems": 1,
-            "maxItems": 6,
-            "description": "1 to 6 measure ids of the dataset.",
-            "example": [
-              "completed",
-              "avg_score"
-            ]
-          },
-          "where": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "field": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,40}$",
-                  "description": "A dimension of the block's dataset."
-                },
-                "op": {
-                  "type": "string",
-                  "enum": [
-                    "eq",
-                    "neq",
-                    "in",
-                    "not_in",
-                    "gt",
-                    "gte",
-                    "lt",
-                    "lte",
-                    "between",
-                    "is_empty",
-                    "is_not_empty"
-                  ]
-                },
-                "value": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "number"
-                          }
-                        ]
-                      }
-                    }
-                  ],
-                  "description": "One value for eq / neq / gt / gte / lt / lte, a list for in / not_in, [low, high] for between, nothing for is_empty / is_not_empty."
-                }
-              },
-              "required": [
-                "field",
-                "op"
-              ],
-              "additionalProperties": false
-            },
-            "maxItems": 10
-          },
-          "sort": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "field": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,40}$",
-                  "description": "A dimension or measure the block selects."
-                },
-                "dir": {
-                  "type": "string",
-                  "enum": [
-                    "asc",
-                    "desc"
-                  ]
-                }
-              },
-              "required": [
-                "field"
-              ],
-              "additionalProperties": false
-            },
-            "maxItems": 3
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 500,
-            "description": "Rows for a table / bar / line. Default 100 (line 500)."
-          },
-          "width": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 12,
-            "description": "Columns of a 12-column grid. Default 12."
-          },
-          "compare": {
-            "type": "string",
-            "enum": [
-              "previous_period"
-            ],
-            "description": "kpi / funnel only: also return the same numbers for the period before."
-          },
-          "text": {
-            "type": "string",
-            "maxLength": 4000,
-            "description": "Text block only: the note (plain text, line breaks kept)."
-          }
-        },
-        "required": [
-          "id",
-          "type"
-        ],
-        "additionalProperties": false
-      },
-      "ReportDefinition": {
-        "type": "object",
-        "properties": {
-          "schema": {
-            "type": "string",
-            "enum": [
-              "jobmojito.report/v1"
-            ],
-            "description": "Always \"jobmojito.report/v1\"."
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 1000
-          },
-          "filters": {
-            "$ref": "#/components/schemas/ReportFilters"
-          },
-          "blocks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReportBlock"
-            },
-            "maxItems": 12
-          }
-        },
-        "required": [
-          "schema",
-          "title",
-          "blocks"
-        ],
-        "additionalProperties": false,
-        "description": "A custom report: report-wide filters and up to 12 blocks. Read report-catalog first for the dataset, field and measure ids.",
-        "example": {
-          "schema": "jobmojito.report/v1",
-          "title": "Weekly hiring pulse",
-          "filters": {
-            "period": {
-              "preset": "last_30_days"
-            }
-          },
-          "blocks": [
-            {
-              "id": "headline",
-              "type": "kpi",
-              "dataset": "interview_results",
-              "measures": [
-                "completed",
-                "avg_score",
-                "shortlisted"
-              ],
-              "compare": "previous_period"
-            },
-            {
-              "id": "trend",
-              "type": "line",
-              "title": "Completed per week",
-              "dataset": "interview_results",
-              "dimensions": [
-                {
-                  "field": "date",
-                  "grain": "week"
-                }
-              ],
-              "measures": [
-                "completed"
-              ],
-              "width": 8
-            },
-            {
-              "id": "by_position",
-              "type": "table",
-              "title": "By position",
-              "dataset": "interview_results",
-              "dimensions": [
-                "position"
-              ],
-              "measures": [
-                "completed",
-                "avg_score",
-                "shortlisted"
-              ],
-              "sort": [
-                {
-                  "field": "completed",
-                  "dir": "desc"
-                }
-              ],
-              "limit": 25
-            }
-          ]
-        }
-      },
-      "ReportPreviewRequest": {
-        "type": "object",
-        "properties": {
-          "merchant_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
-          },
-          "definition": {
-            "$ref": "#/components/schemas/ReportDefinition"
-          },
-          "filters": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReportFilters"
-              },
-              {
-                "description": "Applied on top of definition.filters."
-              }
-            ]
-          },
-          "block_id": {
-            "type": "string",
-            "description": "Run only this block."
-          }
-        },
-        "required": [
-          "definition"
-        ],
-        "additionalProperties": false
-      },
-      "ReportSaveResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "version": {
-            "type": "integer",
-            "description": "Send it back with the next update."
-          },
-          "published": {
-            "type": "boolean",
-            "description": "false when the change was stored as a draft the owner publishes in the admin."
-          },
-          "admin_url": {
-            "type": "string",
-            "description": "Open the report in the JobMojito admin."
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "published",
-          "admin_url"
-        ],
-        "additionalProperties": {
-          "nullable": true
-        }
-      },
-      "ReportCreateRequest": {
-        "type": "object",
-        "properties": {
-          "merchant_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
-          },
-          "definition": {
-            "$ref": "#/components/schemas/ReportDefinition"
-          }
-        },
-        "required": [
-          "definition"
-        ],
-        "additionalProperties": false
-      },
-      "ReportUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "merchant_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Report id (from list_reports)."
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "The version you read (get_report / list_reports). A stale version is refused with 409."
-          },
-          "definition": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReportDefinition"
-              },
-              {
-                "description": "The whole new definition (it replaces the old one)."
-              }
-            ]
-          },
-          "target": {
-            "type": "string",
-            "enum": [
-              "published",
-              "draft"
-            ],
-            "description": "published (default) or draft. A private report always publishes. Through the MCP server a shared report always gets a draft that its owner publishes in the admin."
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "definition"
-        ],
-        "additionalProperties": false
       }
     },
     "parameters": {}
@@ -10243,6 +10246,666 @@
         "operationId": "get_merchant_credit_usage"
       }
     },
+    "/report-catalog": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "List report datasets, fields and measures",
+        "description": "Everything a custom report may use on this account: the datasets (interview results, invitations, position pipeline, ATS pipeline, credits, coaching sessions - only those your account and role include), their dimensions (group by / filter) and measures (numbers), block types, condition operators and period presets. Read this before writing a report definition: ids not listed here are refused.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalogue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCatalog"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_report_fields"
+      }
+    },
+    "/report-list": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "List custom reports",
+        "description": "Custom reports you can open on this account (yours, the ones shared with you) and the JobMojito templates. Pinned first, then most recently updated.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "shared",
+                "templates"
+              ],
+              "default": "all",
+              "description": "all (default), mine, shared (by colleagues) or templates."
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reports.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_reports"
+      }
+    },
+    "/report-get": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Get a custom report definition",
+        "description": "The report's JSON definition, visibility, your access (owner, edit, view) and its version (needed to update it). People who can edit also get the unpublished draft, if any.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Report id (from list_reports)."
+            },
+            "required": true,
+            "name": "id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No report with this id, or it is not shared with you.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_report"
+      }
+    },
+    "/report-run": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Run a custom report",
+        "description": "Runs every block of a saved report and returns its rows. Filters start from the report's defaults, then your own saved filters, then `filters` if you pass it. Each block runs on its own: a block that fails returns ok=false with an error while the others still return data. Numbers are aggregated; no block returns more than 500 rows.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Report id (from list_reports)."
+            },
+            "required": true,
+            "name": "id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Optional JSON ReportFilters to apply on top, e.g. {\"period\":{\"preset\":\"last_month\"}}."
+            },
+            "required": false,
+            "name": "filters",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Run only this block."
+            },
+            "required": false,
+            "name": "block_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false",
+              "description": "Run the unpublished draft instead (only if you can edit the report).",
+              "example": "false"
+            },
+            "required": false,
+            "name": "draft",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Block results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No report with this id, or it is not shared with you.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "run_report"
+      }
+    },
+    "/report-preview": {
+      "post": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Check and run an unsaved report",
+        "description": "Validates a report definition against the catalogue and runs it, without storing anything. Use it to check a definition before create_report or update_report. A 422 names the block and field that is wrong and lists the valid ids.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Block results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "preview_report"
+      }
+    },
+    "/report-create": {
+      "post": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Create a custom report",
+        "description": "Stores a new custom report. It is created as \"Only me\" (private to you); share it from the JobMojito admin. Returns its id, version and the admin link to open it. Check the definition with preview_report first.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSaveResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "create_report"
+      }
+    },
+    "/report-update": {
+      "post": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Update a custom report",
+        "description": "Replaces the definition of a report you own or may edit. Send the version you read; if someone changed the report since, you get 409 and should get it again. A report shared with others keeps your change as a draft until it is published in the admin, so viewers never see a half-finished report.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSaveResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No report with this id, or it is not shared with you.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The report changed since you read it; get it again and retry with the new version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error. The message names the block and field, and lists valid ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "update_report"
+      }
+    },
     "/merchant-candidate-list": {
       "get": {
         "tags": [
@@ -11303,666 +11966,6 @@
           }
         },
         "operationId": "list_languages"
-      }
-    },
-    "/report-catalog": {
-      "get": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "List report datasets, fields and measures",
-        "description": "Everything a custom report may use on this account: the datasets (interview results, invitations, position pipeline, ATS pipeline, credits, coaching sessions - only those your account and role include), their dimensions (group by / filter) and measures (numbers), block types, condition operators and period presets. Read this before writing a report definition: ids not listed here are refused.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
-              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
-            },
-            "required": false,
-            "name": "merchant_id",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The catalogue.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportCatalog"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "list_report_fields"
-      }
-    },
-    "/report-list": {
-      "get": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "List custom reports",
-        "description": "Custom reports you can open on this account (yours, the ones shared with you) and the JobMojito templates. Pinned first, then most recently updated.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
-              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
-            },
-            "required": false,
-            "name": "merchant_id",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "all",
-                "mine",
-                "shared",
-                "templates"
-              ],
-              "default": "all",
-              "description": "all (default), mine, shared (by colleagues) or templates."
-            },
-            "required": false,
-            "name": "scope",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Reports.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportListResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "list_reports"
-      }
-    },
-    "/report-get": {
-      "get": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "Get a custom report definition",
-        "description": "The report's JSON definition, visibility, your access (owner, edit, view) and its version (needed to update it). People who can edit also get the unpublished draft, if any.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
-              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
-            },
-            "required": false,
-            "name": "merchant_id",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Report id (from list_reports)."
-            },
-            "required": true,
-            "name": "id",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The report.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportDetail"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No report with this id, or it is not shared with you.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_report"
-      }
-    },
-    "/report-run": {
-      "get": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "Run a custom report",
-        "description": "Runs every block of a saved report and returns its rows. Filters start from the report's defaults, then your own saved filters, then `filters` if you pass it. Each block runs on its own: a block that fails returns ok=false with an error while the others still return data. Numbers are aggregated; no block returns more than 500 rows.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
-              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
-            },
-            "required": false,
-            "name": "merchant_id",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Report id (from list_reports)."
-            },
-            "required": true,
-            "name": "id",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "description": "Optional JSON ReportFilters to apply on top, e.g. {\"period\":{\"preset\":\"last_month\"}}."
-            },
-            "required": false,
-            "name": "filters",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "description": "Run only this block."
-            },
-            "required": false,
-            "name": "block_id",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ],
-              "default": "false",
-              "description": "Run the unpublished draft instead (only if you can edit the report).",
-              "example": "false"
-            },
-            "required": false,
-            "name": "draft",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Block results.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportRunResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No report with this id, or it is not shared with you.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "run_report"
-      }
-    },
-    "/report-preview": {
-      "post": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "Check and run an unsaved report",
-        "description": "Validates a report definition against the catalogue and runs it, without storing anything. Use it to check a definition before create_report or update_report. A 422 names the block and field that is wrong and lists the valid ids.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReportPreviewRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Block results.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportRunResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "preview_report"
-      }
-    },
-    "/report-create": {
-      "post": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "Create a custom report",
-        "description": "Stores a new custom report. It is created as \"Only me\" (private to you); share it from the JobMojito admin. Returns its id, version and the admin link to open it. Check the definition with preview_report first.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReportCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Report created.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportSaveResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "create_report"
-      }
-    },
-    "/report-update": {
-      "post": {
-        "tags": [
-          "Reports"
-        ],
-        "summary": "Update a custom report",
-        "description": "Replaces the definition of a report you own or may edit. Send the version you read; if someone changed the report since, you get 409 and should get it again. A report shared with others keeps your change as a draft until it is published in the admin, so viewers never see a half-finished report.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReportUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Report saved.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportSaveResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, expired or invalid access token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Your token or role may not do this (for example a hiring manager sharing, or a dataset your account does not include).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No report with this id, or it is not shared with you.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The report changed since you read it; get it again and retry with the new version.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error. The message names the block and field, and lists valid ids.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "update_report"
       }
     }
   }
