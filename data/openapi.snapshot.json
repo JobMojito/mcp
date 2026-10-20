@@ -46,7 +46,7 @@
     },
     {
       "name": "Feedback",
-      "description": "Send feature requests to the product team."
+      "description": "Send feature requests to the product team and report technical issues to support."
     }
   ],
   "components": {
@@ -8135,6 +8135,62 @@
           "status"
         ],
         "description": "The submitted feature request."
+      },
+      "TechnicalIssueReportRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000,
+            "description": "What went wrong: what you did, what you expected, what happened instead (error messages as shown), and since when. Plain text; blank lines separate paragraphs. Do not include passwords or API keys.",
+            "example": "The PDF report of a finished interview stays empty since this morning. Other results open fine."
+          },
+          "interview_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "The interview (definition) the problem is about, if any."
+          },
+          "result_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "The interview result the problem is about, if any."
+          }
+        },
+        "required": [
+          "description"
+        ]
+      },
+      "TechnicalIssueReportResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the stored report."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "queued"
+            ],
+            "description": "`sent`: the support team has it. `queued`: stored, it is sent shortly (support could not be reached right now)."
+          },
+          "reference": {
+            "type": "string",
+            "nullable": true,
+            "description": "The support conversation number, once sent (e.g. `#592`).",
+            "example": "#592"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "reference"
+        ],
+        "description": "The reported technical issue."
       }
     },
     "parameters": {}
@@ -12112,6 +12168,103 @@
           }
         },
         "operationId": "submit_feature_request"
+      }
+    },
+    "/merchant-technical-issue": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Report a technical issue",
+        "description": "Reports a technical problem to JobMojito support. It opens a support conversation from your account (your e-mail), with your company and the ids you give; support answers there. At most 5 reports per user in 24 hours. Requires a user token (admin console session or MCP sign-in) of a merchant, merchant owner or admin.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TechnicalIssueReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Issue reported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnicalIssueReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not the token of a merchant, merchant owner or admin user).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (description missing, too short or too long; an id that is not a uuid).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "You reported 5 issues in the last 24 hours. Try again tomorrow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reporting issues is not available right now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "report_technical_issue"
       }
     }
   }

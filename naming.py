@@ -718,6 +718,27 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         idempotent=False,
         open_world=True,
     ),
+    ("POST", "/merchant-technical-issue"): ToolMeta(
+        name="report_technical_issue",
+        title="Report technical issue",
+        hint=(
+            "Report a technical problem to JobMojito support. It opens a support "
+            "conversation from the signed-in user's account (their e-mail), with their "
+            "company and the interview or result ids given; support answers there. "
+            "Describe what was done, what was expected and what happened (error text "
+            "as shown). Confirm the wording with the user first; at most 5 a day."
+        ),
+        justification=(
+            "readOnlyHint=false / destructiveHint=true: opens a conversation with the "
+            "support team in the user's name, an external side effect this tool cannot "
+            "undo (it never changes or deletes existing data). idempotentHint=false: "
+            "each call opens another conversation. " + _OPEN_WORLD
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=True,
+    ),
 }
 
 
