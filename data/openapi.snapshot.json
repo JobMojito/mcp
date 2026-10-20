@@ -5973,7 +5973,7 @@
               "format": "uuid"
             },
             "maxItems": 200,
-            "description": "Only these positions (position ids from list_interviews). Empty or missing = all."
+            "description": "Positions to show (position ids from list_interviews). position_ids, interview_ids and without_position are one pick list: a row shows when it belongs to ANY pick. Nothing picked = all."
           },
           "interview_ids": {
             "type": "array",
@@ -5982,7 +5982,11 @@
               "format": "uuid"
             },
             "maxItems": 200,
-            "description": "Only these interviews (interview ids from list_interviews). Empty or missing = all."
+            "description": "Interviews to show (interview ids from list_interviews), combined with the other picks by OR. Nothing picked = all."
+          },
+          "without_position": {
+            "type": "boolean",
+            "description": "Also pick interviews that are not part of any position (stand-alone interviews, and coaching sessions). Combined with the other picks by OR."
           },
           "include_test": {
             "type": "boolean",
@@ -8091,29 +8095,6 @@
           "languages"
         ]
       },
-      "FeatureRequestSubmitRequest": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 5,
-            "maxLength": 120,
-            "description": "A short summary of the feature, shown as the post title.",
-            "example": "Export all results of a position as one CSV"
-          },
-          "description": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 4000,
-            "description": "What the user needs and why: the problem, how they work around it today, who it would help. Plain text; blank lines separate paragraphs. The board is public: do not include candidate data, company names or other personal information.",
-            "example": "We review applications in a spreadsheet every Friday. Today we export each interview separately; one CSV per position would save an hour a week."
-          }
-        },
-        "required": [
-          "title",
-          "description"
-        ]
-      },
       "FeatureRequestSubmitResponse": {
         "type": "object",
         "properties": {
@@ -8136,30 +8117,26 @@
         ],
         "description": "The submitted feature request."
       },
-      "TechnicalIssueReportRequest": {
+      "FeatureRequestSubmitRequest": {
         "type": "object",
         "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 120,
+            "description": "A short summary of the feature, shown as the post title.",
+            "example": "Export all results of a position as one CSV"
+          },
           "description": {
             "type": "string",
             "minLength": 10,
             "maxLength": 4000,
-            "description": "What went wrong: what you did, what you expected, what happened instead (error messages as shown), and since when. Plain text; blank lines separate paragraphs. Do not include passwords or API keys.",
-            "example": "The PDF report of a finished interview stays empty since this morning. Other results open fine."
-          },
-          "interview_id": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid",
-            "description": "The interview (definition) the problem is about, if any."
-          },
-          "result_id": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid",
-            "description": "The interview result the problem is about, if any."
+            "description": "What the user needs and why: the problem, how they work around it today, who it would help. Plain text; blank lines separate paragraphs. The board is public: do not include candidate data, company names or other personal information.",
+            "example": "We review applications in a spreadsheet every Friday. Today we export each interview separately; one CSV per position would save an hour a week."
           }
         },
         "required": [
+          "title",
           "description"
         ]
       },
@@ -8191,6 +8168,33 @@
           "reference"
         ],
         "description": "The reported technical issue."
+      },
+      "TechnicalIssueReportRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000,
+            "description": "What went wrong: what you did, what you expected, what happened instead (error messages as shown), and since when. Plain text; blank lines separate paragraphs. Do not include passwords or API keys.",
+            "example": "The PDF report of a finished interview stays empty since this morning. Other results open fine."
+          },
+          "interview_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "The interview (definition) the problem is about, if any."
+          },
+          "result_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "The interview result the problem is about, if any."
+          }
+        },
+        "required": [
+          "description"
+        ]
       }
     },
     "parameters": {}
