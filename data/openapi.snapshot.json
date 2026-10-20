@@ -43,6 +43,10 @@
     {
       "name": "Admin",
       "description": "Account administration — invite team/coaching users, manage sub-merchants and avatar templates."
+    },
+    {
+      "name": "Feedback",
+      "description": "Send feature requests to the product team."
     }
   ],
   "components": {
@@ -8086,6 +8090,51 @@
         "required": [
           "languages"
         ]
+      },
+      "FeatureRequestSubmitRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 120,
+            "description": "A short summary of the feature, shown as the post title.",
+            "example": "Export all results of a position as one CSV"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000,
+            "description": "What the user needs and why: the problem, how they work around it today, who it would help. Plain text; blank lines separate paragraphs. The board is public: do not include candidate data, company names or other personal information.",
+            "example": "We review applications in a spreadsheet every Friday. Today we export each interview separately; one CSV per position would save an hour a week."
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ]
+      },
+      "FeatureRequestSubmitResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the stored request."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "posted",
+              "queued"
+            ],
+            "description": "`posted`: it is on the feature request board. `queued`: stored, it is posted shortly (the board could not be reached right now)."
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "description": "The submitted feature request."
       }
     },
     "parameters": {}
@@ -11966,6 +12015,103 @@
           }
         },
         "operationId": "list_languages"
+      }
+    },
+    "/merchant-feature-request": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Submit a feature request",
+        "description": "Sends a feature request to the JobMojito product team. It is posted on the public feature request board under your name (from your account e-mail), where you get status updates and others can vote on it; your company is not named. At most 5 requests per user in 24 hours. Requires a user token (admin console session or MCP sign-in) of a merchant, merchant owner or admin.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureRequestSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request submitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureRequestSubmitResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not the token of a merchant, merchant owner or admin user).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (title or description missing, too short or too long).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "You submitted 5 requests in the last 24 hours. Try again tomorrow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Feature requests are not available right now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "submit_feature_request"
       }
     }
   }

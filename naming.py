@@ -695,6 +695,29 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "version, so repeating the call with the old version is refused. "
         + _OPEN_WORLD,
     ),
+    # --- Feedback ---
+    ("POST", "/merchant-feature-request"): ToolMeta(
+        name="submit_feature_request",
+        title="Submit feature request",
+        hint=(
+            "Send a feature request to the JobMojito product team. It is posted on the "
+            "public feature request board under the signed-in user's name, where they "
+            "get status updates; the company is not named. Write a short title and a "
+            "description of the need and why (no candidate data or company names). "
+            "Confirm the wording with the user before submitting; at most 5 a day."
+        ),
+        justification=(
+            "readOnlyHint=false / destructiveHint=true: publishes a post on the "
+            "public feature request board under the user's name, a visible external "
+            "side effect this tool cannot undo (it never changes or deletes existing "
+            "data). idempotentHint=false: each call submits another request. "
+            + _OPEN_WORLD
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=True,
+    ),
 }
 
 
