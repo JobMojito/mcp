@@ -12,7 +12,7 @@ bases, merchants/analytics, custom reports) plus documentation search as MCP too
 at startup; end-user Supabase JWTs are forwarded to the API so every call runs
 with that user's own permissions.
 
-Current surface: **32 API tools** (37 spec endpoints minus the 5 in
+Current surface: **32 API tools** (38 spec endpoints minus the 6 in
 `IGNORED_PATHS`) + `search_documentation`, `get_documentation`,
 `jobmojito_configuration`, `list_my_merchants`. `naming.py` is the inventory —
 don't maintain a tool list anywhere else.

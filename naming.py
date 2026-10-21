@@ -750,6 +750,7 @@ IGNORED_PATHS: set[str] = {
     "/pre-screening-create",  # pre-screening management — excluded
     "/job-interview-pre-screening-api-resume-text",  # pre-screening — excluded
     "/job-interview-pre-screening-api-resume-binary",  # pre-screening — excluded
+    "/merchant-document-download",  # 302 to a signed file URL for HR systems (webhooks v2) — not a tool
 }
 
 

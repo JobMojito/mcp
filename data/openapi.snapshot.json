@@ -11187,6 +11187,78 @@
         "operationId": "list_candidates"
       }
     },
+    "/merchant-document-download": {
+      "get": {
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Download a candidate document",
+        "description": "Downloads a document of one of your candidates, as named in the `documents` list of a webhook v2 payload (`download_url`). Answers 302 with a Location valid for 10 minutes; follow the redirect to get the file. Requires your company API key (or a user token of your company). Available when webhooks v2 is enabled for your company.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Document id (`data.documents[].id` of a webhook payload).",
+              "example": "0b6f2c4e-3a51-4c7e-9d2a-5f8e1b7c9a10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to a signed download link (Location header), valid for 10 minutes."
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token is not a token of your company, the document is not one of your company's, or webhooks v2 is not enabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (id missing or not a uuid).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/knowledge-base-document-upload": {
       "post": {
         "tags": [
