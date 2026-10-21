@@ -8195,6 +8195,96 @@
         "required": [
           "description"
         ]
+      },
+      "AssessmentResultSetResponse": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "duplicate",
+              "ignored_final"
+            ],
+            "description": "applied, or ignored_final for a cancelled assessment."
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the assessment after the call."
+          },
+          "score": {
+            "type": "number"
+          },
+          "score_max": {
+            "type": "number"
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "description": "The recorded result. The step now waits for the recruiter's decision."
+      },
+      "AssessmentResultSetRequest": {
+        "type": "object",
+        "properties": {
+          "position_result_step_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The external assessment step of the application (position_result_step id).",
+            "example": "6a0f2d4e-1c3b-4e5f-8a7b-9c0d1e2f3a4b"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "expired",
+              "cancelled"
+            ],
+            "description": "started, completed (a result), expired (not taken in time) or cancelled."
+          },
+          "score": {
+            "type": "number",
+            "description": "Score (completed).",
+            "example": 78
+          },
+          "score_max": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Maximum score.",
+            "example": 100
+          },
+          "passed": {
+            "type": "boolean",
+            "description": "Pass / fail as the assessment reports it. Without it the step's pass mark decides it from the score."
+          },
+          "result_label": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Result label, for example a language level.",
+            "example": "B2"
+          },
+          "report_url": {
+            "type": "string",
+            "maxLength": 2000,
+            "format": "uri",
+            "description": "Link to the full report (https)."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Note for the recruiter."
+          }
+        },
+        "required": [
+          "position_result_step_id",
+          "status"
+        ]
       }
     },
     "parameters": {}
@@ -9875,6 +9965,92 @@
         "operationId": "request_another_interview_attempt"
       }
     },
+    "/assessment-result-set": {
+      "post": {
+        "tags": [
+          "Results"
+        ],
+        "summary": "Record an external assessment result",
+        "description": "Records the result of an external assessment step of an application (status, score, pass / fail, report link). A result never decides on its own: the step then waits for the recruiter to pass or fail it. Requires the token of a merchant or merchant owner of the company; available when external assessments are enabled for the company.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessmentResultSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentResultSetResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token is not a merchant / merchant owner token of the company, or external assessments are not enabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No external assessment on this step.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/merchant-result-list": {
       "get": {
         "tags": [
@@ -11185,6 +11361,78 @@
           }
         },
         "operationId": "list_candidates"
+      }
+    },
+    "/merchant-document-download": {
+      "get": {
+        "tags": [
+          "Candidates"
+        ],
+        "summary": "Download a candidate document",
+        "description": "Downloads a document of one of your candidates, as named in the `documents` list of a webhook v2 payload (`download_url`). Answers 302 with a Location valid for 10 minutes; follow the redirect to get the file. Requires your company API key (or a user token of your company). Available when webhooks v2 is enabled for your company.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Document id (`data.documents[].id` of a webhook payload).",
+              "example": "0b6f2c4e-3a51-4c7e-9d2a-5f8e1b7c9a10"
+            },
+            "required": true,
+            "name": "id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to a signed download link (Location header), valid for 10 minutes."
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token is not a token of your company, the document is not one of your company's, or webhooks v2 is not enabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (id missing or not a uuid).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/knowledge-base-document-upload": {
