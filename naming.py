@@ -358,6 +358,15 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "changes the candidate's recorded outcome and can invalidate a completed "
         "assessment. " + _OPEN_WORLD,
     ),
+    ("POST", "/assessment-result-set"): _write(
+        "set_assessment_result",
+        "Record an external assessment result",
+        "Record the result of a candidate's external assessment step (status, score, "
+        "pass / fail, report link). The step then waits for the recruiter's decision.",
+        "readOnlyHint=false / destructiveHint=true: it writes a result onto a candidate's "
+        "application and hands the step to the recruiter's decision, so it should not "
+        "run without user confirmation. " + _OPEN_WORLD,
+    ),
     ("POST", "/job-interview-token"): _write(
         "generate_interview_url",
         "Generate shareable interview link",
