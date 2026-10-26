@@ -47,6 +47,10 @@
     {
       "name": "Feedback",
       "description": "Send feature requests to the product team and report technical issues to support."
+    },
+    {
+      "name": "Integrations",
+      "description": "Ready-made connectors and how their fields map to JobMojito. A company sees the same tables under Integrations > Catalogue > Field mapping.\n\n### ATS connector (Kombo)\n\nThe applicant tracking system is connected through Kombo's unified ATS API. JobMojito keeps a copy of the ATS jobs, applications and candidates, links each position to one ATS job, invites applicants who reach the trigger stage, and writes the outcome back. Links, notes and attachments are written only when the company switched them on (merchant.kombo_selected_result_actions); job fields are not copied into the position.\n\n| JobMojito field | Direction | External field | Notes |\n| --- | --- | --- | --- |\n| `merchant.kombo_integration_id, merchant.kombo_integration_tool` | Into JobMojito | `integration-created / integration-deleted webhook: data.id, data.tool` | Set when the ATS connection is created and cleared when it is deleted. |\n| `kombo_jobs.id, kombo_jobs.name` | Into JobMojito | `GET /ats/jobs: id, name (fallback title)` | Copied on every full or incremental sync of the jobs. |\n| `kombo_jobs.status` | Into JobMojito | `jobs.status, jobs.remote_deleted_at` | DRAFT becomes draft, CLOSED or ARCHIVED becomes archived, deleted in the ATS becomes deleted. |\n| `kombo_jobs.data` | Into JobMojito | `jobs.* (whole job object)` | Kept as received; the position's own fields are not overwritten from it. |\n| `position_def_set.kombo_parameters.kombo_job_id, interview_def_set.kombo_parameters.kombo_job_id` | Into JobMojito | `jobs.id` | Links a position or interview to one ATS job, chosen by the recruiter. |\n| `position_def_set.status, interview_def_set.status` | Into JobMojito | `jobs.status (closed, archived, deleted, reopened)` | Closing the job in the ATS archives the linked positions and interviews; reopening it restores their previous status. |\n| `kombo_parameters.kombo_stage_id` | Into JobMojito | `jobs.stages[].id matched against applications.current_stage_id` | An application entering this stage triggers the invitation or the pre-screening; applicants already in it are invited when the position is published. |\n| `ATS pipeline report (stage names and order)` | Into JobMojito | `jobs.stages[].id, name, index` | Read for the ATS pipeline report only. |\n| `kombo_applications.id, kombo_job_id, kombo_candidate_id, data` | Into JobMojito | `GET /ats/applications: id, job_id, candidate_id` | Copied on application sync; applications of closed or archived jobs are not imported. |\n| `kombo_applications.kombo_stage_id` | Into JobMojito | `applications.current_stage_id` | A stage change re-runs the invitation check for that application. |\n| `kombo_applications.status` | Into JobMojito | `applications.outcome (HIRED, DECLINED), remote_deleted_at` | Hired, declined or deleted applications are archived and receive no further invitations. |\n| `position_result.outcome, interview_result.outcome` | Into JobMojito | `applications.outcome` | Set to hired or declined when the ATS marks the linked application, while the outcome is still pending. |\n| `position_result.status, interview_result.status` | Into JobMojito | `applications.remote_deleted_at` | An application deleted in the ATS archives the linked application in JobMojito if nobody has decided yet. |\n| `kombo_candidates.id, data, status` | Into JobMojito | `GET /ats/candidates: candidates.*, remote_deleted_at` | Copied on candidate sync; a candidate deleted in the ATS is archived. |\n| `profile_interview.email, profile_interview.email_auth` | Into JobMojito | `candidates.email_addresses[0].email_address` | Finds or creates the candidate when the application reaches the trigger stage. |\n| `profile_interview.name` | Into JobMojito | `candidates.first_name + last_name` | Set when the candidate is created from the ATS. |\n| `profile_interview.phone_number` | Into JobMojito | `candidates.phone_numbers[0].phone_number` | Set when the candidate is created from the ATS. |\n| `kombo_candidates.profile_interview_id` | Into JobMojito | `candidates.id (matched by e-mail)` | Links the ATS candidate to the JobMojito candidate on invitation or pre-screening. |\n| `interview_file (type resume)` | Into JobMojito | `GET /ats/applications/{id}/attachments, then /ats/candidates/{id}/attachments: type CV (fallback OTHER)` | The CV from the ATS is imported when the candidate is invited or pre-screened. |\n| `interview_result_pre_screening (AI pre-screening input)` | Into JobMojito | `applications.screening_question_answers[] (question.title, answer)` | The candidate's answers to the ATS screening questions are part of the AI pre-screening. |\n| `interview_result_pre_screening.nationality, residency` | Into JobMojito | `candidates.location.country (fallback address.country)` | Taken from the ATS candidate during pre-screening. |\n| `kombo_applications.interview_result_id, interview_result_pre_screening_id` | Into JobMojito | `applications.id` | Set when the candidate's result is linked back to the ATS application. |\n| `kombo_tags, kombo_rejection_reasons, kombo_users, kombo_offers, kombo_interviews` | Into JobMojito | `GET /ats/tags, /ats/rejection-reasons, /ats/users, /ats/offers, /ats/interviews` | Kept in sync so recruiters can pick tags and rejection reasons; the others are stored only. |\n| `kombo_parameters.kombo_selected_stage_id (step: config.kombo.accept_stage_id)` | From JobMojito | `PUT /ats/applications/{id}/stage` | Moves the application when the recruiter selects the candidate; the position's stage is used on the last step. |\n| `kombo_parameters.kombo_sync_all_results_stage_id` | From JobMojito | `PUT /ats/applications/{id}/stage` | Every processed result is moved to this stage, only when sync all results is on. |\n| `kombo_parameters.kombo_rejected_reason_human_id, kombo_rejected_reason_ai_id (step: config.kombo.reject_reason_id)` | From JobMojito | `POST /ats/applications/{id}/reject { rejection_reason_id, note }` | Rejects the application when the recruiter rejects; nothing is sent when no reason is configured. |\n| `Rejection note (result link, score, AI feedback)` | From JobMojito | `reject.note` | The note sent with the rejection. |\n| `interview_result result link + interview_result.score` | From JobMojito | `POST /ats/applications/{id}/result-links { label, url, details.attributes }` | Sent when result links are switched on: a signed link to the result with its score. |\n| `interview_result note (result link + score)` | From JobMojito | `POST /ats/applications/{id}/notes` | Sent when notes are switched on and the recruiter has decided, or sync all results is on. |\n| `interview_result.pdf_export_url (interview PDF report)` | From JobMojito | `POST /ats/applications/{id}/attachments (type OTHER)` | Sent when attachments are switched on; the PDF is generated first if missing. |\n| `interview_result_pre_screening score, recommendation and analysis` | From JobMojito | `POST /ats/applications/{id}/notes` | Sent after every AI pre-screening and again when the recruiter decides on it. |\n| `Pre-screening PDF report` | From JobMojito | `POST /ats/applications/{id}/attachments (type OTHER)` | Uploaded when attachments are switched on. |\n| `interview_result.coach_status (progress note)` | From JobMojito | `POST /ats/applications/{id}/notes` | A note when the interview fails or the answers are collected, only when sync all results is on. |\n| `position_result_step decision and recruiter notes (meeting step)` | From JobMojito | `POST notes, PUT stage, POST reject` | Sends '<step>: passed / failed' with the recruiter's notes, then moves or rejects. |\n| `human_interview_request reason and outcome` | From JobMojito | `POST notes, PUT stage, POST reject` | Notes the request, moves on pass and rejects on fail or decline. |\n| `merchant.kombo_tag_assignment.result_weak / result_moderate / result_strong / result_exceptional` | From JobMojito | `POST /ats/candidates/{id}/tags` | Score tags on result sync: under 4 weak, under 7 moderate, under 8.5 strong, up to 10 exceptional. |\n| `merchant.kombo_tag_assignment.interview_selected / interview_rejected` | From JobMojito | `POST /ats/candidates/{id}/tags` | Decision tags on a recruiter decision; the selected tag only on the last step. |\n| `merchant.kombo_sync (manual sync)` | From JobMojito | `POST /force-sync` | Asks Kombo to sync the ATS again when the recruiter presses sync. |\n\n### Webhooks\n\nJobMojito POSTs the same JSON payload for the events interview_result (the result is final and scored, sent again when a watched field changes), interview_collected (the candidate finished, before scoring) and interview_failed (failed, abandoned or no speech). Configure the URL, events and authentication headers per environment under Integrations > Custom integration; failed deliveries are retried and kept in the delivery history.\n\n| JobMojito field | Direction | External field | Notes |\n| --- | --- | --- | --- |\n| `interview_result.id` | From JobMojito | `id` | The result the event is about. |\n| `interview_result.question_set_id (interview_def_set.id)` | From JobMojito | `interview_id` | The interview definition. |\n| `interview_result.question_set_id (interview_def_set.id)` | From JobMojito | `question_set_id` | Same value as interview_id. |\n| `interview_result.status` | From JobMojito | `status` | active for interview_result, draft for the other two events. |\n| `interview_result.coach_status` | From JobMojito | `interview_status` | completed, failed, abandoned and so on. |\n| `interview_result.processing_status` | From JobMojito | `processing_status` | AI processing state. |\n| `interview_result.profile_interview_id` | From JobMojito | `profile_interview_id` | The candidate. |\n| `interview_result.profile_id` | From JobMojito | `profile_id` | The candidate's portal account, when there is one. |\n| `profile_interview.external_id` | From JobMojito | `candidate_external_id` | Your id for the candidate; present when a candidate is linked. |\n| `profile_interview.name` | From JobMojito | `candidate_name` | Present when a candidate is linked. |\n| `profile_interview.email` | From JobMojito | `candidate_email` | Present when a candidate is linked. |\n| `profile_interview.phone_number` | From JobMojito | `candidate_phone_number` | Present when a candidate is linked. |\n| `interview_result.recruiter_go_next_round` | From JobMojito | `recruiter_go_next_round` | The recruiter's decision; usually empty in interview_collected and interview_failed. |\n| `interview_result.ai_analysis` | From JobMojito | `ai_analysis` | Candidate-facing analysis, filled in interview_result. |\n| `interview_result.ai_analysis_recruiter` | From JobMojito | `ai_analysis_recruiter` | Recruiter-facing analysis, filled in interview_result. |\n| `interview_result.ai_analysis_other` | From JobMojito | `ai_analysis_other` | Session analyses by name, for example strengths_concerns. |\n| `interview_result.ai_analysis_other.strengths_concerns.strengths` | From JobMojito | `ai_analysis_recruiter_why_hire` | Deprecated copy kept for existing integrations. |\n| `interview_result.ai_analysis_other.strengths_concerns.concerns` | From JobMojito | `ai_analysis_recruiter_why_not_hire` | Deprecated copy kept for existing integrations. |\n| `interview_result.score_interview_ai` | From JobMojito | `ai_analysis_recruiter_score` | Recruiter-facing AI score, filled in interview_result. |\n| `interview_result.score` | From JobMojito | `score` | Overall score, filled in interview_result. |\n| `interview_result.pdf_export_url` | From JobMojito | `pdf_export_url` | When a PDF report is configured, interview_result waits until the PDF exists. |\n| `Changed fields of the result` | From JobMojito | `reason` | Which watched fields changed; 'manual re-trigger of ...' on a resend from the delivery history. |"
     }
   ],
   "components": {
@@ -2695,6 +2699,17 @@
           "pdf_export_auto_config": {
             "nullable": true,
             "description": "Auto-PDF-report options applied when the interview completes; null when auto-export is off. Null for multi-stage positions."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "Company-defined fields (key: value) of a multi-stage position, when custom fields are enabled for the company (multi-stage positions only: absent for an interview). Keys are the field keys of the company's custom field definitions; values are text, numbers, YYYY-MM-DD dates, option values (a list for multiple choice), {min, max, currency} ranges or user profile ids.",
+            "example": {
+              "cost_centre": "CC-100",
+              "contract_type": "permanent"
+            }
           }
         },
         "required": [
@@ -3001,6 +3016,17 @@
               "interview-practice",
               "sales"
             ]
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "Company-defined position fields to set, {key: value}; a null value clears that field and keys you omit keep their value. Values are checked against the field definitions (option values, YYYY-MM-DD dates, {min, max, currency} ranges, user profile ids). Requires custom fields to be enabled for the company (else 403). Multi-stage positions only: on a single-stage interview the request is refused with 422.",
+            "example": {
+              "cost_centre": "CC-100",
+              "contract_type": "permanent"
+            }
           },
           "questions": {
             "type": "array",
@@ -5179,6 +5205,14 @@
             "default": false,
             "description": "Group answers under their expected questions (instead of chronological order), including questions that were not reached."
           },
+          "job_description": {
+            "type": "boolean",
+            "description": "Candidate packet: start the report with the job description of the position (or of the interview when it has no position)."
+          },
+          "meeting_notes": {
+            "type": "boolean",
+            "description": "Candidate packet: add the notes and evaluation forms filled in on the meeting steps of the application, after the interview."
+          },
           "template": {
             "$ref": "#/components/schemas/ReportTemplate"
           }
@@ -5248,6 +5282,96 @@
         },
         "required": [
           "interview_result_id"
+        ]
+      },
+      "AssessmentResultSetResponse": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "duplicate",
+              "ignored_final"
+            ],
+            "description": "applied, or ignored_final for a cancelled assessment."
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the assessment after the call."
+          },
+          "score": {
+            "type": "number"
+          },
+          "score_max": {
+            "type": "number"
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "description": "The recorded result. The step now waits for the recruiter's decision."
+      },
+      "AssessmentResultSetRequest": {
+        "type": "object",
+        "properties": {
+          "position_result_step_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The external assessment step of the application (position_result_step id).",
+            "example": "6a0f2d4e-1c3b-4e5f-8a7b-9c0d1e2f3a4b"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "expired",
+              "cancelled"
+            ],
+            "description": "started, completed (a result), expired (not taken in time) or cancelled."
+          },
+          "score": {
+            "type": "number",
+            "description": "Score (completed).",
+            "example": 78
+          },
+          "score_max": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Maximum score.",
+            "example": 100
+          },
+          "passed": {
+            "type": "boolean",
+            "description": "Pass / fail as the assessment reports it. Without it the step's pass mark decides it from the score."
+          },
+          "result_label": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Result label, for example a language level.",
+            "example": "B2"
+          },
+          "report_url": {
+            "type": "string",
+            "maxLength": 2000,
+            "format": "uri",
+            "description": "Link to the full report (https)."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Note for the recruiter."
+          }
+        },
+        "required": [
+          "position_result_step_id",
+          "status"
         ]
       },
       "MerchantResultListResponse": {
@@ -6553,6 +6677,16 @@
                     "type": "string"
                   },
                   "description": "Skills read from the candidate's latest CV; null until extracted."
+                },
+                "custom_fields": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "nullable": true
+                  },
+                  "description": "Company-defined candidate fields (key: value), when custom fields are enabled for the company.",
+                  "example": {
+                    "employee_level": "senior"
+                  }
                 }
               },
               "required": [
@@ -7429,7 +7563,7 @@
             },
             "result": {
               "type": "string",
-              "description": "Outcome, e.g. 'Invited', 'Activated', 'SubMerchantAdded' (administrative access to another merchant), 'CoachingAccessAdded' (learner access to another merchant's portal), 'Skipped', or 'Error: <message>'."
+              "description": "Outcome, e.g. 'Invited', 'Activated', 'SubMerchantAdded' (administrative access to another merchant), 'CoachingAccessAdded' (learner access to another merchant's portal), 'ProspectAdded' (send_invitation false), 'Submitted' (a company on a shared candidate pool with send_invitation false: added to the parent's position without an e-mail), 'Skipped' (reason 'duplicate' on a shared pool: already in the process through another channel), or 'Error: <message>'."
             },
             "profile_id": {
               "type": "string",
@@ -7556,6 +7690,19 @@
             "type": "string",
             "nullable": true,
             "description": "Optional custom message included in the invitation email."
+          },
+          "send_invitation": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Candidates only. false = add the candidates as prospects (no invitation e-mail, no credit used, interview_id not needed). Honoured only while the company's prospects feature is on; otherwise candidates are always invited.",
+            "example": true
+          },
+          "source_note": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "With send_invitation false: where the prospects come from (stored as the campaign of their first-touch source).",
+            "example": "Job fair"
           }
         },
         "required": [
@@ -8194,96 +8341,6 @@
         },
         "required": [
           "description"
-        ]
-      },
-      "AssessmentResultSetResponse": {
-        "type": "object",
-        "properties": {
-          "outcome": {
-            "type": "string",
-            "enum": [
-              "applied",
-              "duplicate",
-              "ignored_final"
-            ],
-            "description": "applied, or ignored_final for a cancelled assessment."
-          },
-          "status": {
-            "type": "string",
-            "description": "Status of the assessment after the call."
-          },
-          "score": {
-            "type": "number"
-          },
-          "score_max": {
-            "type": "number"
-          },
-          "passed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "outcome"
-        ],
-        "description": "The recorded result. The step now waits for the recruiter's decision."
-      },
-      "AssessmentResultSetRequest": {
-        "type": "object",
-        "properties": {
-          "position_result_step_id": {
-            "type": "string",
-            "minLength": 1,
-            "format": "uuid",
-            "description": "The external assessment step of the application (position_result_step id).",
-            "example": "6a0f2d4e-1c3b-4e5f-8a7b-9c0d1e2f3a4b"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "started",
-              "completed",
-              "expired",
-              "cancelled"
-            ],
-            "description": "started, completed (a result), expired (not taken in time) or cancelled."
-          },
-          "score": {
-            "type": "number",
-            "description": "Score (completed).",
-            "example": 78
-          },
-          "score_max": {
-            "type": "number",
-            "minimum": 0,
-            "exclusiveMinimum": true,
-            "description": "Maximum score.",
-            "example": 100
-          },
-          "passed": {
-            "type": "boolean",
-            "description": "Pass / fail as the assessment reports it. Without it the step's pass mark decides it from the score."
-          },
-          "result_label": {
-            "type": "string",
-            "maxLength": 200,
-            "description": "Result label, for example a language level.",
-            "example": "B2"
-          },
-          "report_url": {
-            "type": "string",
-            "maxLength": 2000,
-            "format": "uri",
-            "description": "Link to the full report (https)."
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 2000,
-            "description": "Note for the recruiter."
-          }
-        },
-        "required": [
-          "position_result_step_id",
-          "status"
         ]
       }
     },
@@ -10048,7 +10105,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "set_assessment_result"
       }
     },
     "/merchant-result-list": {
