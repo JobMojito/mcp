@@ -285,6 +285,13 @@ _READ_WHY = (
     "modifies or deletes anything. idempotentHint=true: repeated calls return the "
     "same data. " + _OPEN_WORLD
 )
+# Field reference for the portal configuration documents (developer docs).
+_PORTAL_COOKBOOKS = (
+    "Field reference: https://developer.jobmojito.com/cookbooks/portal-branding/branding, "
+    "https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, "
+    "https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, "
+    "https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages."
+)
 
 
 # (HTTP method, path) -> ToolMeta
@@ -630,6 +637,42 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "`mojito_language_code`, English/local names, SVG flag URL, per-interface "
         "enablement flags, and Azure speech accents.",
         _READ_WHY,
+    ),
+    # --- Portal configuration. Flow: get_portal_configuration -> edit only what
+    # was asked -> update_portal_configuration with dry_run -> again without.
+    ("GET", "/portal-configuration-get"): _read(
+        "get_portal_configuration",
+        "Get portal configuration",
+        "Read the company's portal configuration as editable documents: `branding` "
+        "(portal name, style, colours, logos, e-mail sender name), `interview-portal` "
+        "(languages, home texts), `coaching-portal` (vertical, feature toggles, labels, "
+        "languages, home blocks) and one `jobmojito.portal-site` document per portal "
+        "(every page's draft content and the theme CSS). Narrow with `sections` "
+        "(branding, interview-portal, coaching-portal, interview-pages, coaching-pages): "
+        "the page documents are the large ones. This is the read step of every portal "
+        "change: read the section(s) involved, change only what the user asked for, and "
+        "send those documents back with update_portal_configuration. " + _PORTAL_COOKBOOKS,
+        _READ_WHY,
+    ),
+    ("POST", "/portal-configuration-update"): _write(
+        "update_portal_configuration",
+        "Update portal configuration",
+        "Import portal configuration documents, the same ones get_portal_configuration "
+        "returns: branding, interview portal, coaching portal, and portal sites (pages, "
+        "menu, footer, theme CSS). Read first, edit only the fields the user asked about, "
+        "then send the documents with `dry_run: true` and show the user the returned "
+        "summary, warnings and changes; repeat without `dry_run` to apply. Fields a "
+        "document omits keep their value, and languages are only ever added. Validation "
+        "is all-or-nothing: a 422 lists every error and nothing is written. Pages land as "
+        "drafts the company reviews in the admin; set `publish: true` only when the user "
+        "asked to publish the pages or theme, because it puts them live at once. "
+        + _PORTAL_COOKBOOKS,
+        "readOnlyHint=false / destructiveHint=true: overwrites the company's live "
+        "branding and portal settings in place and, with `publish`, puts pages and theme "
+        "CSS live for candidates and learners; the tool cannot undo it (only "
+        "`dry_run: true` writes nothing). idempotentHint=false: the documents are merged "
+        "into whatever the configuration holds when the call runs, so the outcome depends "
+        "on that state and the call is not declared safe to repeat. " + _OPEN_WORLD,
     ),
     # --- Custom reports (SQL 133). Flow: list_report_fields -> write a
     # definition -> preview_report -> create_report / update_report.

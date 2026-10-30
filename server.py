@@ -174,6 +174,7 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics,
   get_merchant_status
+• Portal configuration: get_portal_configuration, update_portal_configuration
 
 Typical flows:
 - "Set up an interview for a role" → create_interview → generate_interview_url or
@@ -194,6 +195,10 @@ Typical flows:
   its own `tags_interview_set_filter` → check each language with
   get_catalogue_directory(`mojito_language_code`=…). Never one directory per
   language.
+- "Rebrand the portal or edit its pages" → get_portal_configuration (only the
+  sections involved) → change only what was asked → update_portal_configuration
+  with `dry_run: true` to preview → the same call without it. `publish: true` only
+  when the user asked to publish; otherwise pages stay drafts in the admin.
 """
 
 

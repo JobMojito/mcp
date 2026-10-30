@@ -287,9 +287,10 @@
             "enum": [
               "slower",
               "normal",
-              "faster"
+              "faster",
+              "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -484,6 +485,18 @@
             "type": "string",
             "nullable": true,
             "description": "Custom thank-you message shown after the interview."
+          },
+          "microphone_test_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom microphone-test instruction for a recorded (offline avatar) interview, spoken by the avatar and shown on screen before the first question. Omitted uses the default prompt in the interview language.",
+            "example": "Before we start, let's check your microphone. Say \"Hello, I'm ready.\""
+          },
+          "microphone_test_no_speech_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom text shown when the microphone test hears nothing. Omitted uses the default text in the candidate's language.",
+            "example": "We can't hear you. Check your microphone and try again."
           },
           "additional_context": {
             "type": "object",
@@ -738,7 +751,7 @@
           "is_conditional": {
             "type": "boolean",
             "nullable": true,
-            "description": "Conditional follow-up question (view 'with listening conditional'). Use with conditional_question_main_id."
+            "description": "A yes/no question that decides which follow-ups are asked (view 'with listening conditional'). Its follow-ups point at it with conditional_question_main_id."
           },
           "is_without_scoring": {
             "type": "boolean",
@@ -771,7 +784,19 @@
           "conditional_question_main_id": {
             "type": "string",
             "nullable": true,
-            "description": "For a conditional question, the id (the \"id\" field above) of the parent question in this same array that triggers it. The parent must appear earlier in the array than the conditional question referencing it."
+            "description": "For a follow-up question, the id (the \"id\" field above) of the yes/no question (is_conditional) in this same array that decides whether it is asked. The yes/no question must appear earlier in the array. Use conditional_question_answer to choose the answer that shows it."
+          },
+          "conditional_question_answer": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "With conditional_question_main_id: the answer to the yes/no question that shows this follow-up. `true` (the default) asks it after a yes, `false` after a no, so each answer can lead to its own follow-ups. Ignored on a question without conditional_question_main_id.",
+            "example": false
+          },
+          "is_skippable": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "The candidate may skip this question: the recorded (offline avatar) interview shows a Skip button on it, and a skipped question is saved without an answer. Defaults to false.",
+            "example": false
           },
           "knowledge_base_id": {
             "type": "string",
@@ -1015,9 +1040,10 @@
             "enum": [
               "slower",
               "normal",
-              "faster"
+              "faster",
+              "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -1339,6 +1365,18 @@
             "type": "string",
             "nullable": true,
             "description": "Custom thank-you message."
+          },
+          "microphone_test_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom microphone-test instruction for a recorded (offline avatar) interview, spoken by the avatar and shown on screen before the first question. Omitted uses the default prompt in the interview language.",
+            "example": "Before we start, let's check your microphone. Say \"Hello, I'm ready.\""
+          },
+          "microphone_test_no_speech_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom text shown when the microphone test hears nothing. Omitted uses the default text in the candidate's language.",
+            "example": "We can't hear you. Check your microphone and try again."
           },
           "is_embedded": {
             "type": "boolean",
@@ -1801,6 +1839,18 @@
             "nullable": true,
             "description": "Custom thank-you message shown after the interview."
           },
+          "microphone_test_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom microphone-test instruction for a recorded (offline avatar) interview, spoken by the avatar and shown on screen before the first question. Omitted uses the default prompt in the interview language.",
+            "example": "Before we start, let's check your microphone. Say \"Hello, I'm ready.\""
+          },
+          "microphone_test_no_speech_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Custom text shown when the microphone test hears nothing. Omitted uses the default text in the candidate's language.",
+            "example": "We can't hear you. Check your microphone and try again."
+          },
           "max_duration": {
             "type": "number",
             "nullable": true,
@@ -1836,9 +1886,10 @@
             "enum": [
               "slower",
               "normal",
-              "faster"
+              "faster",
+              "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
             "example": "normal"
           },
           "environment": {
@@ -2240,9 +2291,10 @@
             "enum": [
               "slower",
               "normal",
-              "faster"
+              "faster",
+              "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -2669,7 +2721,7 @@
           "interview_conversation_speed": {
             "type": "string",
             "nullable": true,
-            "description": "Conversation pace of the AI avatar (slower/normal/faster). Null keeps the template default. Null for multi-stage positions."
+            "description": "Conversation pace of the AI avatar (slower/normal/faster/fluent). Null keeps the template default. Null for multi-stage positions."
           },
           "max_followups": {
             "type": "number",
@@ -3141,9 +3193,10 @@
             "enum": [
               "slower",
               "normal",
-              "faster"
+              "faster",
+              "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
             "example": "normal"
           },
           "max_followups": {
@@ -8242,6 +8295,357 @@
           "languages"
         ]
       },
+      "PortalConfigurationDocument": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "branding",
+              "interview-portal",
+              "coaching-portal"
+            ],
+            "description": "Portal configuration document type. `branding`: portal name, style, colours, logos, e-mail sender name, speech term boosting. `interview-portal`: interview portal languages and the per-language home texts. `coaching-portal`: coaching portal vertical (`use_case`), feature toggles, label overrides, coaching plan, catalogue start directory, languages and per-language home blocks. A portal site document declares `format` instead.",
+            "example": "branding"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jobmojito.portal-site",
+              "jobmojito.portal-page"
+            ],
+            "description": "Portal site document type. `jobmojito.portal-site`: `{ portal, theme: { css }, pages: [Page] }`, a whole site (pages in every language, the menu, the footer and the theme CSS). `jobmojito.portal-page`: `{ page: Page }`, one page. Page = `{ slug, show_in_menu, sort_order, languages: [{ mojito_language_code, title, description, blocks }] }`; slug \"\" is the home page, \"_footer\", \"_support\", \"_jobs\" etc. are the built-in pages.",
+            "example": "jobmojito.portal-site"
+          },
+          "version": {
+            "nullable": true,
+            "description": "Document format version. Always 1.",
+            "example": 1
+          }
+        },
+        "description": "One configuration document: declares either `kind` (branding, interview-portal, coaching-portal) or `format` (jobmojito.portal-site, jobmojito.portal-page), plus that type's fields. Field reference: branding https://developer.jobmojito.com/cookbooks/portal-branding/branding, interview portal https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, coaching portal https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, portal pages https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Unknown fields are ignored with a warning; wrong types and enum values are errors.",
+        "additionalProperties": true
+      },
+      "PortalConfigurationGetResponse": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "description": "Merchant the configuration belongs to.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortalConfigurationDocument"
+            },
+            "description": "One document per section, each a valid input for portal-configuration-update: `kind: \"branding\"`, `kind: \"interview-portal\"`, `kind: \"coaching-portal\"`, and one `format: \"jobmojito.portal-site\"` per portal (`portal: \"interview\"` for interview-pages, `\"consumer\"` for coaching-pages) with every page's DRAFT content and the theme CSS draft. Pages also carry `published_at` (read-only, ignored on import; null = never published). The support / application-tracking / interview-completed / signed-in home texts are built-in pages (\"_support\", \"_tracking\", \"_completion\", \"_signed_in_home\") and appear only in the portal-site documents."
+          }
+        },
+        "required": [
+          "merchant_id",
+          "documents"
+        ]
+      },
+      "PortalConfigurationDocumentReport": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "description": "Position of the document in the request.",
+            "example": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "branding",
+              "interview-portal",
+              "coaching-portal",
+              "portal-site"
+            ],
+            "description": "How the document was read."
+          },
+          "summary": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the document sets, in the lines the admin dialog shows (\"+ /slug\" a new page, \"↻ /slug\" a replaced one).",
+            "example": [
+              "3 colour(s)",
+              "style \"minimal\"",
+              "portal name"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Parts that were ignored or adjusted. Warnings never block the import."
+          }
+        },
+        "required": [
+          "index",
+          "kind",
+          "summary",
+          "warnings"
+        ]
+      },
+      "PortalConfigurationPageChange": {
+        "type": "object",
+        "properties": {
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "Portal of the page."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Page slug (\"\" is the home page)."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "unchanged"
+            ],
+            "description": "What happens to the page."
+          },
+          "published": {
+            "type": "boolean",
+            "description": "Whether this write publishes the page."
+          }
+        },
+        "required": [
+          "portal",
+          "slug",
+          "action",
+          "published"
+        ]
+      },
+      "PortalConfigurationChanges": {
+        "type": "object",
+        "properties": {
+          "merchant_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Company settings that change: column names, with the key for the branding / feature jsonb and the language for home texts.",
+            "example": [
+              "homepage_name",
+              "template_colors.c_primary",
+              "interview_homepage_texts.de"
+            ]
+          },
+          "pages_created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Slugs of pages created.",
+            "example": [
+              "our-history"
+            ]
+          },
+          "pages_updated": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Slugs of existing pages whose draft (or published version) changes.",
+            "example": [
+              "about",
+              "_support"
+            ]
+          },
+          "pages_unchanged": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Slugs of pages the documents carry that already hold the same content (not written)."
+          },
+          "theme_css": {
+            "type": "boolean",
+            "description": "Whether the theme CSS changes."
+          },
+          "published": {
+            "type": "boolean",
+            "description": "Whether anything is published by this call."
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "Portal the portal-site pages and theme CSS went to."
+          },
+          "page_changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortalConfigurationPageChange"
+            },
+            "description": "Every page touched, with its portal (built-in page drafts from a coaching-portal document go to the consumer portal)."
+          }
+        },
+        "required": [
+          "merchant_fields",
+          "pages_created",
+          "pages_updated",
+          "pages_unchanged",
+          "theme_css",
+          "published",
+          "portal",
+          "page_changes"
+        ],
+        "description": "What changed (for a dry run: what would change)."
+      },
+      "PortalConfigurationUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "description": "Merchant that was configured.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "True when nothing was written."
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortalConfigurationDocumentReport"
+            }
+          },
+          "changes": {
+            "$ref": "#/components/schemas/PortalConfigurationChanges"
+          }
+        },
+        "required": [
+          "merchant_id",
+          "dry_run",
+          "documents",
+          "changes"
+        ]
+      },
+      "PortalConfigurationValidationError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "The first problem, or a count."
+          },
+          "name": {
+            "type": "string",
+            "example": "documents"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every problem found, each prefixed with the document it is in. Nothing was written.",
+            "example": [
+              "documents[0]: style must be \"bold\" or \"minimal\", got \"dark\".",
+              "documents[1].pages[0]: slug \"jobs\" is not allowed (reserved)"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "PortalConfigurationWriteError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "write"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The writes that failed."
+          },
+          "applied": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalConfigurationChanges"
+              },
+              {
+                "description": "What was written before / despite the failures."
+              }
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "PortalConfigurationUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional merchant to configure. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortalConfigurationDocument"
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "1 to 20 documents, applied in order (a later document wins where two set the same thing). Every field a document omits keeps its current value; languages are only ever added, never removed."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "branding",
+              "interview-portal",
+              "coaching-portal",
+              "portal-site"
+            ],
+            "description": "Optional: lock the call to one document type, as one admin import tab does. Every document must then be that type (`portal-site` accepts both portal-site and portal-page formats), and a document that declares neither `kind` nor `format` is read as this type with a warning. Without it, every document must declare its own `kind` or `format`."
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "Where portal-site pages and theme CSS go: `interview` (candidate-facing interview / careers portal) or `consumer` (coaching portal). Default: the portal-site document's own `portal`, else `interview`. A document made for the other portal is imported here with a warning."
+          },
+          "publish": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also publish the imported pages and theme CSS (live at once, as the admin's \"Publish after import\"). Default false: pages land as drafts the company reviews in the admin. Built-in page drafts produced by interview-portal / coaching-portal documents are never published. With page versions switched on, only a company owner or admin may publish."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Validate and report what would change (summary, warnings, changes) without writing anything. Use it to preview an import before applying it."
+          }
+        },
+        "required": [
+          "documents"
+        ]
+      },
       "FeatureRequestSubmitResponse": {
         "type": "object",
         "properties": {
@@ -12381,6 +12785,193 @@
           }
         },
         "operationId": "list_languages"
+      }
+    },
+    "/portal-configuration-get": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get the portal configuration (branding, portals, pages)",
+        "description": "Reads the company's portal configuration as import documents: branding, the interview portal, the coaching portal, and the pages + theme CSS of each portal. Every returned document can be edited and sent back to portal-configuration-update unchanged in shape (preview with `dry_run: true` first). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated sections to return (default: all): branding, interview-portal, coaching-portal, interview-pages, coaching-pages. A portal the company does not use is left out of the default; name its sections to read them anyway.",
+              "example": "branding,interview-pages"
+            },
+            "required": false,
+            "name": "sections",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current configuration documents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalConfigurationGetResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No merchant with this id (or not visible to you).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_portal_configuration"
+      }
+    },
+    "/portal-configuration-update": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update the portal configuration (branding, portals, pages)",
+        "description": "Imports portal configuration documents in one call: **branding** (portal name, style, colours, logos, e-mail sender name, speech term boosting), the **interview portal** (languages, home texts, support / application-tracking / interview-completed texts), the **coaching portal** (vertical, feature toggles, labels, coaching plan, catalogue start directory, languages, home blocks) and **portal sites** (pages in every language with their blocks, menu, footer and the theme CSS). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Read the current configuration with portal-configuration-get first: it returns these same documents, so you can edit them and send them back. Fields a document omits keep their value. Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply. Validation is all-or-nothing: if any document has an error nothing is written and the 422 lists every error. Pages land as drafts unless `publish` is true; the support / tracking / completion / signed-in home texts of the portal documents always land as drafts of those built-in pages.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortalConfigurationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents validated and (unless dry_run) applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalConfigurationUpdateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token), or row-level security refused the write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No merchant with this id (or not visible to you).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error: the request is malformed, or at least one document has an error (all listed in `errors`). Nothing was written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalConfigurationValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error. When some writes succeeded before others failed, `failures` lists the failed writes and `applied` what was written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalConfigurationWriteError"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "update_portal_configuration"
       }
     },
     "/merchant-feature-request": {

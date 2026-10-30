@@ -36,6 +36,7 @@ EXPECTED_API_TOOLS = {
     "list_report_fields", "list_reports", "get_report", "run_report",
     "preview_report", "create_report", "update_report",
     "submit_feature_request", "report_technical_issue",
+    "get_portal_configuration", "update_portal_configuration",
 }
 EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
 # Endpoints intentionally excluded from the MCP (must NOT appear as tools).
@@ -57,7 +58,7 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 31
+    assert len(EXPECTED_API_TOOLS) == 33
     # Ignored endpoints must not be exposed.
     assert not (IGNORED_TOOLS & names), f"ignored tools leaked: {IGNORED_TOOLS & names}"
 

@@ -54,6 +54,7 @@ EXPECTED_READ_ONLY = {
     "get_report",
     "run_report",
     "preview_report",
+    "get_portal_configuration",
     "search_documentation",
     "get_documentation",
 }
