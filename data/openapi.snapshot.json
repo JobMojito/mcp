@@ -5601,7 +5601,8 @@
                 "kyc_processing_status": {
                   "type": "string",
                   "nullable": true,
-                  "description": "KYC processing status."
+                  "description": "Deprecated, always null: the retired identity verification (KYC) is no longer returned.",
+                  "deprecated": true
                 },
                 "position_result_step_id": {
                   "type": "string",
@@ -6676,12 +6677,14 @@
                 "kyc_image_local_path": {
                   "type": "string",
                   "nullable": true,
-                  "description": "KYC image storage path."
+                  "description": "Deprecated, always null: the retired identity verification (KYC) is no longer returned.",
+                  "deprecated": true
                 },
                 "kyc_processing_status": {
                   "type": "string",
                   "nullable": true,
-                  "description": "KYC processing status."
+                  "description": "Deprecated, always null: the retired identity verification (KYC) is no longer returned.",
+                  "deprecated": true
                 },
                 "interview_count": {
                   "type": "number",
