@@ -14,7 +14,7 @@ with that user's own permissions.
 
 Current surface: **37 API tools** (43 spec endpoints minus the 6 in
 `IGNORED_PATHS`) + `search_documentation`, `get_documentation`,
-`jobmojito_configuration`, `list_my_merchants`. `naming.py` is the inventory —
+`jobmojito_configuration`, `list_my_merchants`, `invite_candidates`. `naming.py` is the inventory —
 don't maintain a tool list anywhere else.
 
 - Language: Python ≥ 3.10. Single async process, served over Streamable HTTP.
@@ -68,6 +68,7 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `docs_tools.py` | `search_documentation` (help + developer in parallel) and `get_documentation`. |
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
+| `invitations.py` | `invite_candidates`: `/invite-users` with candidate rows only (the endpoint is otherwise ignored — its `type` also creates staff accounts). |
 | `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
 | `lazy_auth.py` | Auth-layer ASGI middleware: serves `initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, 401s tokens the API has rejected, and reports the transport-level 400/404s that never reach a tool. |
 | `session_verifier.py` | Token verifier that also resolves the JWT to a live Supabase session (what the Edge Functions check), + the rejected-token registry behind the re-auth challenge. |

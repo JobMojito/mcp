@@ -34,6 +34,7 @@ except ImportError:  # FastMCP 2.x fallback
     from fastmcp.server.openapi import MCPType, OpenAPITool, RouteMap
 
 import docs_tools
+import invitations
 import merchants
 import wellknown
 from config import settings
@@ -53,7 +54,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.4.0"
+SERVER_VERSION = "1.5.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -167,8 +168,9 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   create_persona
 • Coaching catalogue: list_catalogue_directories, get_catalogue_directory,
   create_catalogue_directory, update_catalogue_directory
-• Invitations: register_users_for_interview (register candidates and get their
-  personal interview links), generate_interview_url (a signed link to share)
+• Invitations: invite_candidates (e-mails each candidate their invitation, the
+  same as the admin console), register_users_for_interview (personal interview
+  links only, NO e-mail), generate_interview_url (a signed link to share)
 • Results & reports: get_interview_result_details, generate_interview_report
 • Knowledge base: upload_knowledge_base_document
 • Merchant lists (read-only): list_interviews, list_candidates,
@@ -177,14 +179,15 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Portal configuration: get_portal_configuration, update_portal_configuration
 
 Typical flows:
-- "Set up an interview for a role" → create_interview → generate_interview_url or
-  register_users_for_interview.
-- "Invite candidates to an interview" → register_users_for_interview (per-candidate
-  links) or generate_interview_url (one shareable link).
+- "Set up an interview for a role" → create_interview → invite_candidates, or
+  generate_interview_url for one shareable link.
+- "Invite candidates to an interview" → invite_candidates (sends the invitation
+  e-mail; report each row's result as returned). For links the user shares
+  themselves: register_users_for_interview (no e-mail) or generate_interview_url.
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
 - "Screen someone with a role-play instead of questions" → create_persona with
-  `portal="interview"` → register_users_for_interview → list_interview_results.
+  `portal="interview"` → invite_candidates → list_interview_results.
 - "Add a practice session learners can start themselves" → create_persona (default
   coaching portal) with `tags` → the catalogue directory whose
   `tags_interview_set_filter` those tags satisfy lists it automatically.
@@ -500,6 +503,10 @@ def build_server() -> FastMCP:
 
     # Merchant selection (list_my_merchants + clickable picker for UI clients).
     merchants.register(mcp)
+
+    # Candidate invitations through /invite-users with candidate rows only (that
+    # endpoint is otherwise excluded: its `type` also creates staff accounts).
+    invitations.register(mcp)
 
     # Unauthenticated operational + directory-verification routes.
     wellknown.register(mcp, version=SERVER_VERSION, description=SHORT_DESCRIPTION)

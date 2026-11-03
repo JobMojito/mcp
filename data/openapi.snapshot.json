@@ -3675,11 +3675,6 @@
             "description": "Merchant id. Required when authenticating with the service key; for user tokens it is optional and only honored for admin / sub-merchant accounts.",
             "example": "b5201178-46dd-4a20-a1af-7ffd647f834b"
           },
-          "send_email": {
-            "type": "boolean",
-            "nullable": true,
-            "description": "Whether to send an invitation email to each registered candidate."
-          },
           "hide_menu": {
             "anyOf": [
               {
@@ -9400,7 +9395,7 @@
           "Interviews"
         ],
         "summary": "Register users for an interview",
-        "description": "Registers (or updates) one or more candidate profiles for an interview and returns a one-time interview URL for each. Accepts a Supabase user JWT (merchant/admin) or the service key (merchant_id then required).",
+        "description": "Registers (or updates) one or more candidate profiles for an interview and returns a one-time interview URL for each. Sends no e-mail: share the links yourself, or invite candidates with invite-users (type candidate), which e-mails the invitation. Accepts a Supabase user JWT (merchant/admin) or the service key (merchant_id then required).",
         "security": [
           {
             "bearerAuth": []

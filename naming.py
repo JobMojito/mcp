@@ -403,11 +403,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-register-users"): _write(
         "register_users_for_interview",
         "Register candidates for interview",
-        "Register users/candidates for a specific interview and return their "
-        "personal interview links.",
-        "readOnlyHint=false / destructiveHint=true: creates candidate records and "
-        "may trigger outbound invitation email to real people — an irreversible, "
-        "externally visible side effect. " + _OPEN_WORLD,
+        "Register candidates for an interview and return their personal interview "
+        "links. Sends NO e-mail: to invite candidates by e-mail use invite_candidates.",
+        "readOnlyHint=false / destructiveHint=true: creates or updates candidate "
+        "records and mints personal interview links, which cannot be undone. " + _OPEN_WORLD,
     ),
     ("POST", "/job-interview-create"): _write(
         "create_interview",
@@ -797,7 +796,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
 # Endpoints to exclude from the MCP entirely (never exposed as tools).
 # Extend at deploy time with the IGNORED_TOOL_PATHS env var (comma-separated).
 IGNORED_PATHS: set[str] = {
-    "/invite-users",  # invites admin/merchant users — not for general agent use
+    "/invite-users",  # also creates staff accounts: candidates go through invitations.invite_candidates
     "/job-interview-create-for-candidate-with-token",  # candidate-token one-shot flow
     "/pre-screening-create",  # pre-screening management — excluded
     "/job-interview-pre-screening-api-resume-text",  # pre-screening — excluded
@@ -995,4 +994,8 @@ def annotation_justifications(include_ignored: bool = False) -> dict[str, str]:
         if path in IGNORED_PATHS and not include_ignored:
             continue
         out[meta.name] = meta.justification
+    # tools written by hand, outside the OpenAPI path
+    from invitations import INVITE_CANDIDATES_JUSTIFICATION
+
+    out["invite_candidates"] = INVITE_CANDIDATES_JUSTIFICATION
     return out

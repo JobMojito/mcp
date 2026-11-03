@@ -38,6 +38,7 @@ py-modules = [
     "naming",
     "raw_assessment",
     "upstream",
+    "invitations",
     "docs_tools",
     "featurebase",
     "mintlify",
