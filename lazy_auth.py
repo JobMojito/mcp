@@ -83,6 +83,10 @@ logger = logging.getLogger("jobmojito_mcp.auth")
 PUBLIC_METHODS: frozenset[str] = frozenset(
     {
         "initialize",
+        # the 2026-07-28 protocol's handshake (initialize's successor). The SDK does
+        # not implement it yet, so an anonymous caller gets "method not found" and
+        # falls back to initialize, instead of a 401 that reads as "log in first"
+        "server/discover",
         "notifications/initialized",
         "notifications/cancelled",
         "ping",

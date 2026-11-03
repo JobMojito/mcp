@@ -366,7 +366,7 @@ def _rpc(method: str) -> bytes:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method", ["initialize", "tools/list", "ping"])
+@pytest.mark.parametrize("method", ["initialize", "server/discover", "tools/list", "ping"])
 async def test_lazy_auth_allows_discovery_methods(method):
     from lazy_auth import ANONYMOUS_CLIENT_ID
 
