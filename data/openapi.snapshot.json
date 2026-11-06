@@ -4900,7 +4900,15 @@
           "recording_local_path": {
             "type": "string",
             "nullable": true,
-            "description": "Storage path of the full session recording."
+            "description": "Storage path of the full session recording. When the candidate restarted, this is the latest session."
+          },
+          "recording_local_path_history": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "Storage paths of the earlier sessions when the candidate restarted the interview, oldest first. Null when there is only one recording."
           },
           "recording_is_video": {
             "type": "boolean",
@@ -4916,6 +4924,14 @@
             "type": "string",
             "nullable": true,
             "description": "Signed session-recording URL; present only when get_signed_recordings=true."
+          },
+          "recording_url_history": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "nullable": true
+            },
+            "description": "Signed URLs of the earlier sessions, in the same order as recording_local_path_history; null for a file that could not be signed. Present only when get_signed_recordings=true and the candidate restarted."
           },
           "video_introduction_url": {
             "type": "string",
