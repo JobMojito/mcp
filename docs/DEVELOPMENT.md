@@ -142,10 +142,11 @@ shape so offline/first-run builds stay accurate.
 ### Fix a null-validation error (`-32602 … must be string`)
 This means a field came back `null` that the relaxer didn't cover. First confirm
 the field's schema (`type` + whether it has an `enum` or uses `$ref`/`anyOf`).
-`relax_nullable_schemas` already handles any property with a direct `type` (and
-its enum). If the field is declared via `$ref`/`anyOf`/`allOf` with no direct
+`relax_nullable_schemas` already handles any response property with a direct `type`
+(and its enum). If the field is declared via `$ref`/`anyOf`/`allOf` with no direct
 `type`, extend the relaxer to handle that shape. Do **not** disable
-`validate_output`. Add a regression test using the real snapshot.
+`validate_output`, and don't widen a request schema: inputs offer null only where the
+spec declares it. Add a regression test using the real snapshot.
 
 ### Fix an oversized list result (`… exceeds this server's N-character limit`)
 The endpoint's rows are too big for its default page size. Budget it first:

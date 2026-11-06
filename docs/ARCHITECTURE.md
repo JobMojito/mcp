@@ -90,8 +90,8 @@ The JobMojito spec declares `openapi: 3.1.0` but uses the **OpenAPI 3.0**
 `calc_duration`). With output validation on, that raises
 `None is not of type 'string'` (surfaced to clients as JSON-RPC `-32602`).
 
-`relax_nullable_schemas()` walks every typed property in `paths` + `components`
-and, via `_allow_null()`:
+`relax_nullable_schemas()` walks every typed property a **response** can reach, in
+the operations' `responses` and the components they lead to, and, via `_allow_null()`:
 
 - widens `type: "string"` → `type: ["string", "null"]`;
 - if the property has an `enum`, appends `null` to it (a null value fails the enum
@@ -99,8 +99,21 @@ and, via `_allow_null()`:
   response fields such as `status` / `recommendation`;
 - sets `nullable: true` (harmless, helps any 3.0 consumer).
 
-`required` arrays are intentionally left untouched, so tool **inputs** still
-require their fields; only value **nullability** changes.
+`required` arrays are intentionally left untouched.
+
+Tool **inputs** are not widened, because the model reads them and a null offered on a
+field the API refuses invites stray nulls. A request body field accepts null only when
+the spec says `nullable: true` (`_keep_declared_nullable()` turns that into the
+`["<type>", "null"]` form 3.1 tooling honours). Query parameters stay as declared: a
+query string can't carry a null.
+
+A component both sides use (today `JobInterviewCreateFromArrayQuestion` and
+`PortalConfigurationDocument`) is split by `_response_side_components()`: requests keep
+the original, responses get a `<Name>__nullable_response` copy, and the same goes for
+whatever it nests. Preparing an already prepared spec changes nothing, which the runtime
+cache relies on. A cache an older build wrote can't be cleaned up the same way, because
+its null on every input field looks declared, so the default cache file name carries a
+version. A persistent `OPENAPI_CACHE_PATH` file has to be refreshed by hand.
 
 **Known gap:** properties declared via `$ref`, `anyOf`, `allOf`, or `oneOf` (no
 direct `type` key) are not touched. If a future null-validation error names such a

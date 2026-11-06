@@ -120,9 +120,16 @@ More detail: `docs/ARCHITECTURE.md`.
   tagged OpenAPI 3.1 but uses 3.0-style `nullable: true` (ignored by JSON Schema)
   and returns `null` for many "string" fields. `openapi_loader.relax_nullable_schemas`
   fixes this by widening `type` to `[..., "null"]` **and** adding `null` to any
-  `enum`. Do **not** disable output validation to work around a null error — extend
-  the relaxer. Known gap: fields declared via `$ref`/`anyOf`/`allOf` (no direct
-  `type`) aren't touched. Any schema fix must ship with a regression test.
+  `enum`, on everything a **response** can reach. Do **not** disable output validation
+  to work around a null error — extend the relaxer. Known gap: fields declared via
+  `$ref`/`anyOf`/`allOf` (no direct `type`) aren't touched. Any schema fix must ship
+  with a regression test.
+- **A tool's input schema offers null only where the API declares `nullable: true`.**
+  The model reads it, and a null it offers on a field the API refuses invites stray
+  nulls. A component both a request and a response use is split: the request keeps it,
+  the response gets a `<Name>__nullable_response` copy. Never widen a request schema
+  to fix an output error. What a null does once sent is a separate question:
+  `ToolMeta.null_body_args`.
 - **Auth is mandatory in production and must never be bypassed.** The end-user's
   Supabase JWT is forwarded by `upstream.py`. For local testing use
   `ENABLE_AUTH=false` or supply `JOBMOJITO_DEV_BEARER_TOKEN`.

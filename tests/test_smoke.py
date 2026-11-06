@@ -209,13 +209,20 @@ def test_oversize_guard_suggests_a_limit_that_actually_fits():
     assert "limit=10" in guard._advice({}, 246_931)
 
 
+def _returning(name: str) -> dict:
+    """A path whose response is this component: only those are relaxed."""
+    schema = {"$ref": f"#/components/schemas/{name}"}
+    response = {"content": {"application/json": {"schema": schema}}}
+    return {"/x": {"get": {"responses": {"200": response}}}}
+
+
 def test_relax_nullable_schemas():
     import jsonschema
 
     from openapi_loader import relax_nullable_schemas
 
     spec = {
-        "paths": {},
+        "paths": _returning("Item"),
         "components": {
             "schemas": {
                 "Item": {
@@ -301,7 +308,7 @@ def test_relax_nullable_enum_allows_null():
     from openapi_loader import relax_nullable_schemas
 
     spec = {
-        "paths": {},
+        "paths": _returning("R"),
         "components": {
             "schemas": {
                 "R": {

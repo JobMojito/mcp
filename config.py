@@ -146,7 +146,10 @@ class Settings:
         override = os.environ.get("OPENAPI_CACHE_PATH")
         if override:
             return Path(override)
-        return Path(tempfile.gettempdir()) / "jobmojito_openapi.cache.json"
+        # The version in the name retires caches an older build prepared: a spec
+        # prepared before input and response nullability were separated has null on
+        # every input field, and that can't be told apart from a declared null.
+        return Path(tempfile.gettempdir()) / "jobmojito_openapi.v2.cache.json"
 
     @property
     def federate_developer_docs(self) -> bool:

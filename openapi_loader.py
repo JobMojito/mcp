@@ -16,8 +16,10 @@ very first cold start has a fallback. Generate it with
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +37,8 @@ from naming import (
 logger = logging.getLogger("jobmojito_mcp.openapi")
 
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
+#: Added to the name of a component's response copy (see ``_response_side_components``).
+RESPONSE_COPY_SUFFIX = "__nullable_response"
 
 
 def inject_operation_ids(spec: dict[str, Any]) -> dict[str, Any]:
@@ -256,16 +260,129 @@ def _allow_null(prop: dict[str, Any]) -> None:
         prop["nullable"] = True
 
 
+def _refs_under(node: Any) -> Iterator[str]:
+    """Every ``$ref`` string anywhere under a node."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                yield value
+            else:
+                yield from _refs_under(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _refs_under(value)
+
+
+def _reachable_components(spec: dict[str, Any], roots: list[Any]) -> set[tuple[str, str]]:
+    """(section, name) of every component the roots reach, following nested ``$ref``s."""
+    components = spec.get("components") or {}
+    seen: set[tuple[str, str]] = set()
+    todo = list(roots)
+    while todo:
+        for ref in _refs_under(todo.pop()):
+            parts = ref.split("/")
+            if len(parts) < 4 or parts[:2] != ["#", "components"]:
+                continue
+            key = (parts[2], parts[3])
+            if key not in seen and key[1] in (components.get(key[0]) or {}):
+                seen.add(key)
+                todo.append(components[key[0]][key[1]])
+    return seen
+
+
+def _operation_parts(spec: dict[str, Any]) -> tuple[list[Any], list[Any], list[Any]]:
+    """Split ``paths`` into responses, request bodies and everything else."""
+    responses: list[Any] = []
+    bodies: list[Any] = []
+    others: list[Any] = []
+    for path_item in spec.get("paths", {}).values():
+        if not isinstance(path_item, dict):
+            continue
+        for key, value in path_item.items():
+            if key.lower() in _HTTP_METHODS and isinstance(value, dict):
+                for part, content in value.items():
+                    if part == "responses":
+                        responses.append(content)
+                    else:
+                        (bodies if part == "requestBody" else others).append(content)
+            else:
+                others.append(value)  # path-level parameters
+    return responses, bodies, others
+
+
+def _point_refs_at(node: Any, copies: dict[str, str]) -> None:
+    """Rewrite ``$ref``s to the copied components, sub-pointers included."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            base = "/".join(ref.split("/")[:4])
+            if base in copies:
+                node["$ref"] = copies[base] + ref[len(base) :]
+        for value in node.values():
+            _point_refs_at(value, copies)
+    elif isinstance(node, list):
+        for value in node:
+            _point_refs_at(value, copies)
+
+
+def _response_side_components(
+    spec: dict[str, Any], responses: list[Any], inputs: list[Any]
+) -> set[tuple[str, str]]:
+    """The components only responses use, after separating them from the input side.
+
+    A component both sides use gets a copy for the responses, so widening it cannot
+    reach the input. The request keeps the original: it is the name the model reads.
+    Nothing is widened in place, so a spec prepared earlier (the runtime cache) has no
+    component left on both sides and is not copied twice.
+    """
+    response_side = _reachable_components(spec, responses)
+    shared = response_side & _reachable_components(spec, inputs)
+    components = spec.get("components") or {}
+    copies = {}
+    for section, name in shared:
+        copy_name = f"{name}{RESPONSE_COPY_SUFFIX}"
+        components[section][copy_name] = copy.deepcopy(components[section][name])
+        copies[f"#/components/{section}/{name}"] = f"#/components/{section}/{copy_name}"
+    result = (response_side - shared) | {
+        (section, f"{name}{RESPONSE_COPY_SUFFIX}") for section, name in shared
+    }
+    if copies:
+        _point_refs_at(responses, copies)
+        for section, name in result:
+            _point_refs_at(components[section][name], copies)
+    return result
+
+
+def _keep_declared_nullable(node: Any) -> None:
+    """Express the spec's 3.0-style ``nullable: true`` in a form 3.1 tooling honours."""
+    if isinstance(node, dict):
+        if node.get("nullable") is True and "type" in node:
+            _allow_null(node)
+        for value in node.values():
+            _keep_declared_nullable(value)
+    elif isinstance(node, list):
+        for value in node:
+            _keep_declared_nullable(value)
+
+
 def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
-    """Allow null on every typed property in the spec.
+    """Allow null on every typed property of a response, and only what is declared elsewhere.
 
     The JobMojito API returns null for many fields the OpenAPI declares as
     non-nullable (e.g. external_id, emoji, slug). With output validation on, that
-    triggers "None is not of type 'string'". Marking those fields nullable makes
-    the generated tool schemas accurate (field names + types preserved) AND lets
-    real responses validate. ``required`` arrays are left untouched, so inputs
-    still require their fields.
+    triggers "None is not of type 'string'", so anything a response can reach accepts
+    null whatever it declares.
+
+    Input is the opposite. A tool's input schema is what the model reads, and a null it
+    offers on a field the API refuses invites stray nulls, so input fields accept null
+    only where the spec says ``nullable: true``. Parameters stay as declared: a query
+    string cannot carry a null, so offering one there means nothing. See
+    ``_response_side_components`` for a component both sides use. ``required`` arrays are
+    left untouched everywhere.
     """
+    responses, bodies, others = _operation_parts(spec)
+    response_side = _response_side_components(spec, responses, [*bodies, *others])
+    components = spec.get("components") or {}
     relaxed = 0
 
     def walk(node: Any) -> None:
@@ -283,9 +400,14 @@ def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
             for value in node:
                 walk(value)
 
-    walk(spec.get("paths", {}))
-    walk(spec.get("components", {}))
-    logger.info("Relaxed %d schema properties to be nullable.", relaxed)
+    _keep_declared_nullable([responses, bodies])
+    for section, entries in components.items():
+        if section != "parameters":
+            _keep_declared_nullable(entries)
+    walk(responses)
+    for section, name in response_side:
+        walk(components[section][name])
+    logger.info("Relaxed %d response properties to be nullable.", relaxed)
     return spec
 
 
@@ -312,17 +434,16 @@ def prefer_json_request_bodies(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
-    """Inject curated operationIds/defaults and relax nullable response fields.
+    """Inject curated operationIds/defaults, relax response fields, keep input narrow.
 
     Order matters: ``apply_param_defaults`` and ``inject_view_params`` look
     endpoints up by (method, path) in ``TOOL_META``, so they are independent of
     the operationId pass, but all of them must run before
     ``relax_nullable_schemas`` walks the tree.
 
-    ``relax_nullable_schemas`` only touches schemas reached through
-    ``properties``, so the injected ``view`` enum is left alone — which is what
-    we want: it is an INPUT, and adding ``null`` to its enum would advertise a
-    value that means nothing.
+    ``relax_nullable_schemas`` widens responses only, so the injected ``view`` enum
+    is left alone — which is what we want: it is an INPUT, and adding ``null`` to its
+    enum would advertise a value that means nothing.
     """
     return relax_nullable_schemas(
         apply_description_fixes(
