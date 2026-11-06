@@ -458,7 +458,7 @@
           "knowledge_base_store_id": {
             "type": "string",
             "nullable": true,
-            "description": "Knowledge base store id to source additional context from."
+            "description": "Knowledge base store id to source additional context from. Documents limited to chosen interviews are left out, because a new interview is on no list yet."
           },
           "description": {
             "type": "string",
@@ -6764,10 +6764,22 @@
           "knowledge_base_id": {
             "type": "string",
             "description": "Id of the created knowledge_base record."
+          },
+          "limit_to_interviews": {
+            "type": "boolean",
+            "description": "True when the document is limited to the interviews in `interview_ids`. False when every interview on the knowledge base can use it."
+          },
+          "interview_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The interviews this document is limited to. Present only when `limit_to_interviews` is true; an empty list means no interview can use it."
           }
         },
         "required": [
-          "knowledge_base_id"
+          "knowledge_base_id",
+          "limit_to_interviews"
         ]
       },
       "KnowledgeBaseDocumentUploadMultipart": {
@@ -6786,6 +6798,18 @@
           "merchant_id": {
             "type": "string",
             "description": "Override merchant id (admin / sub-merchant only)."
+          },
+          "interview_ids": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The interviews that may use this document, in the live session and when generating questions. Omit it or send null to use the document in every interview on the knowledge base. An empty list limits it to no interview. Each interview must belong to the same company and use this knowledge base. With multipart/form-data, repeat the field or send one JSON array such as `[\"<id>\"]`, and write an empty list as `[]`.",
+            "example": [
+              "de300000-0000-4000-8001-000000000007"
+            ]
           },
           "file": {
             "type": "string",
@@ -6814,6 +6838,18 @@
           "merchant_id": {
             "type": "string",
             "description": "Override merchant id (admin / sub-merchant only)."
+          },
+          "interview_ids": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The interviews that may use this document, in the live session and when generating questions. Omit it or send null to use the document in every interview on the knowledge base. An empty list limits it to no interview. Each interview must belong to the same company and use this knowledge base. With multipart/form-data, repeat the field or send one JSON array such as `[\"<id>\"]`, and write an empty list as `[]`.",
+            "example": [
+              "de300000-0000-4000-8001-000000000007"
+            ]
           },
           "file": {
             "type": "string",
@@ -11901,7 +11937,7 @@
           "Knowledge base"
         ],
         "summary": "Upload a knowledge base document",
-        "description": "Uploads a document to a knowledge base store and queues it for processing. Accepts the file either as multipart/form-data (binary `file`) or as application/json (base64 `file`).",
+        "description": "Uploads a document to a knowledge base store and queues it for processing. Accepts the file either as multipart/form-data (binary `file`) or as application/json (base64 `file`). Use `interview_ids` to limit the document to chosen interviews.",
         "security": [
           {
             "bearerAuth": []
@@ -11944,7 +11980,7 @@
             }
           },
           "422": {
-            "description": "Validation error.",
+            "description": "Validation error, including an `interview_ids` entry that is not an interview of this company on this knowledge base.",
             "content": {
               "application/json": {
                 "schema": {

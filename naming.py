@@ -545,7 +545,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/knowledge-base-document-upload"): _write(
         "upload_knowledge_base_document",
         "Upload knowledge base document",
-        "Upload and process a knowledge base document (multipart form-data).",
+        "Upload and process a knowledge base document (base64 file). The optional "
+        "interview_ids limits it to chosen interviews on the same knowledge base: "
+        "leave it out for every interview, [] for none. Returns the limit it set.",
         "readOnlyHint=false / destructiveHint=true: stores a new document on the "
         "account and triggers processing that consumes credits. " + _OPEN_WORLD,
     ),
