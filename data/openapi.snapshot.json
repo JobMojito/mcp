@@ -10569,6 +10569,16 @@
               }
             }
           },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token), or you may not change this result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation error: missing/invalid id, result not found, or the result is not in an active+submitted state.",
             "content": {

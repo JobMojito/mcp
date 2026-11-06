@@ -434,7 +434,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-result-request-another-attempt"): _write(
         "request_another_interview_attempt",
         "Re-open interview for another attempt",
-        "Re-open a submitted interview result so the candidate can retry.",
+        "Re-open a submitted interview result so the candidate can retry. "
+        "Company owners, recruiters and platform admins only.",
         "readOnlyHint=false / destructiveHint=true: re-opening a submitted result "
         "changes the candidate's recorded outcome and can invalidate a completed "
         "assessment. " + _OPEN_WORLD,

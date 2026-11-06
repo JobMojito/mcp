@@ -1309,3 +1309,20 @@ def test_a_real_api_view_parameter_wins_over_the_injected_one():
         if p["name"] == VIEW_PARAM_NAME
     ]
     assert params == [api_param], "an API parameter must never be shadowed or removed"
+
+
+def test_request_another_attempt_declares_the_staff_only_refusal():
+    """The API refuses non-staff tokens with 403 (candidate, consumer, read-only
+    staff). The MCP tool forwards the user's JWT and has no role check of its own,
+    so the fallback spec and the tool's hint must say who can use it."""
+    import pathlib
+
+    from naming import TOOL_META
+
+    spec = json.loads(
+        (pathlib.Path(__file__).resolve().parent.parent / "data/openapi.snapshot.json").read_text()
+    )
+    responses = spec["paths"]["/job-interview-result-request-another-attempt"]["post"]["responses"]
+    assert "403" in responses
+    meta = TOOL_META[("POST", "/job-interview-result-request-another-attempt")]
+    assert "owners, recruiters and platform admins" in meta.hint
