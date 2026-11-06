@@ -138,3 +138,25 @@ def test_instructions_list_the_tools_and_the_flow():
     assert "get_portal_configuration (only the\n  sections involved)" in flow
     assert "update_portal_configuration\n  with `dry_run: true` to preview" in flow
     assert "`publish: true` only\n  when the user asked to publish" in flow
+
+
+@pytest.mark.asyncio
+async def test_the_descriptions_name_brands_styles_and_their_switches():
+    get = await _tool("get_portal_configuration")
+    update = await _tool("update_portal_configuration")
+    assert "`brands`" in get.description
+    assert "`style_settings`" in get.description
+    assert "`css_files`" in get.description
+    assert "brands" in get.parameters["properties"]["sections"]["description"]
+    assert "brands" in update.description
+    assert "style settings, CSS files" in update.description
+    assert "builds and publishes the stylesheet" in update.description
+    assert "refused with 422" in update.description
+    assert "`version`" in update.description
+
+
+@pytest.mark.asyncio
+async def test_a_brands_document_passes_the_input_schema():
+    update = (await _tool("update_portal_configuration")).parameters
+    kinds = str(update["properties"]["kind"])
+    assert "'brands'" in kinds

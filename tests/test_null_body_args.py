@@ -104,6 +104,7 @@ def test_the_opt_in_list_is_exactly_this():
         "set_knowledge_base_document_interviews": {"interview_ids"},
         UPDATE_DIRECTORY: {"content_md"},
         UPDATE_INTERVIEW: {"candidate_notification_channel", "questions_random_subset", "pdf_export_auto_config"},
+        "update_media_file": {"focal_x", "focal_y", "poster_url"},
     }
 
 

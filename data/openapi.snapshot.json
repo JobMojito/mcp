@@ -8353,9 +8353,10 @@
             "enum": [
               "branding",
               "interview-portal",
-              "coaching-portal"
+              "coaching-portal",
+              "brands"
             ],
-            "description": "Portal configuration document type. `branding`: portal name, style, colours, logos, e-mail sender name, speech term boosting. `interview-portal`: interview portal languages and the per-language home texts. `coaching-portal`: coaching portal vertical (`use_case`), feature toggles, label overrides, coaching plan, catalogue start directory, languages and per-language home blocks. A portal site document declares `format` instead.",
+            "description": "Portal configuration document type. `branding`: portal name, style, colours, logos, e-mail sender name, speech term boosting. `interview-portal`: interview portal languages and the per-language home texts. `coaching-portal`: coaching portal vertical (`use_case`), feature toggles, label overrides, coaching plan, catalogue start directory, languages and per-language home blocks. `brands`: `{ brands: [{ name, tag, slug, logo_url, logo_dark_url, icon_url, privacy_notice_url, style_settings, sort_order, status }] }`, the sub-brands. A brand is matched by `tag`, which never changes; the main brand is the company itself and has no entry. A brand left out stays as it is; `status: \"deleted\"` retires one, and null clears a field. Refused with 422 while the company's `brands` switch is off. A portal site document declares `format` instead.",
             "example": "branding"
           },
           "format": {
@@ -8364,7 +8365,7 @@
               "jobmojito.portal-site",
               "jobmojito.portal-page"
             ],
-            "description": "Portal site document type. `jobmojito.portal-site`: `{ portal, theme: { css }, pages: [Page] }`, a whole site (pages in every language, the menu, the footer and the theme CSS). `jobmojito.portal-page`: `{ page: Page }`, one page. Page = `{ slug, show_in_menu, sort_order, languages: [{ mojito_language_code, title, description, blocks }] }`; slug \"\" is the home page, \"_footer\", \"_support\", \"_jobs\" etc. are the built-in pages.",
+            "description": "Portal site document type. `jobmojito.portal-site`: `{ portal, theme: { css }, style_settings, css_files: [{ path, brand, content, sort_order, version }], pages: [Page] }`, a whole site (pages in every language, the menu, the footer and the theme CSS). `jobmojito.portal-page`: `{ page: Page }`, one page. Page = `{ slug, brand, show_in_menu, sort_order, languages: [{ mojito_language_code, title, description, blocks }] }`; slug \"\" is the home page, \"_footer\", \"_support\", \"_jobs\" etc. are the built-in pages. A page's `brand` is the tag of a sub-brand, null for the main brand; its slug must sit under the brand's slug. `style_settings` are the main brand's colours, fonts, spacing steps, page width, corners and headings; a sub-brand's are in the brands document. `css_files` are matched by brand and path and never removed; send the `version` you read and a file changed since is refused. These parts are refused with 422 while the company's `portal_styles` or `brands` switch is off.",
             "example": "jobmojito.portal-site"
           },
           "version": {
@@ -8373,7 +8374,7 @@
             "example": 1
           }
         },
-        "description": "One configuration document: declares either `kind` (branding, interview-portal, coaching-portal) or `format` (jobmojito.portal-site, jobmojito.portal-page), plus that type's fields. Field reference: branding https://developer.jobmojito.com/cookbooks/portal-branding/branding, interview portal https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, coaching portal https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, portal pages https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Unknown fields are ignored with a warning; wrong types and enum values are errors.",
+        "description": "One configuration document: declares either `kind` (branding, interview-portal, coaching-portal, brands) or `format` (jobmojito.portal-site, jobmojito.portal-page), plus that type's fields. Field reference: branding https://developer.jobmojito.com/cookbooks/portal-branding/branding, interview portal https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, coaching portal https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, portal pages https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Unknown fields are ignored with a warning; wrong types and enum values are errors.",
         "additionalProperties": true
       },
       "PortalConfigurationGetResponse": {
@@ -8389,7 +8390,7 @@
             "items": {
               "$ref": "#/components/schemas/PortalConfigurationDocument"
             },
-            "description": "One document per section, each a valid input for portal-configuration-update: `kind: \"branding\"`, `kind: \"interview-portal\"`, `kind: \"coaching-portal\"`, and one `format: \"jobmojito.portal-site\"` per portal (`portal: \"interview\"` for interview-pages, `\"consumer\"` for coaching-pages) with every page's DRAFT content and the theme CSS draft. Pages also carry `published_at` (read-only, ignored on import; null = never published). The support / application-tracking / interview-completed / signed-in home texts are built-in pages (\"_support\", \"_tracking\", \"_completion\", \"_signed_in_home\") and appear only in the portal-site documents."
+            "description": "One document per section, each a valid input for portal-configuration-update: `kind: \"branding\"`, `kind: \"interview-portal\"`, `kind: \"coaching-portal\"`, one `format: \"jobmojito.portal-site\"` per portal (`portal: \"interview\"` for interview-pages, `\"consumer\"` for coaching-pages) with every page's DRAFT content and the theme CSS draft, and `kind: \"brands\"` when the company's brands are switched on. With style settings switched on, a site document also holds `style_settings` and `css_files` (each file with the `version` to send back), and a page of a sub-brand holds `brand`. Pages also carry `published_at` (read-only, ignored on import; null = never published). The support / application-tracking / interview-completed / signed-in home texts are built-in pages (\"_support\", \"_tracking\", \"_completion\", \"_signed_in_home\") and appear only in the portal-site documents."
           }
         },
         "required": [
@@ -8411,6 +8412,7 @@
               "branding",
               "interview-portal",
               "coaching-portal",
+              "brands",
               "portal-site"
             ],
             "description": "How the document was read."
@@ -8543,6 +8545,88 @@
               "$ref": "#/components/schemas/PortalConfigurationPageChange"
             },
             "description": "Every page touched, with its portal (built-in page drafts from a coaching-portal document go to the consumer portal)."
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tag": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "update",
+                    "delete",
+                    "unchanged"
+                  ]
+                }
+              },
+              "required": [
+                "tag",
+                "action"
+              ]
+            },
+            "description": "Sub-brands in the documents and what happens to each. Present only when a brands document was sent."
+          },
+          "css_files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "brand": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "path": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "update",
+                    "unchanged"
+                  ]
+                }
+              },
+              "required": [
+                "brand",
+                "path",
+                "action"
+              ]
+            },
+            "description": "CSS files in the documents; `brand` null is the main brand. Present only when there are any."
+          },
+          "style_settings": {
+            "type": "boolean",
+            "description": "True when the main brand's style settings change. Present only then."
+          },
+          "stylesheets_published": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "portal": {
+                  "type": "string",
+                  "enum": [
+                    "interview",
+                    "consumer"
+                  ]
+                },
+                "brand": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "portal",
+                "brand"
+              ]
+            },
+            "description": "Stylesheets built and published by this call; `brand` null is the main brand. Present only when there are any."
           }
         },
         "required": [
@@ -8669,6 +8753,7 @@
               "branding",
               "interview-portal",
               "coaching-portal",
+              "brands",
               "portal-site"
             ],
             "description": "Optional: lock the call to one document type, as one admin import tab does. Every document must then be that type (`portal-site` accepts both portal-site and portal-page formats), and a document that declares neither `kind` nor `format` is read as this type with a warning. Without it, every document must declare its own `kind` or `format`."
@@ -8684,7 +8769,7 @@
           "publish": {
             "type": "boolean",
             "default": false,
-            "description": "Also publish the imported pages and theme CSS (live at once, as the admin's \"Publish after import\"). Default false: pages land as drafts the company reviews in the admin. Built-in page drafts produced by interview-portal / coaching-portal documents are never published. With page versions switched on, only a company owner or admin may publish."
+            "description": "Also publish the imported pages and theme CSS (live at once, as the admin's \"Publish after import\"). Default false: pages land as drafts the company reviews in the admin. Style settings and CSS files in the documents are built into a stylesheet per brand and published too, by the same build as portal-css-publish: the files a document names go live, the others stay as last published. Built-in page drafts produced by interview-portal / coaching-portal documents are never published. With page versions switched on, only a company owner or admin may publish."
           },
           "dry_run": {
             "type": "boolean",
@@ -8928,6 +9013,508 @@
         "required": [
           "data",
           "pagination"
+        ]
+      },
+      "PortalCssPublishResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Address of the built stylesheet. It is named after its content and never changes."
+          },
+          "hash": {
+            "type": "string",
+            "description": "First 16 characters of the SHA-256 of the stylesheet.",
+            "example": "9f86d081884c7d65"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "description": "Size of the stylesheet.",
+            "example": 18230
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Worth telling the person, none of them stopped the publish: over 500 KB, rules outside .jm-site that reach the rest of the portal, removed \"<\" characters."
+          }
+        },
+        "required": [
+          "url",
+          "hash",
+          "size_bytes",
+          "warnings"
+        ]
+      },
+      "PortalCssPublishRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company. Admins and sub-merchant operators only; other callers always use their token's company.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "`interview` (career and interview portal) or `consumer` (coaching portal). Only the interview portal has brands.",
+            "example": "interview"
+          },
+          "brand_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The sub-brand to publish. Leave it out for the main brand, the company's own."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Publish the drafts of only these CSS files; the others stay as they were last published. Leave it out to publish every draft of this brand."
+          }
+        },
+        "required": [
+          "portal"
+        ]
+      },
+      "MediaFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the file (media_id).",
+            "example": "c9d6f121-1230-48fd-b3a7-8b5a1e8db052"
+          },
+          "merchant_id": {
+            "type": "string",
+            "description": "Company whose library holds the file."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "font"
+            ],
+            "description": "image, video, audio or font."
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Display name in the library.",
+            "example": "team-photo.jpg"
+          },
+          "folder": {
+            "type": "string",
+            "description": "Library folder; \"\" is the top.",
+            "example": "team"
+          },
+          "path": {
+            "type": "string",
+            "description": "Object name in the bucket."
+          },
+          "url": {
+            "type": "string",
+            "description": "Public address of the file, served by the CDN. It changes when the file is replaced."
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content type of the file.",
+            "example": "image/jpeg"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "description": "Size of the file in bytes, measured after the upload."
+          },
+          "width": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Width in pixels, as sent to media-upload-finish."
+          },
+          "height": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Height in pixels, as sent to media-upload-finish."
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true,
+            "description": "Length of a video or audio file in seconds, as sent to media-upload-finish."
+          },
+          "poster_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Still image shown before a video plays."
+          },
+          "alt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Alt text per language code, such as {\"en\": \"Our team\"}."
+          },
+          "focal_x": {
+            "type": "number",
+            "nullable": true,
+            "description": "Horizontal focal point, 0 (left) to 1 (right)."
+          },
+          "focal_y": {
+            "type": "number",
+            "nullable": true,
+            "description": "Vertical focal point, 0 (top) to 1 (bottom)."
+          },
+          "status": {
+            "type": "string",
+            "description": "uploading until media-upload-finish accepts the file, then ready."
+          },
+          "version": {
+            "type": "integer",
+            "description": "Goes up each time the file is replaced."
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "True for a file of the parent company's library: it can be used on pages but not changed or deleted."
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "kind",
+          "file_name",
+          "folder",
+          "path",
+          "url",
+          "content_type",
+          "size_bytes",
+          "width",
+          "height",
+          "duration_seconds",
+          "poster_url",
+          "alt",
+          "focal_x",
+          "focal_y",
+          "status",
+          "version",
+          "read_only",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "MediaListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFile"
+            },
+            "description": "Files that finished uploading, newest first."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "MediaUploadStartResponse": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Send this to media-upload-finish after the upload."
+          },
+          "upload_url": {
+            "type": "string",
+            "description": "Signed address, valid for two hours. PUT the file here with the Content-Type you declared and `Cache-Control: max-age=<cache_control>`."
+          },
+          "token": {
+            "type": "string",
+            "description": "The token inside upload_url, for clients that upload with the Supabase library (`uploadToSignedUrl`)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Object name in the career-media bucket."
+          },
+          "cache_control": {
+            "type": "integer",
+            "description": "Seconds to send as the cache lifetime: a file name is never reused, so a year is safe.",
+            "example": 31536000
+          }
+        },
+        "required": [
+          "media_id",
+          "upload_url",
+          "token",
+          "path",
+          "cache_control"
+        ]
+      },
+      "MediaUploadStartRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company to upload for. Admins and sub-merchant operators only; other callers always use their token's company.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Display name in the library. It is never part of the address.",
+            "example": "team-photo.jpg"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "image/gif",
+              "image/avif",
+              "image/svg+xml",
+              "video/mp4",
+              "audio/mpeg",
+              "audio/mp4",
+              "audio/x-m4a",
+              "font/woff2"
+            ],
+            "description": "Type of the file: image/jpeg, image/png, image/webp, image/gif, image/avif, image/svg+xml, video/mp4, audio/mpeg, audio/mp4, audio/x-m4a, font/woff2. Video must be H.264 MP4. Upload the file with this same content type.",
+            "example": "image/jpeg"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Size of the file in bytes, at most 52428800 (50 MB). A larger file answers 413.",
+            "example": 120000
+          },
+          "folder": {
+            "type": "string",
+            "description": "Library folder; default the top. Ignored when replacing.",
+            "example": "team"
+          },
+          "replace_media_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "Replace this file instead of adding one. Must be the same kind. The file keeps its id, name and alt text and gets a new address when media-upload-finish accepts it."
+          }
+        },
+        "required": [
+          "file_name",
+          "content_type",
+          "size_bytes"
+        ]
+      },
+      "MediaUploadFinishResponse": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/MediaFile"
+          },
+          "replaced": {
+            "type": "boolean",
+            "description": "True when this call swapped in a new version of an existing file. False on a new file, and when no replacement was waiting (a repeated call, or an upload that never arrived)."
+          },
+          "drafts_updated": {
+            "type": "integer",
+            "description": "Page drafts moved to the new address when a file was replaced. Published pages keep the old address until they are published again."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Things worth telling the person. The file was accepted."
+          }
+        },
+        "required": [
+          "file",
+          "replaced",
+          "drafts_updated",
+          "warnings"
+        ]
+      },
+      "MediaUploadFinishRequest": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The media_id from media-upload-start."
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Width in pixels of an image or video.",
+            "example": 1600
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Height in pixels of an image or video.",
+            "example": 900
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Length of a video or audio file in seconds.",
+            "example": 42.5
+          },
+          "poster_url": {
+            "type": "string",
+            "description": "Still image shown before a video plays: the `url` of an image in this company's library."
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "MediaUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The file to change."
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Display name in the library.",
+            "example": "team-photo.jpg"
+          },
+          "folder": {
+            "type": "string",
+            "description": "Library folder; \"\" is the top.",
+            "example": "team"
+          },
+          "alt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "description": "Alt text per language code. Replaces the whole set, so send every language.",
+            "example": {
+              "en": "Our team on deck"
+            }
+          },
+          "focal_x": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Horizontal focal point, 0 (left) to 1 (right). Null clears it.",
+            "example": 0.5
+          },
+          "focal_y": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Vertical focal point, 0 (top) to 1 (bottom). Null clears it.",
+            "example": 0.3
+          },
+          "poster_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Still image shown before a video plays: the `url` of an image in this company's library. Null removes it."
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "MediaDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The deleted file."
+          },
+          "status": {
+            "type": "string",
+            "description": "Always deleted. The stored objects and resized copies go shortly after, in the background.",
+            "example": "deleted"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "MediaInUse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "description": "How many things use the file."
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                },
+                "description": "What uses it: `{type: \"page\", slug, portal, state}`, `{type: \"brand\", name}`, `{type: \"css\", path}` or `{type: \"styles\"}`."
+              },
+              "other_companies": {
+                "type": "integer",
+                "description": "Uses in sub-companies you cannot see, counted only."
+              }
+            },
+            "required": [
+              "count",
+              "items",
+              "other_companies"
+            ],
+            "description": "Where the file is used."
+          }
+        },
+        "required": [
+          "error",
+          "usage"
+        ]
+      },
+      "MediaDeleteRequest": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The file to delete."
+          }
+        },
+        "required": [
+          "media_id"
         ]
       }
     },
@@ -13210,8 +13797,8 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Get the portal configuration (branding, portals, pages)",
-        "description": "Reads the company's portal configuration as import documents: branding, the interview portal, the coaching portal, and the pages + theme CSS of each portal. Every returned document can be edited and sent back to portal-configuration-update unchanged in shape (preview with `dry_run: true` first). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages.",
+        "summary": "Get the portal configuration (branding, portals, brands, pages)",
+        "description": "Reads the company's portal configuration as import documents: branding, the interview portal, the coaching portal, the sub-brands, and the pages + theme CSS + style settings + CSS files of each portal. Every returned document can be edited and sent back to portal-configuration-update unchanged in shape (preview with `dry_run: true` first). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages.",
         "security": [
           {
             "bearerAuth": []
@@ -13232,7 +13819,7 @@
           {
             "schema": {
               "type": "string",
-              "description": "Comma-separated sections to return (default: all): branding, interview-portal, coaching-portal, interview-pages, coaching-pages. A portal the company does not use is left out of the default; name its sections to read them anyway.",
+              "description": "Comma-separated sections to return (default: all): branding, interview-portal, coaching-portal, interview-pages, coaching-pages, brands. A portal the company does not use is left out of the default; name its sections to read them anyway.",
               "example": "branding,interview-pages"
             },
             "required": false,
@@ -13310,8 +13897,8 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Update the portal configuration (branding, portals, pages)",
-        "description": "Imports portal configuration documents in one call: **branding** (portal name, style, colours, logos, e-mail sender name, speech term boosting), the **interview portal** (languages, home texts, support / application-tracking / interview-completed texts), the **coaching portal** (vertical, feature toggles, labels, coaching plan, catalogue start directory, languages, home blocks) and **portal sites** (pages in every language with their blocks, menu, footer and the theme CSS). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Read the current configuration with portal-configuration-get first: it returns these same documents, so you can edit them and send them back. Fields a document omits keep their value. Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply. Validation is all-or-nothing: if any document has an error nothing is written and the 422 lists every error. Pages land as drafts unless `publish` is true; the support / tracking / completion / signed-in home texts of the portal documents always land as drafts of those built-in pages.",
+        "summary": "Update the portal configuration (branding, portals, brands, pages)",
+        "description": "Imports portal configuration documents in one call: **branding** (portal name, style, colours, logos, e-mail sender name, speech term boosting), the **interview portal** (languages, home texts, support / application-tracking / interview-completed texts), the **coaching portal** (vertical, feature toggles, labels, coaching plan, catalogue start directory, languages, home blocks), **brands** (the sub-brands of the company, with logos, privacy notice and style settings) and **portal sites** (pages in every language with their blocks, menu, footer, the theme CSS, the style settings and CSS files). Document formats: https://developer.jobmojito.com/cookbooks/portal-branding/branding, https://developer.jobmojito.com/cookbooks/portal-branding/interview-portal, https://developer.jobmojito.com/cookbooks/portal-branding/coaching-portal, https://developer.jobmojito.com/cookbooks/portal-branding/portal-pages. Read the current configuration with portal-configuration-get first: it returns these same documents, so you can edit them and send them back. Fields a document omits keep their value. Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply. Validation is all-or-nothing: if any document has an error nothing is written and the 422 lists every error. Pages land as drafts unless `publish` is true; the support / tracking / completion / signed-in home texts of the portal documents always land as drafts of those built-in pages.",
         "security": [
           {
             "bearerAuth": []
@@ -13390,6 +13977,646 @@
           }
         },
         "operationId": "update_portal_configuration"
+      }
+    },
+    "/portal-css-publish": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Publish a brand stylesheet",
+        "description": "Builds one brand's stylesheet from its style settings and CSS files and puts it live at once. The build is tokens first, then the files by sort order and path, with every @import moved to the top and any \"<\" removed. Over 500 KB is a warning, over 2 MB is refused. Earlier builds stay in place. Style settings and CSS files are switched on per company by JobMojito; while they are off this endpoint answers 403. Write the drafts first with portal-configuration-update.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortalCssPublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stylesheet is live.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalCssPublishResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the switch is off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This brand does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error, an unknown file, a brand on the coaching portal, or a stylesheet over 2 MB. Nothing was published.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "publish_portal_stylesheet"
+      }
+    },
+    "/media-list": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List the media library",
+        "description": "Lists the company's media library: images, MP4 video, audio and WOFF2 fonts for career pages. Use a file's `url` in page blocks, brand logos and font settings. A sub-company also sees its parent's files, marked `read_only`. Files still uploading are not listed. The library is switched on per company by JobMojito; while it is off this endpoint answers 403.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "image",
+                "video",
+                "audio",
+                "font"
+              ],
+              "description": "Only files of this kind: image, video, audio or font.",
+              "example": "image"
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Only files in this library folder. Send an empty value for the top folder."
+            },
+            "required": false,
+            "name": "folder",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Only files whose name contains this text."
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "true",
+              "description": "Also list the parent company's files, read only, when this company is a sub-company. Default true.",
+              "example": "true"
+            },
+            "required": false,
+            "name": "include_parent",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50,
+              "description": "Maximum number of records to return (1–1000).",
+              "example": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of records to skip from the start of the result set.",
+              "example": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of files.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the media library is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_media_files"
+      }
+    },
+    "/media-upload-start": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Start uploading a media file",
+        "description": "Starts an upload to the media library. Upload in three steps: call this, PUT the file to `upload_url`, then call media-upload-finish, which checks the file and makes it usable. Takes JPEG, PNG, WebP, GIF, AVIF, SVG, H.264 MP4, MP3, M4A and WOFF2 up to 50 MB. The file is checked on finish, not here: its real type, the codec of a video, and anything active in an SVG.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Where to upload the file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadStartResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, the parent company's file, or the media library is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file to replace does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file to replace has not finished uploading.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 50 MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error: the type is not accepted, the name looks like a path, or a replacement is another kind of file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "start_media_upload"
+      }
+    },
+    "/media-upload-finish": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Finish uploading a media file",
+        "description": "Checks an uploaded file and makes it usable. Reads the stored file: its real size, its first bytes against the declared type, the codec of a video (H.264 only, read from the file's stsd box), and an SVG for scripts, event attributes, javascript: addresses, foreignObject and outside links. A refused file is removed and the answer says why; nothing is rewritten. Replacing a file moves page drafts to the new address at once.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadFinishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file is ready to use.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadFinishResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, the parent company's file, or the media library is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This file does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The upload has not arrived yet, or someone else finished this file first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The stored file is larger than 50 MB. It was removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file was refused and removed: it is not what was declared, a video is not H.264, or an SVG holds something active.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "finish_media_upload"
+      }
+    },
+    "/media-update": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Describe a media file",
+        "description": "Changes a file's name, folder, alt text, focal point or poster. Fields you leave out keep their value. To change the file itself, replace it: media-upload-start with `replace_media_id`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, the parent company's file, or the media library is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This file does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "update_media_file"
+      }
+    },
+    "/media-delete": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete a media file",
+        "description": "Deletes a file from the media library. Refused with 409 while a page, brand, CSS file or style setting uses it, and the answer lists what does, so nothing loses its picture without someone choosing that. Cannot be undone.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file is deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaDeleteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, or the media library is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This file does not exist, or it is not yours to delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file is in use. Nothing was deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaInUse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "delete_media_file"
       }
     },
     "/merchant-feature-request": {

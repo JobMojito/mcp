@@ -35,6 +35,7 @@ except ImportError:  # FastMCP 2.x fallback
 
 import docs_tools
 import invitations
+import media_upload
 import merchants
 import wellknown
 from config import settings
@@ -178,6 +179,11 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics,
   get_merchant_status
 • Portal configuration: get_portal_configuration, update_portal_configuration
+• Career page styles: publish_portal_stylesheet (settings and CSS files are written
+  with update_portal_configuration)
+• Media library: list_media_files, upload_media_file (one call, base64),
+  start_media_upload + finish_media_upload (for a client that can send a file to an
+  address), update_media_file, delete_media_file
 
 Typical flows:
 - "Set up an interview for a role" → create_interview → invite_candidates, or
@@ -203,6 +209,8 @@ Typical flows:
   sections involved) → change only what was asked → update_portal_configuration
   with `dry_run: true` to preview → the same call without it. `publish: true` only
   when the user asked to publish; otherwise pages stay drafts in the admin.
+- "Add a picture to a career page" → list_media_files, or upload_media_file → put the
+  file's `url` in the block with update_portal_configuration.
 """
 
 
@@ -510,6 +518,9 @@ def build_server() -> FastMCP:
     # Candidate invitations through /invite-users with candidate rows only (that
     # endpoint is otherwise excluded: its `type` also creates staff accounts).
     invitations.register(mcp)
+
+    # The media library's one-call upload: start, send the bytes, finish.
+    media_upload.register(mcp)
 
     # Unauthenticated operational + directory-verification routes.
     wellknown.register(mcp, version=SERVER_VERSION, description=SHORT_DESCRIPTION)

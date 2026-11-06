@@ -762,10 +762,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Read the company's portal configuration as editable documents: `branding` "
         "(portal name, style, colours, logos, e-mail sender name), `interview-portal` "
         "(languages, home texts), `coaching-portal` (vertical, feature toggles, labels, "
-        "languages, home blocks) and one `jobmojito.portal-site` document per portal "
-        "(every page's draft content and the theme CSS). Narrow with `sections` "
-        "(branding, interview-portal, coaching-portal, interview-pages, coaching-pages): "
-        "the page documents are the large ones. This is the read step of every portal "
+        "languages, home blocks), `brands` (sub-brands, when switched on) and one "
+        "`jobmojito.portal-site` document per portal (every page's draft content and the "
+        "theme CSS, plus `style_settings` and `css_files` when switched on). Narrow with "
+        "`sections` (branding, interview-portal, coaching-portal, interview-pages, "
+        "coaching-pages, brands): the page documents are the large ones. This is the read step of every portal "
         "change: read the section(s) involved, change only what the user asked for, and "
         "send those documents back with update_portal_configuration. " + _PORTAL_COOKBOOKS,
         _READ_WHY,
@@ -774,14 +775,18 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "update_portal_configuration",
         "Update portal configuration",
         "Import portal configuration documents, the same ones get_portal_configuration "
-        "returns: branding, interview portal, coaching portal, and portal sites (pages, "
-        "menu, footer, theme CSS). Read first, edit only the fields the user asked about, "
+        "returns: branding, interview portal, coaching portal, brands, and portal sites "
+        "(pages, menu, footer, theme CSS, style settings, CSS files). Read first, edit only the fields the user asked about, "
         "then send the documents with `dry_run: true` and show the user the returned "
         "summary, warnings and changes; repeat without `dry_run` to apply. Fields a "
         "document omits keep their value, and languages are only ever added. Validation "
         "is all-or-nothing: a 422 lists every error and nothing is written. Pages land as "
         "drafts the company reviews in the admin; set `publish: true` only when the user "
-        "asked to publish the pages or theme, because it puts them live at once. "
+        "asked to publish the pages or theme, because it puts them live at once, and it "
+        "also builds and publishes the stylesheet of any brand whose settings or CSS files "
+        "the documents carry. Brands, style settings and CSS files are switched on per "
+        "company by JobMojito; while off, those parts are refused with 422. Send a CSS "
+        "file's `version` back, so a file someone else changed is refused. "
         + _PORTAL_COOKBOOKS,
         "readOnlyHint=false / destructiveHint=true: overwrites the company's live "
         "branding and portal settings in place and, with `publish`, puts pages and theme "
@@ -789,6 +794,70 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "`dry_run: true` writes nothing). idempotentHint=false: the documents are merged "
         "into whatever the configuration holds when the call runs, so the outcome depends "
         "on that state and the call is not declared safe to repeat. " + _OPEN_WORLD,
+    ),
+    # --- Career page editor: built stylesheets and the media library (SQL 302, 304).
+    # upload_media_file (media_upload.py) is the one-call upload for a client that
+    # cannot send a file to an address itself.
+    ("POST", "/portal-css-publish"): _write(
+        "publish_portal_stylesheet",
+        "Publish a brand stylesheet",
+        "Build one brand's stylesheet from its style settings and CSS files and put it live "
+        "at once. Leave out brand_id for the main brand. Write the drafts first with "
+        "update_portal_configuration. Only when the user asked to publish. Returns warnings: "
+        "tell the user about them, especially rules outside .jm-site.",
+        "readOnlyHint=false / destructiveHint=true: changes the live look of the company's "
+        "portal for every visitor. An earlier build stays in storage, but this tool cannot "
+        "return to it. idempotentHint=false: each call records a new build. " + _OPEN_WORLD,
+    ),
+    ("GET", "/media-list"): _read(
+        "list_media_files",
+        "List media library files",
+        "List the company's media library: images, MP4 video, audio and WOFF2 fonts, newest "
+        "first. Use a file's `url` in page blocks, brand logos and font settings. A sub-company "
+        "also sees its parent's files, marked read_only: usable, not changeable.",
+        _READ_WHY,
+    ),
+    ("POST", "/media-upload-start"): _write(
+        "start_media_upload",
+        "Start a media upload",
+        "First step of an upload for a client that can send a file itself: returns a signed "
+        "upload_url. PUT the file there with the declared Content-Type, then call "
+        "finish_media_upload. If you cannot send a file to an address, use upload_media_file.",
+        "readOnlyHint=false / destructiveHint=true: creates a row in the company's media "
+        "library and an address anyone holding it can upload to for two hours. "
+        "idempotentHint=false: each call starts another upload. " + _OPEN_WORLD,
+    ),
+    ("POST", "/media-upload-finish"): _write(
+        "finish_media_upload",
+        "Finish a media upload",
+        "Last step of start_media_upload: checks the stored file and makes it usable. A file "
+        "that is not what was declared, a video that is not H.264, or an SVG with anything "
+        "active is removed and the error says why. Check `replaced` when replacing a file.",
+        "readOnlyHint=false / destructiveHint=true: makes a file usable or removes a refused "
+        "one, and a replacement moves page drafts to the new address. idempotentHint=true: "
+        "repeating the call on a finished file returns it unchanged. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
+    ("POST", "/media-update"): _write(
+        "update_media_file",
+        "Describe a media file",
+        "Change a file's name, folder, alt text, focal point or poster. Fields left out keep "
+        "their value. alt replaces the whole set of languages. A null focal_x, focal_y or "
+        "poster_url clears it.",
+        "readOnlyHint=false / destructiveHint=true: overwrites the file's description in "
+        "place. idempotentHint=true: the same values give the same result. " + _OPEN_WORLD,
+        idempotent=True,
+        null_body_args=("focal_x", "focal_y", "poster_url"),
+    ),
+    ("POST", "/media-delete"): _write(
+        "delete_media_file",
+        "Delete a media file",
+        "Delete a file from the media library for good, once the user has confirmed it. "
+        "Refused while a page, brand, CSS file or style setting uses it: the error lists "
+        "what does, so tell the user rather than removing those uses yourself.",
+        "readOnlyHint=false / destructiveHint=true: removes the file and its resized copies "
+        "and cannot be undone. idempotentHint=false: a second call answers that the file "
+        "does not exist. " + _OPEN_WORLD,
     ),
     # --- Custom reports (SQL 133). Flow: list_report_fields -> write a
     # definition -> preview_report -> create_report / update_report.
@@ -1113,6 +1182,8 @@ def annotation_justifications(include_ignored: bool = False) -> dict[str, str]:
         out[meta.name] = meta.justification
     # tools written by hand, outside the OpenAPI path
     from invitations import INVITE_CANDIDATES_JUSTIFICATION
+    from media_upload import UPLOAD_MEDIA_FILE_JUSTIFICATION
 
     out["invite_candidates"] = INVITE_CANDIDATES_JUSTIFICATION
+    out["upload_media_file"] = UPLOAD_MEDIA_FILE_JUSTIFICATION
     return out
