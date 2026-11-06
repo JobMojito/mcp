@@ -8780,6 +8780,139 @@
         "required": [
           "description"
         ]
+      },
+      "KnowledgeBaseDocumentSetInterviewsRequest": {
+        "type": "object",
+        "properties": {
+          "knowledge_base_id": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uuid",
+            "description": "The document to change: `knowledge_base_id` from the upload response or from knowledge-base-document-list.",
+            "example": "44444444-4444-4444-8444-444444444444"
+          },
+          "interview_ids": {
+            "type": "array",
+            "description": "The whole new list, which replaces the old one. A list limits the document to those interviews, an empty list to no interview, and null opens it to every interview on the knowledge base. Required, so that leaving it out can never open a document. Each interview must belong to the same company as the document and use the same knowledge base.",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": [
+              "de300000-0000-4000-8001-000000000007"
+            ]
+          }
+        },
+        "required": [
+          "knowledge_base_id",
+          "interview_ids"
+        ]
+      },
+      "KnowledgeBaseDocumentSetInterviewsResponse": {
+        "type": "object",
+        "properties": {
+          "knowledge_base_id": {
+            "type": "string",
+            "description": "The document that was changed."
+          },
+          "limit_to_interviews": {
+            "type": "boolean",
+            "description": "True when the document is limited to the interviews in `interview_ids`. False when every interview on the knowledge base can use it."
+          },
+          "interview_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The interviews this document is limited to. Present only when `limit_to_interviews` is true; an empty list means no interview can use it."
+          }
+        },
+        "required": [
+          "knowledge_base_id",
+          "limit_to_interviews"
+        ]
+      },
+      "KnowledgeBaseDocumentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "knowledge_base_id": {
+                  "type": "string",
+                  "description": "Document id, for knowledge-base-document-set-interviews."
+                },
+                "knowledge_base_store_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "The knowledge base store the document belongs to."
+                },
+                "merchant_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "The company that owns the document."
+                },
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Document name."
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Where it came from: `file`, `url` or `markdown`."
+                },
+                "status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Lifecycle status."
+                },
+                "processing_status": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Parsing progress of a file or URL. Written documents have none."
+                },
+                "created_at": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Creation timestamp (ISO 8601)."
+                },
+                "limit_to_interviews": {
+                  "type": "boolean",
+                  "description": "True when the document is limited to the interviews in `interview_ids`. False when every interview on the knowledge base can use it."
+                },
+                "interview_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The interviews this document is limited to. Present only when `limit_to_interviews` is true; an empty list means no interview can use it."
+                }
+              },
+              "required": [
+                "knowledge_base_id",
+                "knowledge_base_store_id",
+                "merchant_id",
+                "name",
+                "type",
+                "status",
+                "processing_status",
+                "created_at",
+                "limit_to_interviews"
+              ]
+            },
+            "description": "The documents for this page with the interview limit of each, newest first."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
       }
     },
     "parameters": {}
@@ -12001,6 +12134,231 @@
           }
         },
         "operationId": "upload_knowledge_base_document"
+      }
+    },
+    "/knowledge-base-document-list": {
+      "get": {
+        "tags": [
+          "Knowledge base"
+        ],
+        "summary": "List knowledge base documents and their interview limits",
+        "description": "Paginated list of your company's knowledge base documents (uploaded files, URLs and written documents), each with the interviews it is limited to. Pass `knowledge_base_id` to read one document's limit. Capped at 1000 records per page.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Read this one document. Answers 404 if your token cannot see it, including when it is another company's. `merchant_id` and `offset` are ignored.",
+              "example": "44444444-4444-4444-8444-444444444444"
+            },
+            "required": false,
+            "name": "knowledge_base_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Only the documents of this knowledge base store. Omit for every store of the company.",
+              "example": "d9d6f121-1230-48fd-b3a7-8b5a1e8db052"
+            },
+            "required": false,
+            "name": "knowledge_base_store_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50,
+              "description": "Maximum number of records to return (1–1000).",
+              "example": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of records to skip from the start of the result set.",
+              "example": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of documents with pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeBaseDocumentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The document named in `knowledge_base_id` does not exist or your token cannot see it. Another company's document answers the same way.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_knowledge_base_documents"
+      }
+    },
+    "/knowledge-base-document-set-interviews": {
+      "post": {
+        "tags": [
+          "Knowledge base"
+        ],
+        "summary": "Change which interviews can use a document",
+        "description": "Replaces the interview limit of an existing knowledge base document: a list of interviews, an empty list for none, or null for every interview on the knowledge base. Takes effect for the next live session and the next generation; the document is not processed again and costs no credits.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeBaseDocumentSetInterviewsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The limit was replaced. The response reports the new one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeBaseDocumentSetInterviewsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your token is not allowed to use this endpoint (it is not a merchant, merchant owner or admin token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No document with this id that your token can change. Another company's document answers the same way, and so does a per-interview text, which is not a document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error naming the field, including an `interview_ids` entry that is not an interview of this company on this knowledge base. Nothing is changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "set_knowledge_base_document_interviews"
       }
     },
     "/pre-screening-create": {

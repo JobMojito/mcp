@@ -112,6 +112,17 @@ class ToolMeta:
     #: verbatim. See ``RESPONSE_VIEW_WHY``.
     views: tuple[ResponseView, ...] = ()
     default_view: str = ""
+    #: Body arguments sent as an explicit null when the model passes null, instead
+    #: of being left out. See ``null_body_args.py`` for why this is opt-in and for
+    #: the test a field has to pass. Name each one in ``hint``.
+    null_body_args: tuple[str, ...] = ()
+    #: ``(old, new)`` replacements in this endpoint's own description and its
+    #: top-level body field descriptions, applied at load time by
+    #: ``openapi_loader.apply_description_fixes``. For text that is true of the HTTP
+    #: API but false through this tool, such as "null clears it" on a field whose
+    #: null is left out. ``new`` must not contain ``old``: the cached spec is
+    #: prepared a second time on the next boot.
+    description_fixes: tuple[tuple[str, str], ...] = ()
 
     @property
     def effective_default_view(self) -> str:
@@ -261,7 +272,15 @@ def _read(
     )
 
 
-def _write(name: str, title: str, hint: str, justification: str, idempotent: bool = False) -> ToolMeta:
+def _write(
+    name: str,
+    title: str,
+    hint: str,
+    justification: str,
+    idempotent: bool = False,
+    null_body_args: tuple[str, ...] = (),
+    description_fixes: tuple[tuple[str, str], ...] = (),
+) -> ToolMeta:
     """A state-changing tool: the client should confirm before running it."""
     return ToolMeta(
         name=name,
@@ -272,6 +291,8 @@ def _write(name: str, title: str, hint: str, justification: str, idempotent: boo
         destructive=True,
         idempotent=idempotent,
         open_world=True,
+        null_body_args=null_body_args,
+        description_fixes=description_fixes,
     )
 
 
@@ -550,6 +571,25 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "leave it out for every interview, [] for none. Returns the limit it set.",
         "readOnlyHint=false / destructiveHint=true: stores a new document on the "
         "account and triggers processing that consumes credits. " + _OPEN_WORLD,
+    ),
+    ("GET", "/knowledge-base-document-list"): _read(
+        "list_knowledge_base_documents",
+        "List knowledge base documents",
+        "List the company's knowledge base documents, optionally for one store, with the "
+        "interviews each is limited to. Pass knowledge_base_id to read one document's limit.",
+        _READ_WHY,
+    ),
+    ("POST", "/knowledge-base-document-set-interviews"): _write(
+        "set_knowledge_base_document_interviews",
+        "Change which interviews can use a document",
+        "Replace the interview limit of an existing knowledge base document. interview_ids "
+        "is required: a list limits it to those interviews on the same knowledge base, [] to "
+        "none, and null opens it to every interview on the knowledge base.",
+        "readOnlyHint=false / destructiveHint=true: replaces the document's list, and null "
+        "exposes the document to every interview on the knowledge base. idempotentHint=true: "
+        "the same list gives the same result, and nothing is processed or charged. " + _OPEN_WORLD,
+        idempotent=True,
+        null_body_args=("interview_ids",),
     ),
     # --- Merchant lists (read-only) ---
     ("GET", "/merchant-interview-list"): _read(

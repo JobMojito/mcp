@@ -30,7 +30,8 @@ EXPECTED_API_TOOLS = {
     "create_interview", "create_interview_from_questions", "update_interview",
     "create_catalogue_directory", "update_catalogue_directory",
     "list_catalogue_directories", "get_catalogue_directory",
-    "upload_knowledge_base_document", "list_interviews", "list_candidates",
+    "upload_knowledge_base_document", "list_knowledge_base_documents",
+    "set_knowledge_base_document_interviews", "list_interviews", "list_candidates",
     "list_interview_results", "list_avatars", "list_sub_merchants",
     "get_merchant_analytics", "get_merchant_status",
     "list_report_fields", "list_reports", "get_report", "run_report",
@@ -58,7 +59,7 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 33
+    assert len(EXPECTED_API_TOOLS) == 35
     # Ignored endpoints must not be exposed.
     assert not (IGNORED_TOOLS & names), f"ignored tools leaked: {IGNORED_TOOLS & names}"
 

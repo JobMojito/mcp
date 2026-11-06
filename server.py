@@ -46,6 +46,7 @@ from naming import (
     read_only_tool_names,
     response_view_rules,
 )
+from null_body_args import KeepNullBodyArgs
 from openapi_loader import load_openapi_spec
 from upstream import build_api_client
 
@@ -172,7 +173,7 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   same as the admin console), register_users_for_interview (personal interview
   links only, NO e-mail), generate_interview_url (a signed link to share)
 • Results & reports: get_interview_result_details, generate_interview_report
-• Knowledge base: upload_knowledge_base_document
+• Knowledge base: upload_knowledge_base_document, list_knowledge_base_documents, set_knowledge_base_document_interviews
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics,
   get_merchant_status
@@ -382,6 +383,8 @@ def _customize_component(route, component) -> None:
                 "http_method": route.method.upper(),
             }
         }
+        if meta.null_body_args:
+            component._director = KeepNullBodyArgs(component._director, meta.null_body_args)
 
     component.tags.add("jobmojito-api")
     for tag in route_tags:

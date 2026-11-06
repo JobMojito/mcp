@@ -51,7 +51,7 @@ team — `app.prefect.cloud` → Horizon).
 
 It exposes:
 
-- **37 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews,
+- **39 API tools** auto-generated from JobMojito's live OpenAPI spec (interviews,
   simulated personas and the coaching catalogue, candidates and results,
   knowledge base, merchant lists/analytics, custom reports, portal configuration). All endpoints — including the `GET`
   lists — are surfaced as tools with clean, curated names, each with a title and

@@ -36,6 +36,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # marking them read-only is what lets clients run them without a confirmation
 # prompt on every call.
 EXPECTED_READ_ONLY = {
+    "list_knowledge_base_documents",
     "get_interview_definition",
     "get_interview_result_details",
     "list_interviews",
