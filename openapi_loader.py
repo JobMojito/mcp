@@ -241,6 +241,28 @@ def relax_nullable_schemas(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def prefer_json_request_bodies(spec: dict[str, Any]) -> dict[str, Any]:
+    """Make JSON the body a tool sends when an endpoint accepts several.
+
+    FastMCP sends the first content type an operation declares. A tool's arguments
+    are JSON, so through multipart a file arrives as a text field (the API cannot read
+    it) and a list as Python's ``str(list)``. The JSON form carries both as they are.
+    """
+    for path_item in spec.get("paths", {}).values():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            content = (operation.get("requestBody") or {}).get("content") or {}
+            if "application/json" in content and next(iter(content)) != "application/json":
+                operation["requestBody"]["content"] = {
+                    "application/json": content["application/json"],
+                    **{k: v for k, v in content.items() if k != "application/json"},
+                }
+    return spec
+
+
 def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     """Inject curated operationIds/defaults and relax nullable response fields.
 
@@ -255,7 +277,9 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     value that means nothing.
     """
     return relax_nullable_schemas(
-        inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+        prefer_json_request_bodies(
+            inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+        )
     )
 
 
