@@ -361,12 +361,65 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "position level and are rejected with a 422 naming the field — "
         "`candidate_expectations_json` is the one seen in practice. Read the "
         "position with get_interview_definition, then update the individual "
-        "stage you mean instead of sending that field to the position.",
+        "stage you mean instead of sending that field to the position. "
+        "A null argument counts as not sent and changes nothing, except on three "
+        "fields where null is the only way to switch something off: "
+        "`candidate_notification_channel` (no SMS / WhatsApp), "
+        "`questions_random_subset` (ask all questions) and "
+        "`pdf_export_auto_config` (no automatic report). Leave those three out "
+        "unless that is what you mean.",
         "readOnlyHint=false / destructiveHint=true: this overwrites the "
         "configuration of a live interview in place, which is user-visible to "
         "candidates and cannot be undone from the tool. idempotentHint=true: "
         "sending the same body twice leaves the same stored state. " + _OPEN_WORLD,
         idempotent=True,
+        null_body_args=(
+            "candidate_notification_channel",
+            "questions_random_subset",
+            "pdf_export_auto_config",
+        ),
+        description_fixes=(
+            (
+                ", and sending null clears a nullable field.",
+                ". A null argument counts as not sent, except on "
+                "candidate_notification_channel, questions_random_subset and "
+                "pdf_export_auto_config.",
+            ),
+            # A blank string clears these (BLANK_IS_NULL in job-interview-update).
+            ("null keeps it always available.", "An empty string keeps it always available."),
+            ("null clears it.", "An empty string clears it."),
+            ("null unlinks it.", "An empty string unlinks it."),
+            # The API stores {} as null (normalizeCountryAvailability).
+            ("Null = not used, every country.", "An empty object {} = not used, every country."),
+            (
+                "null (or an object with name null/blank) means hiring for yourself;",
+                "An object with name null/blank means hiring for yourself;",
+            ),
+            ("null is treated like hidden.", "Send `hidden` to stop asking."),
+            ("null uses the template default (Normal).", "2 is the template default (Normal)."),
+            (
+                "Omit/null keeps the template default pace.",
+                "Omit to keep the current pace; `normal` is the default speaking pace.",
+            ),
+            # Null is the only off value and stays out: what a stray null loses
+            # cannot be regained. See null_body_args.py.
+            (
+                "Omit/null to disable.",
+                "Omit to keep the current setting. A null is ignored: turn it off in "
+                "the admin console.",
+            ),
+            (
+                "null clears the rubric.",
+                "A null is ignored: send a new rubric to replace it, or "
+                "regenerate_candidate_expectations together with `questions` to derive "
+                "it again.",
+            ),
+            (
+                "Omit/null to leave it out of any plan.",
+                "Omit to keep the current stage. A null is ignored: use `other` when no "
+                "stage fits.",
+            ),
+        ),
     ),
     ("POST", "/job-interview-set-state"): _write(
         "set_interview_state",
@@ -528,12 +581,33 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "it lists (`tags_interview_set_filter`), re-order its sub-directories "
         "(`tags_sub`), author its custom Markdown page (`content_md`), or add, "
         "replace or remove a language version (`translations`, per language; "
-        "null removes one). Only the fields you send are changed. "
-        "Coaching-platform feature.",
+        "null removes one). Only the fields you send are changed. A top-level null "
+        "counts as not sent, except `content_md: null`, the only way to remove the "
+        "custom page and restore the default grid: leave `content_md` out unless "
+        "that is what you mean. Coaching-platform feature.",
         "readOnlyHint=false / destructiveHint=true: overwrites a live, publicly "
         "reachable catalogue page in place. idempotentHint=true: sending the same "
         "body twice leaves the same stored state. " + _OPEN_WORLD,
         idempotent=True,
+        null_body_args=("content_md",),
+        description_fixes=(
+            (
+                ", and sending null clears a nullable field.",
+                ". A top-level null argument counts as not sent, except on content_md.",
+            ),
+            # The portal card hides a blank cover (CategoryCard).
+            ("null clears it.", "An empty string clears it."),
+            (
+                "Omit/null to leave it out of any plan.",
+                "Omit to keep the current stage. A null is ignored: use `other` when no "
+                "stage fits.",
+            ),
+            # Each language's null does arrive: nested values are not left out.
+            (
+                "Send `translations: null` to remove every version.",
+                "To remove every version, send null for each language.",
+            ),
+        ),
     ),
     # --- Pre-screening ---
     ("POST", "/pre-screening-create"): _write(

@@ -187,6 +187,54 @@ def inject_view_params(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _json_body_properties(spec: dict[str, Any], operation: dict[str, Any]) -> list[dict[str, Any]]:
+    """The top-level property schemas of an operation's JSON request body."""
+    content = (operation.get("requestBody") or {}).get("content") or {}
+    schema = (content.get("application/json") or {}).get("schema") or {}
+    if "$ref" in schema:
+        name = schema["$ref"].rsplit("/", 1)[-1]
+        schema = spec.get("components", {}).get("schemas", {}).get(name, {})
+    return [p for p in (schema.get("properties") or {}).values() if isinstance(p, dict)]
+
+
+def apply_description_fixes(spec: dict[str, Any]) -> dict[str, Any]:
+    """Apply ``ToolMeta.description_fixes`` to the text the model reads.
+
+    The spec describes the HTTP API, where a null does arrive, so the correction
+    cannot go upstream. Applied at load time rather than committed into the snapshot,
+    so it survives ``scripts/update_snapshot.py``.
+
+    Text already corrected is fine (the cached spec is prepared again on the next
+    boot). Neither the old nor the new text means the API's wording changed, so the
+    tool may be promising a null again: that is logged, and the snapshot test fails.
+    """
+    for path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            meta = meta_for(method, path)
+            if not meta or not meta.description_fixes:
+                continue
+            targets = [operation, *_json_body_properties(spec, operation)]
+            for old, new in meta.description_fixes:
+                seen = False
+                for target in targets:
+                    text = target.get("description")
+                    if not isinstance(text, str):
+                        continue
+                    seen = seen or old in text or new in text
+                    target["description"] = text.replace(old, new)
+                if not seen:
+                    logger.warning(
+                        "%s: description text to correct was not found: %r",
+                        meta.name,
+                        old,
+                    )
+    return spec
+
+
 def _allow_null(prop: dict[str, Any]) -> None:
     """Make a single property schema accept null (it stays the same type otherwise)."""
     t = prop.get("type")
@@ -277,8 +325,10 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     value that means nothing.
     """
     return relax_nullable_schemas(
-        prefer_json_request_bodies(
-            inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+        apply_description_fixes(
+            prefer_json_request_bodies(
+                inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+            )
         )
     )
 
