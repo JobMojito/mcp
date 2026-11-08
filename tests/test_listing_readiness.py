@@ -36,6 +36,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # marking them read-only is what lets clients run them without a confirmation
 # prompt on every call.
 EXPECTED_READ_ONLY = {
+    "get_tool_reference",  # the full tool definitions, from the spec (tool_reference.py)
     "search_merchants",  # the picker app's backend lookup, listed since FastMCP 4
     "list_knowledge_base_documents",
     "get_interview_definition",

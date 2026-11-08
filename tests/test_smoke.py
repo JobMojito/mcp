@@ -58,7 +58,7 @@ EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
 # search_merchants is the picker app's backend tool. FastMCP 4 lists app-only tools
 # (meta.ui.visibility == ["app"]) because the MCP Apps spec leaves hiding them to
 # the host; FastMCP 3 left it out of tools/list.
-EXPECTED_SERVER_TOOLS = {"invite_candidates", "upload_media_file", "list_my_merchants", "jobmojito_configuration", "search_merchants"}
+EXPECTED_SERVER_TOOLS = {"invite_candidates", "upload_media_file", "list_my_merchants", "jobmojito_configuration", "search_merchants", "get_tool_reference"}
 # Endpoints intentionally excluded from the MCP (must NOT appear as tools), and the
 # tools that were merged into another one through an optional parameter (2.0.0).
 IGNORED_TOOLS = {

@@ -38,7 +38,15 @@ async def _output_schema() -> dict:
 
 @pytest.mark.asyncio
 async def test_the_tool_documents_the_earlier_sessions():
-    properties = (await _output_schema())["properties"]
+    # tools/list carries the output schema without annotations (tool_reference.py);
+    # the field documentation is served by get_tool_reference part=result.
+    from fastmcp import Client
+
+    import server
+
+    async with Client(server.mcp) as client:
+        reference = (await client.call_tool("get_tool_reference", {"tool": TOOL, "part": "result"})).structured_content
+    properties = reference["result"]["properties"]
     assert "earlier sessions" in properties["recording_local_path_history"]["description"]
     assert "earlier sessions" in properties["recording_url_history"]["description"]
     assert "latest session" in properties["recording_local_path"]["description"]

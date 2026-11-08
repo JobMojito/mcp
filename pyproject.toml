@@ -56,4 +56,5 @@ py-modules = [
     "session_verifier",
     "wellknown",
     "posthog_analytics",
+    "tool_reference",
 ]

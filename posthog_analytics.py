@@ -347,7 +347,7 @@ def install(
 
     try:
         from posthog.mcp import instrument
-        from posthog.mcp.types import MCPAnalyticsOptions
+        from posthog.mcp.types import MCPAnalyticsModelOptions, MCPAnalyticsOptions
     except ImportError:
         logger.warning(
             "posthog is installed but posthog.mcp is unavailable; "
@@ -364,6 +364,12 @@ def install(
                 # instrumentation) through our logger instead of its no-op sink.
                 logger=lambda message: logger.warning("posthog.mcp: %s", message),
                 context=enable_intent,
+                # Added to every tool's input schema: the default text (170 chars) cost
+                # ~11 KB of model context across the tools. conversation_id keeps the
+                # SDK's own text: the SDK recognises its field by that exact string.
+                capture_model=MCPAnalyticsModelOptions(
+                    description='Your model id, e.g. "claude-opus-4-8"; "unknown" if unsure. For analytics.'
+                ),
                 # Merged onto every auto-captured event, $exception included.
                 # Signature is (request, extra) -> dict | None; we ignore both
                 # because the tag is constant for this process.

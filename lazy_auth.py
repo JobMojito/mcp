@@ -97,6 +97,12 @@ PUBLIC_METHODS: frozenset[str] = frozenset(
     }
 )
 
+#: Tools a ``tools/call`` may run without a token. Each must read nothing but what
+#: ``tools/list`` already serves anonymously: ``get_tool_reference`` returns the full
+#: tool definitions from the loaded spec and never calls the JobMojito API. A request
+#: passes only when EVERY message in it is a public method or a call to one of these.
+PUBLIC_TOOL_CALLS: frozenset[str] = frozenset({"get_tool_reference"})
+
 #: client_id stamped on the synthetic token used for anonymous discovery. Code
 #: that needs to distinguish "anonymous discovery" from "real user" must compare
 #: against this — ``get_access_token()`` returns a token object, not None.
@@ -112,10 +118,12 @@ class LazyAuthASGIMiddleware:
         mcp_path: str = "/mcp",
         public_methods: frozenset[str] = PUBLIC_METHODS,
         granted_scopes: tuple[str, ...] = (),
+        public_tool_calls: frozenset[str] = PUBLIC_TOOL_CALLS,
     ) -> None:
         self.app = app
         self.mcp_path = mcp_path
         self.public_methods = public_methods
+        self.public_tool_calls = public_tool_calls
         self.granted_scopes = list(granted_scopes)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -149,8 +157,8 @@ class LazyAuthASGIMiddleware:
             # Delegate onward (e.g. http.disconnect) — do NOT synthesise one.
             return await receive()
 
-        methods = _rpc_methods(body)
-        if methods and methods <= self.public_methods:
+        if _all_public(body, self.public_methods, self.public_tool_calls):
+            methods = _rpc_methods(body)
             token = AccessToken(
                 token="",
                 client_id=ANONYMOUS_CLIENT_ID,
@@ -169,6 +177,28 @@ class LazyAuthASGIMiddleware:
             logger.debug("Anonymous discovery allowed for %s", sorted(methods))
 
         await self.app(scope, replay, send)
+
+
+def _all_public(body: bytes, public_methods: frozenset[str], public_tool_calls: frozenset[str]) -> bool:
+    """True when every JSON-RPC message in the body may run without a token."""
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return False
+    messages = payload if isinstance(payload, list) else [payload]
+    if not messages:
+        return False
+    for message in messages:
+        if not isinstance(message, dict) or not message.get("method"):
+            return False
+        method = str(message["method"])
+        if method in public_methods:
+            continue
+        params = message.get("params")
+        if method == "tools/call" and isinstance(params, dict) and params.get("name") in public_tool_calls:
+            continue
+        return False
+    return True
 
 
 def _rpc_methods(body: bytes) -> set[str]:
@@ -468,9 +498,11 @@ def lazy_auth_provider_class(base_class: type) -> type:
                     )
                 )
                 logger.info(
-                    "Lazy auth enabled: %s servable without a token; every other "
-                    "method still requires a verified Supabase JWT.",
+                    "Lazy auth enabled: %s and tools/call of %s servable without a "
+                    "token; every other method and tool still requires a verified "
+                    "Supabase JWT.",
                     ", ".join(sorted(self._public_methods)),
+                    ", ".join(sorted(PUBLIC_TOOL_CALLS)),
                 )
             # Appended last => innermost, so it runs *after* LazyAuth has had its
             # say about anonymous discovery, and its 401 still travels back out

@@ -14,7 +14,8 @@ with that user's own permissions.
 
 Current surface: **61 API tools** (76 spec operations minus the 15 excluded by
 `IGNORED_PATHS` / `IGNORED_OPERATIONS`) + `search_documentation`, `get_documentation`,
-`jobmojito_configuration`, `list_my_merchants`, `invite_candidates`, `upload_media_file`. `naming.py` is the inventory —
+`jobmojito_configuration`, `list_my_merchants`, `invite_candidates`, `upload_media_file`,
+`get_tool_reference`. `naming.py` is the inventory —
 don't maintain a tool list anywhere else.
 
 - Language: Python ≥ 3.10. Single async process, served over Streamable HTTP.
@@ -69,6 +70,7 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
 | `invitations.py` | `invite_candidates`: `/invite-users` with candidate rows only (the endpoint is otherwise ignored — its `type` also creates staff accounts). |
+| `tool_reference.py` | Short tool definitions in tools/list, the full ones from `get_tool_reference` (served without a token). |
 | `media_upload.py` | `upload_media_file`: start, send the base64 bytes to the signed address, finish, for a client that cannot send a file itself. |
 | `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
 | `lazy_auth.py` | Auth-layer ASGI middleware: serves `server/discover`/`initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, 401s tokens the API has rejected, and reports the transport-level 400/404s that never reach a tool. |
@@ -153,6 +155,20 @@ More detail: `docs/ARCHITECTURE.md`.
   `read_only_hint`, never `readOnlyHint` as an attribute. App-only tools
   (`search_merchants`) are now listed in `tools/list`; hiding them is the host's
   job under the MCP Apps spec.
+- **tools/list is short on purpose; `get_tool_reference` has the rest.** A client
+  hands every tool's description and input schema to the model up front, and the
+  generated definitions were ~65k tokens. `server._customize_component` captures
+  each generated tool in full (`tool_reference.capture`) and then advertises: the
+  "[Category] hint" as the description, each top-level argument's first sentence
+  plus every sentence that states a behaviour (null, empty value, omit, only, never,
+  default, e-mail, dry_run...), no "Options —" essays, examples or nested
+  descriptions, and an output schema without annotations. The structure (types,
+  enums, required, nesting) is never touched — `tests/test_tool_reference.py`
+  compares it. So a rule a model must follow belongs in the hint or in a sentence
+  the rule regex keeps; detail belongs in the spec, where `get_tool_reference`
+  serves it. FastMCP shares `$defs` objects between tools: trim copies, never in
+  place. `get_tool_reference` is the one tool `lazy_auth` serves without a token
+  (`PUBLIC_TOOL_CALLS`): it reads only the captured spec, never the API.
 - **The tool error rate is a floor, not a total.** Streamable HTTP answers a stale
   `Mcp-Session-Id` with a 400, a terminated session with a 404 and a protocol
   version it does not support with a 400, all *before* dispatch, so those failures appear in no tool-call metric and the PostHog MCP

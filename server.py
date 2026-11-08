@@ -21,6 +21,7 @@ verified token.
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import re
@@ -37,6 +38,7 @@ import docs_tools
 import invitations
 import media_upload
 import merchants
+import tool_reference
 import wellknown
 from config import settings
 from naming import (
@@ -57,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.1.1"
+SERVER_VERSION = "2.2.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -87,6 +89,11 @@ TOOL_METADATA_OVERRIDES: dict[str, dict] = {
     },
     "search_merchants": {
         "title": "Search sub-merchants",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+    },
+    "get_tool_reference": {
+        "title": "Get a tool's full reference",
         "readOnlyHint": True,
         "openWorldHint": False,
     },
@@ -154,6 +161,9 @@ HOW TO USE THIS SERVER:
    `get_documentation(url)` reads a page in full.
 2. For a multi-step workflow (create an interview → invite candidates → review
    results), the documentation has step-by-step cookbooks worth following.
+   Tool definitions here are kept short: when you need an argument's options, its
+   exact format or an example, `get_tool_reference(tool)` returns that tool in full
+   (part=result: the fields it returns).
 3. The read-only tools (`list_*`, `get_*`) are the safe way to look things up
    before creating or changing anything.
 4. Merchant selection: many tools accept a `merchant_id`. When one is needed and
@@ -404,6 +414,8 @@ def _customize_component(route, component) -> None:
     category = route_tags[0] if route_tags else None
     meta = meta_for(route.method, route.path) or fallback_meta(route.method, route.path)
     existing = (component.description or "").strip()
+    # Kept whole for get_tool_reference before anything below shortens it.
+    full_description = existing
 
     prefix_parts = []
     if category:
@@ -412,7 +424,28 @@ def _customize_component(route, component) -> None:
         prefix_parts.append(meta.hint)
     prefix = " ".join(prefix_parts)
     if prefix:
-        component.description = f"{prefix}\n\n{existing}".strip() if existing else prefix
+        full_description = f"{prefix}\n\n{existing}".strip() if existing else prefix
+
+    # tools/list carries the short version (the curated hint, brief arguments, an
+    # output schema without annotations); get_tool_reference the full one. See
+    # tool_reference.py: the full definitions were ~73k tokens in every conversation.
+    tool_reference.capture(
+        component.name,
+        title=meta.title,
+        description=full_description,
+        input_schema=component.parameters,
+        output_schema=getattr(component, "output_schema", None),
+    )
+    # The curated hint is the short description; a tool without one (a new endpoint
+    # not yet in naming.TOOL_META) keeps the spec's text, its only explanation.
+    short = prefix if meta.hint else full_description
+    component.description = f"{short}\n\n{tool_reference.POINTER}".strip()
+    # On copies: FastMCP shares nested schema objects ($defs) between tools, so an
+    # in-place trim would also shorten the next tool's full definition before it is
+    # captured.
+    component.parameters = tool_reference.trim_input_schema(copy.deepcopy(component.parameters))
+    if getattr(component, "output_schema", None):
+        component.output_schema = tool_reference.strip_annotations(copy.deepcopy(component.output_schema))
 
     if isinstance(component, OpenAPITool):
         component.title = meta.title
@@ -558,6 +591,10 @@ def build_server() -> FastMCP:
 
     # The media library's one-call upload: start, send the bytes, finish.
     media_upload.register(mcp)
+
+    # The full definitions behind the short ones in tools/list (no token needed:
+    # lazy_auth serves it anonymously, it reads nothing but the spec).
+    tool_reference.register(mcp)
 
     # Unauthenticated operational + directory-verification routes.
     wellknown.register(mcp, version=SERVER_VERSION, description=SHORT_DESCRIPTION)

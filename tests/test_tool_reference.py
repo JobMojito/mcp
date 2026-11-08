@@ -1,0 +1,267 @@
+"""Short tool definitions in tools/list, the full ones from get_tool_reference.
+
+Run with:  ENABLE_AUTH=false pytest -q tests/test_tool_reference.py
+
+The trimming may only remove prose: every advertised schema must keep the full
+schema's structure (types, enums, required, nesting), so validation and what a
+client can send are unchanged. get_tool_reference returns the untouched definition
+and runs without a token, like tools/list.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import os
+
+import pytest
+
+os.environ.setdefault("ENABLE_AUTH", "false")
+os.environ.setdefault("JOBMOJITO_OPENAPI_URL", "http://127.0.0.1:1/unreachable")
+os.environ.setdefault("FEATUREBASE_API_KEY", "")
+os.environ.setdefault("DEVELOPER_DOCS_MCP_URL", "")
+
+import tool_reference  # noqa: E402
+from tool_reference import POINTER, TOOL_NAME, brief, strip_annotations, trim_input_schema  # noqa: E402
+
+# The SDK's analytics arguments, added to every tool after capture.
+ANALYTICS_ARGS = {"conversation_id", "llm_model", "context"}
+
+
+async def _listed() -> dict:
+    from fastmcp import Client
+
+    import server
+
+    async with Client(server.mcp) as client:
+        return {tool.name: tool for tool in await client.list_tools()}
+
+
+async def _reference(tool: str, part: str = "arguments") -> dict:
+    from fastmcp import Client
+
+    import server
+
+    async with Client(server.mcp) as client:
+        return (await client.call_tool(TOOL_NAME, {"tool": tool, "part": part})).structured_content
+
+
+def _without_analytics(schema: dict) -> dict:
+    schema = copy.deepcopy(schema)
+    for name in ANALYTICS_ARGS:
+        schema.get("properties", {}).pop(name, None)
+        if name in schema.get("required", []):
+            schema["required"].remove(name)
+    return schema
+
+
+def _nodes(schema, depth=0):
+    """(node, depth) for every schema node; shared definitions count as nested."""
+    if not isinstance(schema, dict):
+        return
+    yield schema, depth
+    for key in ("$defs", "definitions"):
+        for child in (schema.get(key) or {}).values():
+            yield from _nodes(child, max(depth, 2))
+    for child, deeper in tool_reference._children(schema):
+        yield from _nodes(child, depth + 1 if deeper else depth)
+
+
+def _resolved(schema: dict) -> dict:
+    """The schema with every local $ref replaced by its definition, $defs dropped."""
+    defs = {**schema.get("$defs", {}), **schema.get("definitions", {})}
+
+    def walk(node, seen=()):
+        if isinstance(node, list):
+            return [walk(v, seen) for v in node]
+        if not isinstance(node, dict):
+            return node
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.rsplit("/", 1)[-1] in defs and ref not in seen:
+            merged = {**defs[ref.rsplit("/", 1)[-1]], **{k: v for k, v in node.items() if k != "$ref"}}
+            return walk(merged, (*seen, ref))
+        return {k: walk(v, seen) for k, v in node.items() if k not in ("$defs", "definitions")}
+
+    return walk(schema)
+
+
+# ---- what tools/list carries ----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_every_generated_tool_is_short_and_points_to_the_reference():
+    import server  # noqa: F401  (builds the server, which fills FULL)
+
+    listed = await _listed()
+    assert len(tool_reference.FULL) >= 60
+    for name in tool_reference.FULL:
+        tool = listed[name]
+        assert tool.description.endswith(POINTER), name
+        for node, depth in _nodes(tool.input_schema):
+            assert "example" not in node and "examples" not in node, name
+            if depth >= 2:
+                assert "description" not in node, f"{name}: a nested description is still advertised"
+            if depth == 1 and isinstance(node.get("description"), str):
+                assert "Options — " not in node["description"], name
+        for node, _ in _nodes(tool.output_schema or {}):
+            assert not set(node) & {"description", "title", "example", "examples"}, f"{name}: output schema annotation"
+
+
+@pytest.mark.asyncio
+async def test_trimming_removes_prose_only_never_structure():
+    """Same types, enums, required fields and nesting as the full definition."""
+    listed = await _listed()
+    for name, full in tool_reference.FULL.items():
+        advertised = _resolved(_without_analytics(listed[name].input_schema))
+        assert strip_annotations(advertised) == strip_annotations(_resolved(full["input_schema"])), name
+        if full["output_schema"]:
+            assert strip_annotations(_resolved(listed[name].output_schema)) == strip_annotations(
+                _resolved(full["output_schema"])
+            ), name
+
+
+@pytest.mark.asyncio
+async def test_the_model_visible_definitions_stay_within_budget():
+    """Name + description + input schema of every tool: was ~286 KB (~73k tokens)."""
+    listed = await _listed()
+    size = sum(
+        len(json.dumps({"name": t.name, "description": t.description, "input_schema": t.input_schema}, ensure_ascii=False))
+        for t in listed.values()
+    )
+    assert size < 200_000, f"tools/list grew to {size:,} model-visible characters"
+
+
+# ---- get_tool_reference ---------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_the_reference_returns_the_full_definition():
+    full = tool_reference.FULL["update_interview"]
+    out = await _reference("update_interview")
+    assert out["description"] == full["description"]
+    assert out["arguments"] == full["input_schema"]
+    assert "result" not in out
+    # what tools/list dropped is back: an option essay, an example, a nested description
+    arguments = json.dumps(out["arguments"], ensure_ascii=False)
+    assert "Options — " in arguments and '"example"' in arguments
+    question = _resolved(out["arguments"])["properties"]["questions"]["items"]["properties"]["question"]
+    assert question["description"]
+    # and the spec's own operation text that the short description leaves out
+    assert "Only the fields present in the request body are written" in out["description"]
+
+
+@pytest.mark.asyncio
+async def test_the_reference_returns_what_a_tool_answers():
+    out = await _reference("get_interview_result_details", "result")
+    assert "arguments" not in out
+    assert out["result"]["properties"]["recording_local_path"]["description"]
+    both = await _reference("get_interview_result_details", "all")
+    assert {"arguments", "result"} <= set(both)
+
+
+@pytest.mark.asyncio
+async def test_the_tool_argument_is_an_enum_of_the_captured_tools():
+    listed = await _listed()
+    schema = listed[TOOL_NAME].input_schema["properties"]["tool"]
+    enum = schema.get("enum") or next(s["enum"] for s in schema.get("anyOf", []) if "enum" in s)
+    assert sorted(enum) == sorted(tool_reference.FULL)
+    assert TOOL_NAME not in enum
+    assert listed[TOOL_NAME].annotations.read_only_hint is True
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_tool_name_is_refused():
+    from fastmcp import Client
+    from fastmcp.exceptions import ToolError
+
+    import server
+
+    async with Client(server.mcp) as client:
+        with pytest.raises(ToolError):
+            await client.call_tool(TOOL_NAME, {"tool": "drop_database"})
+
+
+# ---- the rules a model needs stay where it reads them ----------------------------------------
+
+
+def test_brief_keeps_the_first_sentence_and_every_rule():
+    text = (
+        "Ask only a random subset of the questions. A fraction between 0.01 and 0.9. "
+        "null asks all questions. Useful for long banks, e.g. 40 questions. "
+        "Options — `x`: something."
+    )
+    assert brief(text) == "Ask only a random subset of the questions. null asks all questions."
+    assert brief("One sentence only.") == "One sentence only."
+    assert brief("Header.\nAn empty string clears it.\nTrivia.") == "Header. An empty string clears it."
+    assert brief("") == ""
+
+
+def test_trim_and_strip_work_in_place_on_nested_and_composed_schemas():
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {"description": "First. Second.", "example": 1, "anyOf": [{"type": "string", "description": "x"}]},
+            "b": {"type": "object", "properties": {"c": {"description": "nested", "examples": [1]}}},
+            "title": {"type": "string", "description": "A field called title. Must be set."},
+        },
+        "$defs": {"D": {"description": "def", "properties": {"e": {"description": "deep"}}}},
+    }
+    trim_input_schema(schema)
+    assert schema["properties"]["a"] == {"description": "First.", "anyOf": [{"type": "string", "description": "x"}]}
+    assert schema["properties"]["b"]["properties"]["c"] == {}
+    assert schema["properties"]["title"]["description"] == "A field called title. Must be set."
+    assert "description" not in schema["$defs"]["D"]["properties"]["e"]
+    strip_annotations(schema)
+    # a property NAMED title survives; only annotation keys go
+    assert "title" in schema["properties"]
+    assert "description" not in schema["properties"]["title"]
+
+
+# ---- no token needed for it, and for nothing else --------------------------------------------
+
+
+def _call(name: str) -> dict:
+    return {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": {}}}
+
+
+@pytest.mark.parametrize(
+    ("body", "public"),
+    [
+        ([_call(TOOL_NAME)], True),
+        (_call(TOOL_NAME), True),
+        ([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, _call(TOOL_NAME)], True),
+        (_call("list_candidates"), False),
+        ([_call(TOOL_NAME), _call("list_candidates")], False),
+        ({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"arguments": {"name": TOOL_NAME}}}, False),
+        ({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": [TOOL_NAME]}, False),
+        ({"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"name": TOOL_NAME}}, False),
+        ([], False),
+        ([1], False),
+    ],
+)
+def test_only_a_call_to_the_reference_tool_is_public(body, public):
+    from lazy_auth import PUBLIC_METHODS, PUBLIC_TOOL_CALLS, _all_public
+
+    assert _all_public(json.dumps(body).encode(), PUBLIC_METHODS, PUBLIC_TOOL_CALLS) is public
+
+
+@pytest.mark.asyncio
+async def test_the_middleware_serves_the_reference_without_a_token():
+    from test_listing_readiness import _run_lazy_auth
+
+    from lazy_auth import ANONYMOUS_CLIENT_ID
+
+    seen = await _run_lazy_auth(json.dumps(_call(TOOL_NAME)).encode())
+    assert seen["scope"]["user"].access_token.client_id == ANONYMOUS_CLIENT_ID
+    seen = await _run_lazy_auth(json.dumps(_call("get_candidate")).encode())
+    assert seen["scope"].get("user") is None
+
+
+def test_the_public_tool_reads_nothing_upstream():
+    """A public tool must not need the user's token: it is not a generated API tool."""
+    import server  # noqa: F401
+
+    from lazy_auth import PUBLIC_TOOL_CALLS
+
+    assert PUBLIC_TOOL_CALLS == {TOOL_NAME}
+    assert TOOL_NAME not in tool_reference.FULL
