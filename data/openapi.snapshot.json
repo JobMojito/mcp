@@ -7540,7 +7540,7 @@
           "contact_details": {
             "type": "boolean",
             "default": true,
-            "description": "Include the candidate's contact details (email, LinkedIn, phone number, physical address)."
+            "description": "Include the candidate's contact details (name, email, LinkedIn, phone number, physical address, photo); without them the report names the candidate by id. Applies to every export_type, json included."
           },
           "ai_recruiter_assessment": {
             "type": "boolean",
@@ -7550,12 +7550,12 @@
           "ai_scoring_rubric": {
             "type": "boolean",
             "default": false,
-            "description": "Include the AI scoring rubric — the candidate-expectation buckets (strong / moderate / weak). Only takes effect when ai_recruiter_assessment is also true."
+            "description": "Include the AI scoring rubric — the candidate-expectation buckets (strong / moderate / weak). Only takes effect when ai_recruiter_assessment is also true. A json export carries the rubric unless this is sent as false."
           },
           "analytics": {
             "type": "boolean",
             "default": true,
-            "description": "Include speech analytics for each answer (speech accuracy, fluency, recognition confidence, sentiment, cadence / words-per-minute)."
+            "description": "Include speech analytics for each answer (its scores, speech accuracy, fluency, recognition confidence, sentiment, cadence / words-per-minute)."
           },
           "transcript": {
             "type": "boolean",
@@ -9841,7 +9841,27 @@
             "items": {
               "type": "string"
             },
-            "description": "Why the pair matched (email, phone, name, ...)."
+            "description": "Which signals matched, each once: email, phone, name, name_dob, linkedin or cv."
+          },
+          "reason_details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signal": {
+                  "type": "string",
+                  "description": "email, phone, name, name_dob, linkedin or cv."
+                },
+                "detail": {
+                  "type": "string",
+                  "description": "The matching value (the e-mail, phone, name or LinkedIn address); absent for cv and name_dob."
+                }
+              },
+              "required": [
+                "signal"
+              ]
+            },
+            "description": "Each match with its value."
           },
           "status": {
             "type": "string",
@@ -12340,7 +12360,7 @@
           },
           "name": {
             "type": "string",
-            "description": "Document name (with extension). Falls back to the uploaded file name for multipart."
+            "description": "Document name with its extension, which decides how the file is read: .doc, .docx, .rtf, .odt, .pdf, .pages or .pptx; any other is refused with 422 (name). Falls back to the uploaded file name for multipart."
           },
           "merchant_id": {
             "type": "string",
@@ -12380,7 +12400,7 @@
           },
           "name": {
             "type": "string",
-            "description": "Document name (with extension). Falls back to the uploaded file name for multipart."
+            "description": "Document name with its extension, which decides how the file is read: .doc, .docx, .rtf, .odt, .pdf, .pages or .pptx; any other is refused with 422 (name). Falls back to the uploaded file name for multipart."
           },
           "merchant_id": {
             "type": "string",
