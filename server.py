@@ -181,6 +181,8 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Portal configuration: get_portal_configuration, update_portal_configuration
 • Career page styles: publish_portal_stylesheet (settings and CSS files are written
   with update_portal_configuration)
+• Component styles: get_component_style_guide, save_component_style (a named look
+  for one block type, written as a draft to components/<type>.css only)
 • Media library: list_media_files, upload_media_file (one call, base64),
   start_media_upload + finish_media_upload (for a client that can send a file to an
   address), update_media_file, delete_media_file

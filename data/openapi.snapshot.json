@@ -9516,6 +9516,374 @@
         "required": [
           "media_id"
         ]
+      },
+      "ComponentStyleGuide": {
+        "type": "object",
+        "properties": {
+          "portal": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "file_rule": {
+            "type": "string",
+            "description": "Which files an agent writes and which it leaves alone."
+          },
+          "how_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The steps from a design to a live style."
+          },
+          "shared_parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "selector": {
+                  "type": "string",
+                  "description": "A selector or CSS variable."
+                },
+                "what": {
+                  "type": "string",
+                  "description": "What it is on the page."
+                }
+              },
+              "required": [
+                "selector",
+                "what"
+              ]
+            },
+            "description": "On every block."
+          },
+          "tokens": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "selector": {
+                  "type": "string",
+                  "description": "A selector or CSS variable."
+                },
+                "what": {
+                  "type": "string",
+                  "description": "What it is on the page."
+                }
+              },
+              "required": [
+                "selector",
+                "what"
+              ]
+            },
+            "description": "CSS variables from the style settings; use them with a fallback, var(--jm-color-text, currentColor)."
+          },
+          "tokens_css": {
+            "type": "object",
+            "properties": {
+              "main": {
+                "type": "string"
+              },
+              "brand": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "main",
+              "brand"
+            ],
+            "description": "tokens.css as the draft style settings make it, for the main brand and the sub-brand."
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "The block type: the `type` of a block in page content.",
+                  "example": "hero"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "root": {
+                  "type": "string",
+                  "description": "The wrapper of every block of this type.",
+                  "example": ".jm-site .jm-block--hero"
+                },
+                "parts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "description": "A selector or CSS variable."
+                      },
+                      "what": {
+                        "type": "string",
+                        "description": "What it is on the page."
+                      }
+                    },
+                    "required": [
+                      "selector",
+                      "what"
+                    ]
+                  },
+                  "description": "What the block renders that a style can aim at."
+                },
+                "variants": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "description": "A selector or CSS variable."
+                      },
+                      "what": {
+                        "type": "string",
+                        "description": "What it is on the page."
+                      }
+                    },
+                    "required": [
+                      "selector",
+                      "what"
+                    ]
+                  },
+                  "description": "Classes the block adds for its own layout choices."
+                },
+                "styles": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "The name the editor shows.",
+                        "example": "Dark band"
+                      },
+                      "class": {
+                        "type": "string",
+                        "description": "The class a block with this style gets.",
+                        "example": "jm-style-dark-band"
+                      },
+                      "file": {
+                        "type": "string",
+                        "description": "The CSS file that defines it.",
+                        "example": "components/hero.css"
+                      },
+                      "line": {
+                        "type": "integer"
+                      },
+                      "brand_id": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "The brand whose file it is; null for the main brand."
+                      },
+                      "written_by": {
+                        "type": "string",
+                        "enum": [
+                          "agent",
+                          "company"
+                        ],
+                        "description": "`agent`: in components/, which save_component_style may change. `company`: in the company's own files, never changed by it."
+                      },
+                      "live": {
+                        "type": "boolean",
+                        "description": "Whether the published stylesheet already has it."
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "class",
+                      "file",
+                      "line",
+                      "brand_id",
+                      "written_by",
+                      "live"
+                    ]
+                  },
+                  "description": "The styles the editor already offers for this type."
+                }
+              },
+              "required": [
+                "type",
+                "summary",
+                "root",
+                "parts",
+                "variants",
+                "styles"
+              ]
+            }
+          }
+        },
+        "required": [
+          "portal",
+          "brand",
+          "file_rule",
+          "how_to",
+          "shared_parts",
+          "tokens",
+          "tokens_css",
+          "components"
+        ]
+      },
+      "ComponentStyleSaveRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company. Admins and sub-merchant operators only; other callers always use their token's company."
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "`interview` (career and interview portal) or `consumer` (coaching portal). Only the interview portal has brands.",
+            "example": "interview"
+          },
+          "brand_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A sub-brand, from the brands document of get_portal_configuration. Leave it out for the main brand, the company's own, whose styles every sub-brand page also offers."
+          },
+          "block_type": {
+            "type": "string",
+            "enum": [
+              "hero",
+              "intro",
+              "media-text",
+              "cards",
+              "feature-grid",
+              "stats",
+              "quote",
+              "video",
+              "audio",
+              "tabs",
+              "timeline",
+              "jobs",
+              "job-openings",
+              "public-avatar",
+              "easy-apply",
+              "blogs",
+              "rich-text",
+              "divider",
+              "logo-row",
+              "faq",
+              "cta",
+              "footer",
+              "pricing"
+            ],
+            "description": "The kind of block the style is for. The editor offers it only on blocks of this type.",
+            "example": "hero"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "What the editor calls the style. Saving the same block type and name again replaces it.",
+            "example": "Dark band"
+          },
+          "css": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "The rules. Every selector must include .jm-site and the style class, starting from the `root` the guide gives plus the class: `.jm-site .jm-block--hero.jm-style-dark-band h1 { ... }`. @media, @supports and @container are fine; @import, @font-face and \"<\" are not. Required unless remove is true."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "One line on what the style is for, kept as a comment above it."
+          },
+          "remove": {
+            "type": "boolean",
+            "description": "true removes the style; blocks that use it fall back to the standard look."
+          }
+        },
+        "required": [
+          "portal",
+          "block_type",
+          "name"
+        ]
+      },
+      "ComponentStyleSaveResponse": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "removed"
+            ]
+          },
+          "block_type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string",
+            "example": "jm-style-dark-band"
+          },
+          "style_name": {
+            "type": "string",
+            "description": "The value to set as `styleName` on a block in page content."
+          },
+          "file": {
+            "type": "string",
+            "example": "components/hero.css"
+          },
+          "file_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass it in `files` to publish_portal_stylesheet to publish this file alone. Null when the removal left the file empty and it was deleted."
+          },
+          "live": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "description": "Always false: this is a draft until the stylesheet is published."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "action",
+          "block_type",
+          "name",
+          "class",
+          "style_name",
+          "file",
+          "file_id",
+          "live",
+          "warnings"
+        ]
       }
     },
     "parameters": {}
@@ -14811,6 +15179,215 @@
           }
         },
         "operationId": "report_technical_issue"
+      }
+    },
+    "/portal-component-styles": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get the component style guide",
+        "description": "Everything needed to design a style for one kind of page block (hero, cards, faq, ...): the selectors each block renders, its layout variants, the CSS variables of the brand, and the styles the editor already offers per block type. Read it before save_component_style. Style settings are switched on per company by JobMojito; while they are off this endpoint answers 403.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "interview",
+                "consumer"
+              ],
+              "description": "`interview` (career and interview portal) or `consumer` (coaching portal). Only the interview portal has brands.",
+              "example": "interview"
+            },
+            "required": true,
+            "name": "portal",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "A sub-brand, from the brands document of get_portal_configuration. Leave it out for the main brand, the company's own, whose styles every sub-brand page also offers."
+            },
+            "required": false,
+            "name": "brand_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The guide.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentStyleGuide"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the switch is off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This brand does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error, or a brand on the coaching portal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_component_style_guide"
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Save a component style",
+        "description": "Writes one named style for a kind of page block, as a draft, into components/<block type>.css of the brand: the agent's own file, one section per style. The company's other CSS files are never changed. The page editor then offers the style on every block of that type; to apply it, set `styleName` on the block in page content with update_portal_configuration. It shows on the site once the stylesheet is published (publish_portal_stylesheet, `files: [file_id]` for this file alone). A name the company already uses in its own files is refused with 409.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComponentStyleSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The draft is saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentStyleSaveResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the switch is off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This brand does not exist, or there is no such style to remove.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The name is the company's own style, or someone changed the file at the same moment (send it again).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error: the name, or CSS that would reach beyond the style. Nothing was written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "save_component_style"
       }
     }
   }
