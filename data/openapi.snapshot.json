@@ -8391,6 +8391,59 @@
               "$ref": "#/components/schemas/PortalConfigurationDocument"
             },
             "description": "One document per section, each a valid input for portal-configuration-update: `kind: \"branding\"`, `kind: \"interview-portal\"`, `kind: \"coaching-portal\"`, one `format: \"jobmojito.portal-site\"` per portal (`portal: \"interview\"` for interview-pages, `\"consumer\"` for coaching-pages) with every page's DRAFT content and the theme CSS draft, and `kind: \"brands\"` when the company's brands are switched on. With style settings switched on, a site document also holds `style_settings` and `css_files` (each file with the `version` to send back), and a page of a sub-brand holds `brand`. Pages also carry `published_at` (read-only, ignored on import; null = never published). The support / application-tracking / interview-completed / signed-in home texts are built-in pages (\"_support\", \"_tracking\", \"_completion\", \"_signed_in_home\") and appear only in the portal-site documents."
+          },
+          "block_types": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "The block `type` in page content.",
+                  "example": "testimonials"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "What the page editor calls it.",
+                  "example": "Testimonials"
+                },
+                "purpose": {
+                  "type": "string",
+                  "description": "What it is."
+                },
+                "use_for": {
+                  "type": "string",
+                  "description": "When to choose it, with an example."
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Its own fields; every block also takes enabled, tone, anchor and className. Field details: the portal pages cookbook."
+                },
+                "portals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "interview",
+                      "consumer"
+                    ]
+                  },
+                  "description": "The portals whose pages offer it."
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "purpose",
+                "use_for",
+                "fields",
+                "portals"
+              ]
+            },
+            "description": "With page documents (interview-pages, coaching-pages): every block type a page can hold, what it is for and its fields, in the order the editor offers them. Choose blocks from this list."
           }
         },
         "required": [

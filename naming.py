@@ -766,7 +766,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "`jobmojito.portal-site` document per portal (every page's draft content and the "
         "theme CSS, plus `style_settings` and `css_files` when switched on). Narrow with "
         "`sections` (branding, interview-portal, coaching-portal, interview-pages, "
-        "coaching-pages, brands): the page documents are the large ones. This is the read step of every portal "
+        "coaching-pages, brands): the page documents are the large ones. With page documents the answer also "
+        "has `block_types`: every block a page can hold, what it is for, when to use it and its fields; "
+        "choose blocks from that list. This is the read step of every portal "
         "change: read the section(s) involved, change only what the user asked for, and "
         "send those documents back with update_portal_configuration. " + _PORTAL_COOKBOOKS,
         _READ_WHY,
