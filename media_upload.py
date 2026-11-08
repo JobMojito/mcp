@@ -138,7 +138,10 @@ def register(mcp) -> None:
                 )
             ),
         ],
-        folder: Annotated[str | None, Field(description="Library folder, such as team/photos. Default: the top.")] = None,
+        folder: Annotated[
+            str | None,
+            Field(description="Library folder, one level, such as Crew life (list_media_folders gives the names). Default: the top. A new name makes the folder."),
+        ] = None,
         replace_media_id: Annotated[
             str | None,
             Field(description="Replace this file instead of adding one. It must be the same kind, and page drafts move to the new address."),

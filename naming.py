@@ -795,7 +795,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "into whatever the configuration holds when the call runs, so the outcome depends "
         "on that state and the call is not declared safe to repeat. " + _OPEN_WORLD,
     ),
-    # --- Career page editor: built stylesheets and the media library (SQL 302, 304).
+    # --- Career page editor: built stylesheets and the media library (SQL 302, 304, 313).
     # upload_media_file (media_upload.py) is the one-call upload for a client that
     # cannot send a file to an address itself.
     ("POST", "/portal-css-publish"): _write(
@@ -855,9 +855,32 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "list_media_files",
         "List media library files",
         "List the company's media library: images, MP4 video, audio and WOFF2 fonts, newest "
-        "first. Use a file's `url` in page blocks, brand logos and font settings. A sub-company "
-        "also sees its parent's files, marked read_only: usable, not changeable.",
+        "first. Use a file's `url` in page blocks, brand logos and font settings. Logos and "
+        "images the company stored before are included. Filter by `folder` (\"\" is the top; "
+        "list_media_folders gives the names). A sub-company also sees its parent's files, "
+        "marked read_only: usable, not changeable.",
         _READ_WHY,
+    ),
+    ("GET", "/media-folders"): _read(
+        "list_media_folders",
+        "List media library folders",
+        "List the folders of the company's media library, empty ones included, with how many "
+        "files each holds, A to Z. Use a name as `folder` in list_media_files, "
+        "start_media_upload and update_media_file.",
+        _READ_WHY,
+    ),
+    ("POST", "/media-folders"): _write(
+        "manage_media_folder",
+        "Create, rename or delete a media folder",
+        "Create an empty folder, rename one, or delete an empty one, when the user asked. "
+        "Renaming moves every file in it to a new address: live pages keep the old one and "
+        "page drafts move at once. A folder that still holds files cannot be deleted: move "
+        "or delete the files first. Names: 1 to 60 letters, digits, spaces, \"-\", \"_\", "
+        "\".\", \"(\" and \")\"; not starting with \".\", \"_\" or a space, and never \"profile\".",
+        "readOnlyHint=false / destructiveHint=true: creates or removes a folder of the "
+        "company's storage, and a rename gives every file in it a new address and rewrites "
+        "page drafts; the tool cannot undo a rename except by renaming back. "
+        "idempotentHint=false: a second rename answers that the folder does not exist. " + _OPEN_WORLD,
     ),
     ("POST", "/media-upload-start"): _write(
         "start_media_upload",
@@ -883,11 +906,13 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/media-update"): _write(
         "update_media_file",
         "Describe a media file",
-        "Change a file's name, folder, alt text, focal point or poster. Fields left out keep "
-        "their value. alt replaces the whole set of languages. A null focal_x, focal_y or "
-        "poster_url clears it.",
+        "Change a file's name, alt text, focal point or poster, or move it to another folder "
+        "(\"\" is the top). Fields left out keep their value. alt replaces the whole set of "
+        "languages. A null focal_x, focal_y or poster_url clears it. A move gives the file a "
+        "new `url`: live pages keep the old one and page drafts move at once (drafts_updated).",
         "readOnlyHint=false / destructiveHint=true: overwrites the file's description in "
-        "place. idempotentHint=true: the same values give the same result. " + _OPEN_WORLD,
+        "place, and a folder change gives the file a new address and rewrites page drafts. "
+        "idempotentHint=true: the same values give the same result. " + _OPEN_WORLD,
         idempotent=True,
         null_body_args=("focal_x", "focal_y", "poster_url"),
     ),
@@ -895,7 +920,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "delete_media_file",
         "Delete a media file",
         "Delete a file from the media library for good, once the user has confirmed it. "
-        "Refused while a page, brand, CSS file or style setting uses it: the error lists "
+        "Refused while a page, brand, CSS file, style setting, company logo or branding, "
+        "interview, position, blog post, avatar or coaching catalogue uses it: the error lists "
         "what does, so tell the user rather than removing those uses yourself.",
         "readOnlyHint=false / destructiveHint=true: removes the file and its resized copies "
         "and cannot be undone. idempotentHint=false: a second call answers that the file "

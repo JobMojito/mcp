@@ -9112,12 +9112,12 @@
           },
           "folder": {
             "type": "string",
-            "description": "Library folder; \"\" is the top.",
+            "description": "Library folder; \"\" is the top. It is the directory of the file in storage.",
             "example": "team"
           },
           "path": {
             "type": "string",
-            "description": "Object name in the bucket."
+            "description": "Object name in the public bucket: <merchant_id>/[<folder>/]<file>."
           },
           "url": {
             "type": "string",
@@ -9248,7 +9248,7 @@
           },
           "path": {
             "type": "string",
-            "description": "Object name in the career-media bucket."
+            "description": "Object name in the public bucket: <merchant_id>/[<folder>/]<media_id>-v<version>.<ext>."
           },
           "cache_control": {
             "type": "integer",
@@ -9305,7 +9305,7 @@
           },
           "folder": {
             "type": "string",
-            "description": "Library folder; default the top. Ignored when replacing.",
+            "description": "Library folder to upload into; default the top (\"\"). The folder need not exist yet. Ignored when replacing: a new version stays in the folder of the file.",
             "example": "team"
           },
           "replace_media_id": {
@@ -9404,7 +9404,7 @@
           },
           "folder": {
             "type": "string",
-            "description": "Library folder; \"\" is the top.",
+            "description": "Move the file to this folder; \"\" is the top. The file gets a new address in that folder; the old address keeps working for published pages, and page drafts move to the new one.",
             "example": "team"
           },
           "alt": {
@@ -9442,6 +9442,148 @@
         },
         "required": [
           "media_id"
+        ]
+      },
+      "MediaUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the file (media_id).",
+            "example": "c9d6f121-1230-48fd-b3a7-8b5a1e8db052"
+          },
+          "merchant_id": {
+            "type": "string",
+            "description": "Company whose library holds the file."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "font"
+            ],
+            "description": "image, video, audio or font."
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Display name in the library.",
+            "example": "team-photo.jpg"
+          },
+          "folder": {
+            "type": "string",
+            "description": "Library folder; \"\" is the top. It is the directory of the file in storage.",
+            "example": "team"
+          },
+          "path": {
+            "type": "string",
+            "description": "Object name in the public bucket: <merchant_id>/[<folder>/]<file>."
+          },
+          "url": {
+            "type": "string",
+            "description": "Public address of the file, served by the CDN. It changes when the file is replaced."
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content type of the file.",
+            "example": "image/jpeg"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "description": "Size of the file in bytes, measured after the upload."
+          },
+          "width": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Width in pixels, as sent to media-upload-finish."
+          },
+          "height": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Height in pixels, as sent to media-upload-finish."
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true,
+            "description": "Length of a video or audio file in seconds, as sent to media-upload-finish."
+          },
+          "poster_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Still image shown before a video plays."
+          },
+          "alt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Alt text per language code, such as {\"en\": \"Our team\"}."
+          },
+          "focal_x": {
+            "type": "number",
+            "nullable": true,
+            "description": "Horizontal focal point, 0 (left) to 1 (right)."
+          },
+          "focal_y": {
+            "type": "number",
+            "nullable": true,
+            "description": "Vertical focal point, 0 (top) to 1 (bottom)."
+          },
+          "status": {
+            "type": "string",
+            "description": "uploading until media-upload-finish accepts the file, then ready."
+          },
+          "version": {
+            "type": "integer",
+            "description": "Goes up each time the file is replaced."
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "True for a file of the parent company's library: it can be used on pages but not changed or deleted."
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "drafts_updated": {
+            "type": "integer",
+            "description": "Page drafts moved to the new address when the file changed folder; 0 otherwise. Published pages keep the old address until they are published again."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Things worth telling the person. The change was made."
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "kind",
+          "file_name",
+          "folder",
+          "path",
+          "url",
+          "content_type",
+          "size_bytes",
+          "width",
+          "height",
+          "duration_seconds",
+          "poster_url",
+          "alt",
+          "focal_x",
+          "focal_y",
+          "status",
+          "version",
+          "read_only",
+          "created_at",
+          "updated_at",
+          "drafts_updated",
+          "warnings"
         ]
       },
       "MediaDeleteResponse": {
@@ -9483,7 +9625,7 @@
                     "nullable": true
                   }
                 },
-                "description": "What uses it: `{type: \"page\", slug, portal, state}`, `{type: \"brand\", name}`, `{type: \"css\", path}` or `{type: \"styles\"}`."
+                "description": "What uses it: `{type: \"page\", slug, portal, state}`, `{type: \"brand\", name}`, `{type: \"css\", path}`, `{type: \"styles\"}`, `{type: \"company\", name}` (logo, icon or branding settings), `{type: \"interview\", name}`, `{type: \"position\", name}`, `{type: \"blog\", title}`, `{type: \"avatar\", name}` or `{type: \"catalogue\", name}` (a coaching catalogue directory or industry). Each has the `id` of what uses the file."
               },
               "other_companies": {
                 "type": "integer",
@@ -9501,6 +9643,102 @@
         "required": [
           "error",
           "usage"
+        ]
+      },
+      "MediaFolder": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Folder name, as files name it in `folder`.",
+            "example": "Crew life"
+          },
+          "files": {
+            "type": "integer",
+            "description": "Files in the folder that finished uploading.",
+            "example": 12
+          }
+        },
+        "required": [
+          "name",
+          "files"
+        ]
+      },
+      "MediaFoldersResponse": {
+        "type": "object",
+        "properties": {
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFolder"
+            },
+            "description": "A to Z, whatever the case. The top (\"\") is not a folder and is not listed."
+          }
+        },
+        "required": [
+          "folders"
+        ]
+      },
+      "MediaFolderActionRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company. Admins and sub-merchant operators only; other callers always use their token's company.",
+            "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "rename",
+              "delete"
+            ],
+            "description": "`create` an empty folder, `rename` one with every file in it, or `delete` an empty one.",
+            "example": "create"
+          },
+          "folder": {
+            "type": "string",
+            "description": "The folder to create, rename or delete.",
+            "example": "Crew life"
+          },
+          "to": {
+            "type": "string",
+            "description": "The new name. Required to rename.",
+            "example": "Life on board"
+          }
+        },
+        "required": [
+          "action",
+          "folder"
+        ]
+      },
+      "MediaFolderActionResponse": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "The folder as it is now: the new name after a rename."
+          },
+          "moved": {
+            "type": "integer",
+            "description": "Rename only: files moved to the new folder."
+          },
+          "drafts_updated": {
+            "type": "integer",
+            "description": "Rename only: page drafts moved to the new addresses. Published pages keep the old ones until they are published again."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Rename only: things worth telling the person. The folder was renamed."
+          }
+        },
+        "required": [
+          "folder"
         ]
       },
       "MediaDeleteRequest": {
@@ -14567,7 +14805,7 @@
           "Admin"
         ],
         "summary": "List the media library",
-        "description": "Lists the company's media library: images, MP4 video, audio and WOFF2 fonts for career pages. Use a file's `url` in page blocks, brand logos and font settings. A sub-company also sees its parent's files, marked `read_only`. Files still uploading are not listed. The library is switched on per company by JobMojito; while it is off this endpoint answers 403.",
+        "description": "Lists the company's media library: images, MP4 video, audio and WOFF2 fonts for career pages. Use a file's `url` in page blocks, brand logos and font settings. A sub-company also sees its parent's files, marked `read_only`. Files still uploading are not listed. Images, video, audio and fonts already stored in the company's folder (logos, blog and cover images, earlier uploads) are added to the library on the first list.",
         "security": [
           {
             "bearerAuth": []
@@ -14683,7 +14921,7 @@
             }
           },
           "403": {
-            "description": "Not a merchant, merchant owner or admin token, not this company, or the media library is switched off.",
+            "description": "Not a merchant, merchant owner or admin token, or not this company.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14760,7 +14998,7 @@
             }
           },
           "403": {
-            "description": "Not a merchant, merchant owner or admin token, not this company, the parent company's file, or the media library is switched off.",
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the parent company's file.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14800,7 +15038,7 @@
             }
           },
           "422": {
-            "description": "Validation error: the type is not accepted, the name looks like a path, or a replacement is another kind of file.",
+            "description": "Validation error: the type is not accepted, the name looks like a path, the folder name is not allowed, or a replacement is another kind of file.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14867,7 +15105,7 @@
             }
           },
           "403": {
-            "description": "Not a merchant, merchant owner or admin token, the parent company's file, or the media library is switched off.",
+            "description": "Not a merchant, merchant owner or admin token, or the parent company's file.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14936,7 +15174,7 @@
           "Admin"
         ],
         "summary": "Describe a media file",
-        "description": "Changes a file's name, folder, alt text, focal point or poster. Fields you leave out keep their value. To change the file itself, replace it: media-upload-start with `replace_media_id`.",
+        "description": "Changes a file's name, alt text, focal point or poster, or moves it to another folder. Fields you leave out keep their value. To change the file itself, replace it: media-upload-start with `replace_media_id`.",
         "security": [
           {
             "bearerAuth": []
@@ -14958,7 +15196,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaFile"
+                  "$ref": "#/components/schemas/MediaUpdateResponse"
                 }
               }
             }
@@ -14974,7 +15212,7 @@
             }
           },
           "403": {
-            "description": "Not a merchant, merchant owner or admin token, the parent company's file, or the media library is switched off.",
+            "description": "Not a merchant, merchant owner or admin token, or the parent company's file.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14985,6 +15223,16 @@
           },
           "404": {
             "description": "This file does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file cannot move: it has not finished uploading, a file of the same name is in that folder, or someone else changed it first.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15023,7 +15271,7 @@
           "Admin"
         ],
         "summary": "Delete a media file",
-        "description": "Deletes a file from the media library. Refused with 409 while a page, brand, CSS file or style setting uses it, and the answer lists what does, so nothing loses its picture without someone choosing that. Cannot be undone.",
+        "description": "Deletes a file from the media library. Refused with 409 while a page, brand, CSS file, style setting, company logo or branding, interview, position, blog post, avatar or coaching catalogue uses it, and the answer lists what does, so nothing loses its picture without someone choosing that. Cannot be undone.",
         "security": [
           {
             "bearerAuth": []
@@ -15061,7 +15309,7 @@
             }
           },
           "403": {
-            "description": "Not a merchant, merchant owner or admin token, or the media library is switched off.",
+            "description": "Not a merchant, merchant owner or admin token.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15112,6 +15360,181 @@
           }
         },
         "operationId": "delete_media_file"
+      }
+    },
+    "/media-folders": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List the media library folders",
+        "description": "Lists the folders of the company's media library with how many files each holds, empty folders included. Put a file in a folder with `folder` on media-upload-start or media-update; list one folder with media-list `folder`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The folders.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFoldersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, or not this company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error: a folder name that is not allowed is answered with `name` \"folder\" or \"to\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_media_folders"
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Create, rename or delete a media library folder",
+        "description": "Creates an empty folder (creating one that exists is fine), renames a folder, or deletes an empty one. Renaming moves every file in the folder: each gets a new address, the old address keeps working for published pages, and page drafts move to the new one. Files still uploading stay where they are. A folder name has 1 to 60 characters: letters, digits, spaces, \"-\", \"_\", \".\", \"(\" and \")\"; it cannot start with \".\", \"_\" or a space, end with a space, or be \"profile\".",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaFolderActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFolderActionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, or not this company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rename: the folder does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rename: a folder with the new name exists (whatever the case), or a file could not move. Delete: the folder still holds files.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error: a folder name that is not allowed is answered with `name` \"folder\" or \"to\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "manage_media_folder"
       }
     },
     "/merchant-feature-request": {

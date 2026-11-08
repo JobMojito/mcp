@@ -24,7 +24,7 @@ os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_SECRET", "")
 
 MEDIA = "33333333-3333-4333-8333-333333333333"
 PNG = b"\x89PNG\r\n\x1a\nbytes"
-SIGNED = "https://storage.test/storage/v1/object/upload/sign/career-media/m/a-v1.png?token=tok"
+SIGNED = "https://storage.test/storage/v1/object/upload/sign/public/m/a-v1.png?token=tok"
 FILE = {
     "id": MEDIA, "merchant_id": "m", "kind": "image", "file_name": "a.png", "folder": "", "path": "m/a-v1.png",
     "url": "https://cdn.test/a.png", "content_type": "image/png", "size_bytes": len(PNG), "width": None, "height": None,
@@ -79,9 +79,13 @@ async def test_listed_with_the_right_annotations():
     assert _annotations(tools["list_media_files"]) == {
         "title": "List media library files", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True,
     }
+    assert _annotations(tools["list_media_folders"]) == {
+        "title": "List media library folders", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True,
+    }
     for name, idempotent in [
         ("start_media_upload", False), ("finish_media_upload", True), ("update_media_file", True),
         ("delete_media_file", False), ("publish_portal_stylesheet", False), ("upload_media_file", False),
+        ("manage_media_folder", False),
     ]:
         annotations = _annotations(tools[name])
         assert annotations["readOnlyHint"] is False, name
@@ -101,10 +105,13 @@ def test_every_tool_has_a_written_justification():
     import naming
 
     written = naming.annotation_justifications()
-    for name in ("list_media_files", "start_media_upload", "finish_media_upload", "update_media_file", "delete_media_file", "publish_portal_stylesheet", "upload_media_file"):
+    for name in ("list_media_files", "list_media_folders", "manage_media_folder", "start_media_upload", "finish_media_upload", "update_media_file", "delete_media_file", "publish_portal_stylesheet", "upload_media_file"):
         assert written[name], name
     assert "destructiveHint=true" in written["delete_media_file"]
     assert "cannot be undone" in written["delete_media_file"]
+    assert "readOnlyHint=true" in written["list_media_folders"]
+    assert "destructiveHint=true" in written["manage_media_folder"]
+    assert "new address" in written["manage_media_folder"]
 
 
 @pytest.mark.asyncio
@@ -117,6 +124,15 @@ async def test_the_descriptions_steer_the_model():
     assert "only when the user asked" in tools["publish_portal_stylesheet"].description.lower()
     assert "update_portal_configuration" in tools["publish_portal_stylesheet"].description
     assert "confirmed" in tools["delete_media_file"].description
+    # SQL 313: every company has the library, folders are storage directories, and more things use a file
+    for name in ("list_media_files", "start_media_upload", "update_media_file", "delete_media_file", "list_media_folders", "manage_media_folder"):
+        assert "switched" not in tools[name].description, name
+        assert "career-media" not in tools[name].description, name
+    assert "list_media_folders" in tools["list_media_files"].description
+    assert "profile" in tools["manage_media_folder"].description
+    assert "folder" in tools["update_media_file"].description
+    assert "logo" in tools["delete_media_file"].description
+    assert "list_media_folders" in tools["upload_media_file"].parameters["properties"]["folder"]["description"]
 
 
 @pytest.mark.asyncio
@@ -133,6 +149,11 @@ async def test_inputs_match_the_api():
     update = set(tools["update_media_file"].parameters["properties"])
     assert update == {"media_id", "file_name", "folder", "alt", "focal_x", "focal_y", "poster_url"}
     assert set(tools["delete_media_file"].parameters["properties"]) == {"media_id"}
+    assert set(tools["list_media_folders"].parameters["properties"]) == {"merchant_id"}
+    manage = tools["manage_media_folder"].parameters
+    assert set(manage["properties"]) == {"merchant_id", "action", "folder", "to"}
+    assert set(manage["required"]) == {"action", "folder"}
+    assert manage["properties"]["action"]["enum"] == ["create", "rename", "delete"]
     assert set(tools["publish_portal_stylesheet"].parameters["required"]) == {"portal"}
     upload = tools["upload_media_file"].parameters
     assert set(upload["required"]) == {"file", "file_name", "content_type"}
@@ -142,7 +163,7 @@ async def test_inputs_match_the_api():
 def test_instructions_list_the_tools():
     import server
 
-    for name in ("publish_portal_stylesheet", "list_media_files", "upload_media_file", "start_media_upload", "update_media_file", "delete_media_file"):
+    for name in ("publish_portal_stylesheet", "list_media_files", "upload_media_file", "start_media_upload", "update_media_file", "delete_media_file", "list_media_folders", "manage_media_folder"):
         assert name in server.INSTRUCTIONS, name
 
 
@@ -155,10 +176,64 @@ async def test_a_null_focal_point_is_sent_and_a_field_left_out_is_not(monkeypatc
 
     import server
 
-    seen = _route(monkeypatch, {"/media-update": (200, FILE)})
+    seen = _route(monkeypatch, {"/media-update": (200, {**FILE, "drafts_updated": 0, "warnings": []})})
     async with Client(server.mcp) as client:
         await client.call_tool("update_media_file", {"media_id": MEDIA, "focal_x": None, "alt": {"en": "Deck"}})
     assert json.loads(seen[0].content) == {"media_id": MEDIA, "focal_x": None, "alt": {"en": "Deck"}}
+
+
+@pytest.mark.asyncio
+async def test_a_move_answers_the_file_with_its_new_address_and_the_drafts(monkeypatch):
+    from fastmcp import Client
+
+    import server
+
+    moved = {**FILE, "folder": "Crew life", "path": "m/Crew life/a-v1.png", "drafts_updated": 2, "warnings": []}
+    seen = _route(monkeypatch, {"/media-update": (200, moved)})
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("update_media_file", {"media_id": MEDIA, "folder": "Crew life"})
+    assert json.loads(seen[0].content) == {"media_id": MEDIA, "folder": "Crew life"}
+    assert result.structured_content["drafts_updated"] == 2
+    assert result.structured_content["width"] is None
+
+
+@pytest.mark.asyncio
+async def test_the_folders_are_read_and_managed(monkeypatch):
+    from fastmcp import Client
+
+    import server
+
+    seen = _route(monkeypatch, {
+        "/media-folders": (200, {"folders": [{"name": "Crew life", "files": 2}]}),
+    })
+    async with Client(server.mcp) as client:
+        listed = await client.call_tool("list_media_folders", {})
+        assert listed.structured_content == {"folders": [{"name": "Crew life", "files": 2}]}
+        assert seen[-1].method == "GET"
+    renamed = {"folder": "Fleet", "moved": 2, "drafts_updated": 1, "warnings": []}
+    seen = _route(monkeypatch, {"/media-folders": (200, renamed)})
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("manage_media_folder", {"action": "rename", "folder": "Crew life", "to": "Fleet"})
+    assert seen[0].method == "POST"
+    assert json.loads(seen[0].content) == {"action": "rename", "folder": "Crew life", "to": "Fleet"}
+    assert result.structured_content == renamed
+    seen = _route(monkeypatch, {"/media-folders": (200, {"folder": "Empty"})})
+    async with Client(server.mcp) as client:
+        created = await client.call_tool("manage_media_folder", {"action": "create", "folder": "Empty"})
+    assert created.structured_content == {"folder": "Empty"}
+
+
+@pytest.mark.asyncio
+async def test_a_folder_that_still_holds_files_comes_back_as_an_error(monkeypatch):
+    from fastmcp import Client
+    from fastmcp.exceptions import ToolError
+
+    import server
+
+    _route(monkeypatch, {"/media-folders": (409, {"error": "This folder still holds files. Move or delete them first.", "name": "folder"})})
+    async with Client(server.mcp) as client:
+        with pytest.raises(ToolError, match="still holds files"):
+            await client.call_tool("manage_media_folder", {"action": "delete", "folder": "Crew life"})
 
 
 @pytest.mark.asyncio

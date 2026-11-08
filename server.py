@@ -186,7 +186,8 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   draft to components/<type>.css only)
 • Media library: list_media_files, upload_media_file (one call, base64),
   start_media_upload + finish_media_upload (for a client that can send a file to an
-  address), update_media_file, delete_media_file
+  address), update_media_file (also moves a file to a folder), delete_media_file;
+  folders: list_media_folders, manage_media_folder
 
 Typical flows:
 - "Set up an interview for a role" → create_interview → invite_candidates, or
