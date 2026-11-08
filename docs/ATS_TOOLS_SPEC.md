@@ -1,7 +1,8 @@
 # ATS tools for the MCP: specification
 
-Status: proposed, not built. Written 2026-11-08 from reading the code only; nothing here was run
-against a database, and output sizes are estimates.
+Status: proposed, not built. Written 2026-11-08 from reading the code only, current tools checked
+against `mcp` main `0bf9229`; nothing here was run against a database, and output sizes are
+estimates.
 
 Goal: give the MCP (and so the admin AI assistant, which picks up every MCP write tool behind its
 confirm card) the ATS features built since October: position process editing (meeting, Certo,
@@ -34,8 +35,40 @@ Tests: 100% line and branch coverage of what each change touches, measured (SQL 
 docs, `scripts/update_snapshot.py` and a version bump. Deploy order: SQL, edge functions, MCP
 restart, admin.
 
-Tool count: 50 API tools today; this adds 41, to about 91. Measure the `tools/list` size and the
+Tool count: 56 tools today (below); this adds 41, to 97. Measure the `tools/list` size and the
 admin assistant's prompt cost in phase 1 before going further.
+
+## Current tools
+
+`mcp` main at `0bf9229` (2026-11-08): 50 tools generated from the API (55 curated endpoints in
+`naming.py`, 5 of them in `IGNORED_PATHS`) and 6 the server defines itself. None of them overlaps
+the tools planned below.
+
+| Area | Tools |
+|---|---|
+| Interviews | `create_interview`, `create_interview_from_questions`, `create_persona`, `get_interview_definition`, `update_interview`, `set_interview_state`, `list_interviews`, `generate_interview_url`, `register_users_for_interview`, `invite_candidates`* |
+| Results | `list_interview_results`, `get_interview_result_details`, `generate_interview_report`, `set_assessment_result`, `request_another_interview_attempt` |
+| Candidates | `list_candidates` |
+| Knowledge base | `upload_knowledge_base_document`, `list_knowledge_base_documents`, `set_knowledge_base_document_interviews` |
+| Coaching catalogue | `list_catalogue_directories`, `get_catalogue_directory`, `create_catalogue_directory`, `update_catalogue_directory` |
+| Custom reports | `list_report_fields`, `list_reports`, `get_report`, `run_report`, `preview_report`, `create_report`, `update_report` |
+| Portal configuration | `get_portal_configuration`, `update_portal_configuration`, `publish_portal_stylesheet` |
+| Component styles (new) | `get_component_style_guide`, `save_component_style`, `generate_component_styles` |
+| Media library (new) | `list_media_files`, `list_media_folders`, `manage_media_folder`, `start_media_upload`, `finish_media_upload`, `update_media_file`, `delete_media_file`, `upload_media_file`* |
+| Company | `get_merchant_status`, `get_merchant_analytics`, `get_merchant_credit_usage`, `list_sub_merchants`, `list_avatars`, `list_languages`, `list_my_merchants`*, `jobmojito_configuration`* |
+| Support and docs | `submit_feature_request`, `report_technical_issue`, `search_documentation`*, `get_documentation`* |
+
+\* defined in the server (`invitations.py`, `media_upload.py`, `merchants.py`, `docs_tools.py`),
+not generated from the API. The merchant picker's `search_merchants` is an app backend call, not a
+model tool.
+
+Not exposed (`IGNORED_PATHS`): `/invite-users`, `/job-interview-create-for-candidate-with-token`,
+`/pre-screening-create`, the two pre-screening resume endpoints, and `/merchant-document-download`.
+
+The deployed JobMojito server connected on 2026-11-08 lists 42 tools: none of the media, component
+style or stylesheet tools, nor `list_knowledge_base_documents` and
+`set_knowledge_base_document_interviews`, so main is ahead of the deployment. ATS tools today: only `list_candidates`; none for positions, notes, tags, segments,
+tasks, duplicates, documents or built-in reports.
 
 ## Fix before exposing
 
