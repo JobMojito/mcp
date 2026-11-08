@@ -9884,6 +9884,133 @@
           "live",
           "warnings"
         ]
+      },
+      "ComponentStyleGenerateRequest": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company. Admins and sub-merchant operators only; other callers always use their token's company."
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "interview",
+              "consumer"
+            ],
+            "description": "`interview` (career and interview portal) or `consumer` (coaching portal).",
+            "example": "interview"
+          },
+          "brand_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A sub-brand; leave it out for the main brand. Its CSS variables shape the looks."
+          },
+          "block_type": {
+            "type": "string",
+            "enum": [
+              "hero",
+              "intro",
+              "media-text",
+              "cards",
+              "feature-grid",
+              "stats",
+              "quote",
+              "video",
+              "audio",
+              "tabs",
+              "timeline",
+              "jobs",
+              "job-openings",
+              "public-avatar",
+              "easy-apply",
+              "blogs",
+              "rich-text",
+              "divider",
+              "logo-row",
+              "faq",
+              "cta",
+              "footer",
+              "pricing"
+            ],
+            "description": "The kind of block to design for.",
+            "example": "hero"
+          },
+          "block": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "description": "The block as it is in page content (its title, text, items, layout), so the looks fit what it holds."
+          },
+          "instruction": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What the person wants, in their words.",
+            "example": "Darker, with more space around the title"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "default": 3,
+            "description": "How many looks, 1 to 4. Default 3."
+          }
+        },
+        "required": [
+          "portal",
+          "block_type"
+        ]
+      },
+      "ComponentStyleGenerateResponse": {
+        "type": "object",
+        "properties": {
+          "block_type": {
+            "type": "string"
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "A name no style of this block has yet.",
+                  "example": "Dark band"
+                },
+                "class": {
+                  "type": "string",
+                  "example": "jm-style-dark-band"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "css": {
+                  "type": "string",
+                  "description": "Ready for save_component_style: every selector on .jm-site and the style class."
+                }
+              },
+              "required": [
+                "name",
+                "class",
+                "description",
+                "css"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "block_type",
+          "alternatives",
+          "warnings"
+        ]
       }
     },
     "parameters": {}
@@ -15388,6 +15515,113 @@
           }
         },
         "operationId": "save_component_style"
+      }
+    },
+    "/portal-component-styles-generate": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Generate component style alternatives",
+        "description": "Proposes a few clearly different looks for one kind of page block, from the block's content and the brand's CSS variables. Each comes with a name, a one-line description and CSS that already passes the checks of portal-component-styles. Nothing is stored: show them, and save the one the person picks with save_component_style. Style settings are switched on per company by JobMojito; while they are off this endpoint answers 403. At most 30 requests an hour per person.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComponentStyleGenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The alternatives; fewer than asked when some failed the checks (see warnings).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentStyleGenerateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a merchant, merchant owner or admin token, not this company, or the switch is off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This brand does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error, or a brand on the coaching portal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests this hour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The model is not available, or gave nothing usable. Try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "generate_component_styles"
       }
     }
   }

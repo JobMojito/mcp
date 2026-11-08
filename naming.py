@@ -30,7 +30,7 @@ receive an auto-generated name and method-derived annotations (see
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 from raw_assessment import condense_answer_assessment
@@ -834,6 +834,22 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "until the stylesheet is published. idempotentHint=true: the same call again leaves "
         "the file as it is. " + _OPEN_WORLD,
         idempotent=True,
+    ),
+    # Proposals only: nothing is stored, so read-only; each call asks the model again,
+    # so not idempotent.
+    ("POST", "/portal-component-styles-generate"): replace(
+        _read(
+            "generate_component_styles",
+            "Generate component style alternatives",
+            "Ask JobMojito's model for a few clearly different looks for one block type, from "
+            "the block's content (pass it as block) and the brand's CSS variables. Returns "
+            "name, description and CSS ready for save_component_style. Nothing is stored: show "
+            "them and save only the one the user picks. You may also design styles yourself "
+            "from get_component_style_guide.",
+            "readOnlyHint=true: returns proposals and stores nothing. idempotentHint=false: "
+            "each call asks the model again and the looks differ. " + _OPEN_WORLD,
+        ),
+        idempotent=False,
     ),
     ("GET", "/media-list"): _read(
         "list_media_files",

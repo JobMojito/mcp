@@ -58,6 +58,7 @@ EXPECTED_READ_ONLY = {
     "get_portal_configuration",
     "list_media_files",
     "get_component_style_guide",
+    "generate_component_styles",
     "search_documentation",
     "get_documentation",
 }

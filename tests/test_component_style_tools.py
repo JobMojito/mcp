@@ -82,6 +82,9 @@ async def test_listed_read_and_write_apart():
     assert _annotations(tools["get_component_style_guide"]) == {
         "title": "Get the component style guide", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True,
     }
+    assert _annotations(tools["generate_component_styles"]) == {
+        "title": "Generate component style alternatives", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True,
+    }
     assert _annotations(tools["save_component_style"]) == {
         "title": "Save a component style", "readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True,
     }
@@ -110,10 +113,36 @@ async def test_inputs_match_the_api():
     assert "null" not in json.dumps(save["properties"]["css"])
 
 
+@pytest.mark.asyncio
+async def test_generate_takes_the_block_and_says_nothing_is_stored():
+    tools = await _tools()
+    generate = tools["generate_component_styles"]
+    assert set(generate.parameters["properties"]) == {"merchant_id", "portal", "brand_id", "block_type", "block", "instruction", "count"}
+    assert set(generate.parameters["required"]) == {"portal", "block_type"}
+    assert "Nothing is stored" in generate.description
+    assert "save_component_style" in generate.description
+
+
+@pytest.mark.asyncio
+async def test_generate_posts_the_block(monkeypatch):
+    from fastmcp import Client
+
+    import server
+
+    answer = {"block_type": "hero", "alternatives": [{"name": "Airy", "class": "jm-style-airy", "description": "More space.", "css": ".jm-site .jm-block--hero.jm-style-airy{padding:96px 0}"}], "warnings": []}
+    seen = _route(monkeypatch, 200, answer)
+    body = {"portal": "interview", "block_type": "hero", "block": {"title": "Sail with us"}, "count": 1}
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("generate_component_styles", body)
+    assert seen[0].method == "POST" and seen[0].url.path.endswith("/portal-component-styles-generate")
+    assert json.loads(seen[0].content) == body
+    assert result.structured_content["alternatives"][0]["name"] == "Airy"
+
+
 def test_instructions_list_the_tools():
     import server
 
-    for name in ("get_component_style_guide", "save_component_style"):
+    for name in ("get_component_style_guide", "generate_component_styles", "save_component_style"):
         assert name in server.INSTRUCTIONS, name
 
 
