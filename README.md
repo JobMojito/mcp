@@ -91,7 +91,7 @@ JobMojito API  (https://cool.jobmojito.com/functions/v1)
 | `config.py` | Environment-driven settings |
 | `openapi_loader.py` | Live fetch + cache/snapshot fallback + operationId injection |
 | `naming.py` | Curated tool names, titles, hints and annotations per endpoint |
-| `upstream.py` | httpx client that forwards the user's Supabase JWT to the API |
+| `upstream.py` | httpx2 client that forwards the user's Supabase JWT to the API |
 | `middleware.py` | Call logging, upstream-error rewriting, result-size guard, annotation backfill |
 | `merchants.py` | Merchant picker (MCP App UI) + `list_my_merchants` text fallback |
 | `docs_tools.py` | `search_documentation` / `get_documentation` |
@@ -203,7 +203,8 @@ the signed-in user's token is forwarded to the JobMojito API so calls respect th
 user's permissions.
 
 The one deliberate exception is **capability discovery**: with `ENABLE_LAZY_AUTH`
-(default `true`), `initialize`, `ping` and the `*/list` methods answer without a
+(default `true`), `server/discover` (protocol 2026-07-28), `initialize` and `ping`
+(older protocol versions) and the `*/list` methods answer without a
 token so directory crawlers can render the tool list. No data is reachable that
 way — every `tools/call`, resource read and prompt still needs a verified JWT.
 

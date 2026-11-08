@@ -21,7 +21,7 @@ import binascii
 import logging
 from typing import Annotated, Any
 
-import httpx
+import httpx2
 from fastmcp.exceptions import ToolError
 from pydantic import Field
 
@@ -54,7 +54,7 @@ def decode_file(file: str) -> bytes:
         raise ToolError("`file` is not valid base64. Send the file's bytes base64-encoded.") from exc
 
 
-def _raise_for_status(resp: httpx.Response) -> None:
+def _raise_for_status(resp: httpx2.Response) -> None:
     if resp.status_code >= 400:
         # the shape UpstreamErrorMiddleware turns into a cause + next step
         raise ToolError(f"HTTP error {resp.status_code}: {resp.reason_phrase} - {resp.text[:600]}")
@@ -94,7 +94,7 @@ async def upload_to_library(
             _raise_for_status(started)
             ticket = started.json()
 
-            async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as storage:
+            async with httpx2.AsyncClient(timeout=httpx2.Timeout(180.0, connect=15.0)) as storage:
                 sent = await storage.put(
                     ticket["upload_url"],
                     content=data,
@@ -116,7 +116,7 @@ async def upload_to_library(
                 }
             )
             finished = await client.post("/media-upload-finish", json=finish_body)
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             raise ToolError(f"Could not reach the JobMojito API: {exc}") from exc
     _raise_for_status(finished)
     return finished.json()

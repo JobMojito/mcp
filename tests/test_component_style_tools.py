@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -54,7 +54,7 @@ def _annotations(tool) -> dict:
         return {}
     if isinstance(annotations, dict):
         return annotations
-    return annotations.model_dump(exclude_none=True)
+    return annotations.model_dump(exclude_none=True, by_alias=True)
 
 
 async def _tools():
@@ -63,16 +63,16 @@ async def _tools():
     return {t.name: t for t in await server.mcp.list_tools()}
 
 
-def _route(monkeypatch, status: int, body: object) -> list[httpx.Request]:
-    seen: list[httpx.Request] = []
+def _route(monkeypatch, status: int, body: object) -> list[httpx2.Request]:
+    seen: list[httpx2.Request] = []
 
     async def fake_send(self, request, **kwargs):
         seen.append(request)
         if "/portal-component-styles" not in str(request.url):
             raise AssertionError(f"unexpected request: {request.method} {request.url}")
-        return httpx.Response(status, json=body, request=request)
+        return httpx2.Response(status, json=body, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     return seen
 
 

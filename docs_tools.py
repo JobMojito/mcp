@@ -24,8 +24,7 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
-import httpx
-
+import httpx2
 import featurebase
 import mintlify
 from config import settings
@@ -73,7 +72,7 @@ def _ttl_seconds() -> int:
     return max(60, settings.docs_cache_ttl_minutes * 60)
 
 
-async def _get(client: httpx.AsyncClient, url: str) -> str | None:
+async def _get(client: httpx2.AsyncClient, url: str) -> str | None:
     try:
         resp = await client.get(url, timeout=20.0, follow_redirects=True)
         resp.raise_for_status()
@@ -135,7 +134,7 @@ async def _build_index(force: bool = False) -> list[DocEntry]:
         return _index_cache.entries
 
     entries: list[DocEntry] = []
-    async with httpx.AsyncClient(headers={"User-Agent": "jobmojito-mcp/0.1"}) as client:
+    async with httpx2.AsyncClient(headers={"User-Agent": "jobmojito-mcp/0.1"}) as client:
         # Developer docs: public llms.txt index (no credentials needed).
         # Skipped when the Mintlify developer-docs MCP is federated — those tools
         # cover developer docs natively, so indexing llms.txt here would duplicate.
@@ -372,7 +371,7 @@ def register(mcp) -> None:
         if cached and (now - cached[0]) < _ttl_seconds():
             content = cached[1]
         else:
-            async with httpx.AsyncClient(headers={"User-Agent": "jobmojito-mcp/0.1"}) as client:
+            async with httpx2.AsyncClient(headers={"User-Agent": "jobmojito-mcp/0.1"}) as client:
                 content = await _get(client, fetch_url)
                 if content is None and fetch_url != url:
                     content = await _get(client, url)  # fallback to original URL

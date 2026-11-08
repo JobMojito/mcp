@@ -57,7 +57,7 @@ Set these on the Horizon deployment (never commit them):
 | `ENABLE_AUTH` | `true` |
 | `BASE_URL` | `https://mcp.jobmojito.com` (public, no `/mcp`) — **this is the OAuth resource identifier; it must equal the URL clients connect to exactly** |
 | `MCP_PATH` | `/mcp` (default; combined with `BASE_URL` to form the resource id) |
-| `ENABLE_LAZY_AUTH` | `true` (default) — serves `initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a verified JWT. |
+| `ENABLE_LAZY_AUTH` | `true` (default) — serves `server/discover`/`initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a verified JWT. |
 | `OAUTH_SCOPES_SUPPORTED` | **Leave unset.** The `config.py` default (`openid,email,offline_access`) is the deployed value — the Horizon deployment runs direct (managed auth gateway off) and sets no OAuth env vars. Advertised in the PRM and in the `scope=` parameter of the 401 challenge. `offline_access` is load-bearing: it makes Supabase issue a refresh token, so an expired access token refreshes silently instead of sending the user through the browser every hour. Setting this on the deployment without `offline_access` silently reintroduces the hourly prompt. |
 | `SUPABASE_SESSION_CHECK` | `true` (default) — resolves each JWT to a live Supabase session before running a tool, so a revoked session gets a 401 challenge and the client re-authenticates. Requires `SUPABASE_ANON_KEY`; without it the check fails open and does nothing. |
 | `SUPABASE_SESSION_CHECK_TTL` | `60` — seconds a successful session check is cached |
@@ -84,8 +84,10 @@ themselves. There is no anonymous access — every tool requires a signed-in use
 
 ## Sessions & client reconnection
 
-The transport is MCP Streamable HTTP with `Mcp-Session-Id` session tracking. The
-server behaves per spec:
+The transport is MCP Streamable HTTP. Clients on protocol **2026-07-28** are
+sessionless (no `initialize`, no session id; they may call `server/discover`
+first) and none of the below applies to them. Clients on **2025-11-25 and older**
+use `Mcp-Session-Id` session tracking, and the server behaves per spec:
 
 - non-initialize request with **no** session id → **400** "Missing session ID"
 - request with an **unknown/expired** session id → **404** "Session not found"

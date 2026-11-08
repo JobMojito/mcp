@@ -15,7 +15,7 @@ import json
 import os
 import pathlib
 
-import httpx
+import httpx2
 import jsonschema
 import pytest
 
@@ -68,14 +68,14 @@ def _accepts(schema: dict, value) -> bool:
     return True
 
 
-def _fake_upstream(monkeypatch, answer: dict) -> list[httpx.Request]:
-    seen: list[httpx.Request] = []
+def _fake_upstream(monkeypatch, answer: dict) -> list[httpx2.Request]:
+    seen: list[httpx2.Request] = []
 
     async def fake_send(self, request, **kwargs):
         seen.append(request)
-        return httpx.Response(200, json=answer, request=request)
+        return httpx2.Response(200, json=answer, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     return seen
 
 
@@ -105,7 +105,7 @@ async def _call(tool: str, arguments: dict):
 async def test_update_interview_does_not_offer_null_the_api_refuses(field):
     # A guard on the test itself: the premise is the API's own declaration.
     assert field == "position_id" or not UPDATE_BODY[field].get("nullable")
-    schema = (await _listed_tools())["update_interview"].inputSchema["properties"][field]
+    schema = (await _listed_tools())["update_interview"].input_schema["properties"][field]
     assert not _offers_null(schema), schema
     assert "nullable" not in schema
     assert not _accepts({k: v for k, v in schema.items() if k != "description"}, None)
@@ -113,7 +113,7 @@ async def test_update_interview_does_not_offer_null_the_api_refuses(field):
 
 @pytest.mark.asyncio
 async def test_update_interview_enums_are_the_apis_values():
-    properties = (await _listed_tools())["update_interview"].inputSchema["properties"]
+    properties = (await _listed_tools())["update_interview"].input_schema["properties"]
     for field in ("status", "visibility", "environment", "type", "result_view"):
         assert properties[field]["enum"] == UPDATE_BODY[field]["enum"]
         assert None not in properties[field]["enum"]
@@ -121,7 +121,7 @@ async def test_update_interview_enums_are_the_apis_values():
 
 @pytest.mark.asyncio
 async def test_update_interview_keeps_every_null_the_api_declares():
-    properties = (await _listed_tools())["update_interview"].inputSchema["properties"]
+    properties = (await _listed_tools())["update_interview"].input_schema["properties"]
     declared = [
         name for name, schema in UPDATE_BODY.items() if schema.get("nullable") and "type" in schema
     ]
@@ -132,7 +132,7 @@ async def test_update_interview_keeps_every_null_the_api_declares():
 
 @pytest.mark.asyncio
 async def test_a_declared_nullable_enum_offers_null_on_both_checks():
-    field = (await _listed_tools())["update_interview"].inputSchema["properties"][
+    field = (await _listed_tools())["update_interview"].input_schema["properties"][
         "candidate_notification_channel"
     ]
     assert field["type"] == ["string", "null"]
@@ -180,11 +180,11 @@ async def test_a_stray_null_on_a_narrowed_field_stays_out_of_the_request(monkeyp
 async def test_interview_question_is_narrow_as_input_and_relaxed_as_output():
     """JobInterviewCreateFromArrayQuestion: update_interview sends it, get_interview_definition returns it."""
     tools = await _listed_tools()
-    sent = tools["update_interview"].inputSchema["properties"]["questions"]["items"]["properties"]
+    sent = tools["update_interview"].input_schema["properties"]["questions"]["items"]["properties"]
     assert sent["question"]["type"] == "string"
     assert sent["duration"]["type"] == ["number", "null"]  # declared: stays
 
-    returned = tools["get_interview_definition"].outputSchema["properties"]["questions"]["items"]["properties"]
+    returned = tools["get_interview_definition"].output_schema["properties"]["questions"]["items"]["properties"]
     assert "null" in returned["question"]["type"]
     assert "null" in returned["duration"]["type"]
 
@@ -192,12 +192,12 @@ async def test_interview_question_is_narrow_as_input_and_relaxed_as_output():
 @pytest.mark.asyncio
 async def test_portal_document_is_narrow_as_input_and_relaxed_as_output(monkeypatch):
     tools = await _listed_tools()
-    sent = tools["update_portal_configuration"].inputSchema["properties"]["documents"]["items"]["properties"]
+    sent = tools["update_portal_configuration"].input_schema["properties"]["documents"]["items"]["properties"]
     assert sent["kind"]["type"] == "string"
     assert None not in sent["kind"]["enum"]
     assert sent["format"]["type"] == "string"
 
-    returned = tools["get_portal_configuration"].outputSchema["properties"]["documents"]["items"]["properties"]
+    returned = tools["get_portal_configuration"].output_schema["properties"]["documents"]["items"]["properties"]
     assert "null" in returned["kind"]["type"]
     assert None in returned["kind"]["enum"]
 
@@ -210,7 +210,7 @@ async def test_portal_document_is_narrow_as_input_and_relaxed_as_output(monkeypa
 @pytest.mark.asyncio
 async def test_no_input_schema_carries_a_response_copy():
     for name, tool in (await _listed_tools()).items():
-        assert RESPONSE_COPY_SUFFIX not in json.dumps(tool.inputSchema), name
+        assert RESPONSE_COPY_SUFFIX not in json.dumps(tool.input_schema), name
 
 
 # ---- every tool -----------------------------------------------------------------------------
@@ -252,7 +252,7 @@ async def test_every_tool_offers_null_only_where_the_spec_declares_it():
     tools = await _listed_tools()
     checked = 0
     for name, body in _generated_tools_with_a_body():
-        schema = tools[name].inputSchema
+        schema = tools[name].input_schema
         for where, node, raw in _paired_nodes(schema, body, name):
             checked += 1
             kinds = node.get("type")
@@ -271,7 +271,7 @@ async def test_query_parameters_are_not_offered_null():
     parameters = RAW["paths"]["/merchant-interview-list"]["get"]["parameters"]
     assert next(p for p in parameters if p["name"] == "offset")["schema"]["nullable"] is True
     for name in ("list_interviews", "list_candidates"):
-        assert tools[name].inputSchema["properties"]["offset"]["type"] == "integer"
+        assert tools[name].input_schema["properties"]["offset"]["type"] == "integer"
 
 
 def _typed_output_properties(tool_node: dict, raw_node: dict):
@@ -297,12 +297,12 @@ async def test_every_typed_output_property_accepts_null():
     tools = await _listed_tools()
     checked = 0
     for (method, path), meta in TOOL_META.items():
-        if is_ignored(method, path) or not tools[meta.name].outputSchema:
+        if is_ignored(method, path) or not tools[meta.name].output_schema:
             continue
         responses = RAW["paths"][path][method.lower()]["responses"]
         ok = next(content for status, content in responses.items() if status.startswith("2"))
         raw = ok.get("content", {}).get("application/json", {}).get("schema", {})
-        for field, schema in _typed_output_properties(tools[meta.name].outputSchema, raw):
+        for field, schema in _typed_output_properties(tools[meta.name].output_schema, raw):
             checked += 1
             assert _offers_null(schema), f"{meta.name}: {field} refuses null: {schema}"
     assert checked > 300  # really walked the nested schemas

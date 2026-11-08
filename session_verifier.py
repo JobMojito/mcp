@@ -66,8 +66,7 @@ import hashlib
 import logging
 import time
 
-import httpx
-
+import httpx2
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from mcp.server.auth.provider import AccessToken
 
@@ -192,7 +191,7 @@ class SupabaseSessionVerifier(JWTVerifier):
         self.anon_key = anon_key
         self.request_timeout_seconds = request_timeout_seconds
         self._live_sessions = _ExpiringTokenSet(session_ttl_seconds)
-        self._client: httpx.AsyncClient | None = None
+        self._client: httpx2.AsyncClient | None = None
 
         if not anon_key:
             logger.warning(
@@ -262,16 +261,16 @@ class SupabaseSessionVerifier(JWTVerifier):
         self._live_sessions.add(fingerprint, ttl_seconds=ttl)
         return True
 
-    def _ensure_client(self) -> httpx.AsyncClient:
+    def _ensure_client(self) -> httpx2.AsyncClient:
         """Create the client lazily, inside the running loop."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(self.request_timeout_seconds, connect=3.0),
+            self._client = httpx2.AsyncClient(
+                timeout=httpx2.Timeout(self.request_timeout_seconds, connect=3.0),
             )
         return self._client
 
     @staticmethod
-    def _log_dead_session(fingerprint: str, access: AccessToken, response: httpx.Response) -> None:
+    def _log_dead_session(fingerprint: str, access: AccessToken, response: httpx2.Response) -> None:
         """Say exactly why a JWT that verified locally has no session behind it.
 
         This is the diagnostic that was missing: without it, the only evidence is

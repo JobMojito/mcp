@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 
-import httpx
+import httpx2
 import jsonschema
 import pytest
 
@@ -33,7 +33,7 @@ async def _output_schema() -> dict:
 
     async with Client(server.mcp) as client:
         tools = {tool.name: tool for tool in await client.list_tools()}
-    return tools[TOOL].outputSchema
+    return tools[TOOL].output_schema
 
 
 @pytest.mark.asyncio
@@ -78,9 +78,9 @@ async def test_a_call_hands_back_the_earlier_sessions_in_every_view(monkeypatch,
     }
 
     async def _send(self, request, **_kwargs):
-        return httpx.Response(200, json=answer, request=request)
+        return httpx2.Response(200, json=answer, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", _send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", _send)
     async with Client(server.mcp) as client:
         result = await client.call_tool(TOOL, {"interview_result_id": RESULT, "get_signed_recordings": True, "view": view})
     assert result.structured_content["recording_local_path"] == "m/c/r/composite-2.mp4"

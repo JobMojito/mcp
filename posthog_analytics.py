@@ -164,6 +164,8 @@ def capture_transport_rejection(
     method: str = "",
     had_session_id: bool = False,
     user_agent: str = "",
+    protocol_version: str = "",
+    rpc_method: str = "",
 ) -> None:
     """Record a request the transport refused before any tool could run.
 
@@ -193,6 +195,12 @@ def capture_transport_rejection(
         "transport_status": status,
         "transport_http_method": method,
         "transport_had_session_id": had_session_id,
+        # The MCP-Protocol-Version and Mcp-Method headers (2026-07-28 clients send
+        # both on every request; older ones only the version, after initialize).
+        # A refused protocol version is a 400 here, and it is only diagnosable by
+        # the version the client asked for.
+        "transport_protocol_version": protocol_version,
+        "transport_rpc_method": rpc_method,
         "$raw_user_agent": user_agent,
         "error_class": "client" if 400 <= status < 500 else "server",
     }

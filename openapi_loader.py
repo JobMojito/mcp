@@ -23,8 +23,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import httpx
-
+import httpx2
 from config import settings
 from naming import (
     VIEW_PARAM_MARKER,
@@ -476,7 +475,7 @@ def _write_cache(spec: dict[str, Any]) -> None:
 
 def _fetch_live(timeout: float = 15.0) -> dict[str, Any] | None:
     try:
-        resp = httpx.get(settings.openapi_url, timeout=timeout, follow_redirects=True)
+        resp = httpx2.get(settings.openapi_url, timeout=timeout, follow_redirects=True)
         resp.raise_for_status()
         spec = resp.json()
         if not isinstance(spec, dict) or "paths" not in spec:

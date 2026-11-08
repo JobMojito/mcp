@@ -15,8 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Generator
 
-import httpx
-
+import httpx2
 from config import settings
 
 logger = logging.getLogger("jobmojito_mcp.upstream")
@@ -56,10 +55,10 @@ def current_bearer_token() -> str | None:
     return None
 
 
-class SupabaseTokenForwardAuth(httpx.Auth):
+class SupabaseTokenForwardAuth(httpx2.Auth):
     """httpx auth flow that injects the current user's Supabase JWT per request."""
 
-    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(self, request: httpx2.Request) -> Generator[httpx2.Request, httpx2.Response, None]:
         bearer = current_bearer_token()
         if bearer:
             request.headers["Authorization"] = f"Bearer {bearer}"
@@ -68,7 +67,7 @@ class SupabaseTokenForwardAuth(httpx.Auth):
         yield request
 
 
-def build_api_client() -> httpx.AsyncClient:
+def build_api_client() -> httpx2.AsyncClient:
     """Create the AsyncClient FastMCP uses for all generated API tools."""
     # X-JobMojito-Client lets the API record where a change came from (custom
     # reports store created_via = mcp, and a shared report only gets a draft).
@@ -77,10 +76,10 @@ def build_api_client() -> httpx.AsyncClient:
         # Edge Functions gateway often requires the anon key as `apikey`.
         headers["apikey"] = settings.supabase_anon_key
 
-    return httpx.AsyncClient(
+    return httpx2.AsyncClient(
         base_url=settings.api_base_url,
         headers=headers,
         auth=SupabaseTokenForwardAuth(),
-        timeout=httpx.Timeout(60.0, connect=15.0),
+        timeout=httpx2.Timeout(60.0, connect=15.0),
         follow_redirects=True,
     )

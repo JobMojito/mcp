@@ -12,7 +12,7 @@ import base64
 import json
 import os
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -41,7 +41,7 @@ def _annotations(tool) -> dict:
         return {}
     if isinstance(annotations, dict):
         return annotations
-    return annotations.model_dump(exclude_none=True)
+    return annotations.model_dump(exclude_none=True, by_alias=True)
 
 
 async def _tools():
@@ -50,9 +50,9 @@ async def _tools():
     return {t.name: t for t in await server.mcp.list_tools()}
 
 
-def _route(monkeypatch, answers: dict[str, tuple[int, object]]) -> list[httpx.Request]:
+def _route(monkeypatch, answers: dict[str, tuple[int, object]]) -> list[httpx2.Request]:
     """Answers by path ending; a request nothing answers fails the test."""
-    seen: list[httpx.Request] = []
+    seen: list[httpx2.Request] = []
 
     async def fake_send(self, request, **kwargs):
         seen.append(request)
@@ -60,10 +60,10 @@ def _route(monkeypatch, answers: dict[str, tuple[int, object]]) -> list[httpx.Re
             if ending in str(request.url):
                 if isinstance(body, Exception):
                     raise body
-                return httpx.Response(status, json=body, request=request)
+                return httpx2.Response(status, json=body, request=request)
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     return seen
 
 
@@ -345,14 +345,14 @@ async def test_the_signed_address_gets_no_user_token(monkeypatch):
 
     monkeypatch.setattr(upstream, "current_bearer_token", lambda: "user-token")
     seen = _route(monkeypatch, HAPPY)
-    clients: list[httpx.AsyncClient] = []
-    real_put = httpx.AsyncClient.put
+    clients: list[httpx2.AsyncClient] = []
+    real_put = httpx2.AsyncClient.put
 
     async def spying_put(self, *args, **kwargs):
         clients.append(self)
         return await real_put(self, *args, **kwargs)
 
-    monkeypatch.setattr(httpx.AsyncClient, "put", spying_put)
+    monkeypatch.setattr(httpx2.AsyncClient, "put", spying_put)
 
     async with Client(server.mcp) as client:
         await client.call_tool("upload_media_file", _args())
@@ -420,8 +420,8 @@ async def test_bad_base64_sends_nothing(monkeypatch):
         # refused by the checks on the real bytes
         ({**HAPPY, "/media-upload-finish": (422, {"error": "This MP4 uses the hvc1 codec.", "name": "file"})}, "hvc1", 3),
         # nothing listening
-        ({"/media-upload-start": (200, httpx.ConnectError("refused"))}, "Could not reach", 1),
-        ({"/media-upload-start": (200, TICKET), "/upload/sign/": (200, httpx.ReadTimeout("slow"))}, "Could not reach", 2),
+        ({"/media-upload-start": (200, httpx2.ConnectError("refused"))}, "Could not reach", 1),
+        ({"/media-upload-start": (200, TICKET), "/upload/sign/": (200, httpx2.ReadTimeout("slow"))}, "Could not reach", 2),
     ],
 )
 async def test_a_refusal_stops_there_and_says_why(monkeypatch, answers, match, requests):

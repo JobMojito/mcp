@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import os
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -34,7 +34,7 @@ def _annotations(tool) -> dict:
         return {}
     if isinstance(annotations, dict):
         return annotations
-    return annotations.model_dump(exclude_none=True)
+    return annotations.model_dump(exclude_none=True, by_alias=True)
 
 
 async def _tools():
@@ -114,12 +114,12 @@ async def test_call_posts_candidate_rows_to_invite_users(monkeypatch):
 
     seen: dict = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         seen["path"] = request.url.path
         seen["body"] = json.loads(request.content)
-        return httpx.Response(200, json=[{"email": "jozo@jozo.sk", "result": "Invited", "profile_interview_id": "p1"}])
+        return httpx2.Response(200, json=[{"email": "jozo@jozo.sk", "result": "Invited", "profile_interview_id": "p1"}])
 
-    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(base_url="https://api.test/functions/v1", transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx2.AsyncClient(base_url="https://api.test/functions/v1", transport=httpx2.MockTransport(handler)))
     result = await server.mcp.call_tool("invite_candidates", {"interview_id": INTERVIEW, "candidates": [{"email": "jozo@jozo.sk"}]})
     assert seen["path"].endswith("/invite-users")
     assert seen["body"]["users"] == [{"email": "jozo@jozo.sk", "type": "candidate", "interview_id": INTERVIEW}]
@@ -134,8 +134,8 @@ async def test_upstream_failure_is_a_tool_error_the_middleware_can_rewrite(monke
     import invitations
     import server
 
-    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(
-        base_url="https://api.test", transport=httpx.MockTransport(lambda r: httpx.Response(403, json={"error": "Only merchant can create invitations"}))))
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx2.AsyncClient(
+        base_url="https://api.test", transport=httpx2.MockTransport(lambda r: httpx2.Response(403, json={"error": "Only merchant can create invitations"}))))
     with pytest.raises(ToolError) as exc:
         await server.mcp.call_tool("invite_candidates", {"interview_id": INTERVIEW, "candidates": [{"email": "a@b.co"}]})
     assert "403" in str(exc.value)
@@ -186,12 +186,12 @@ async def test_send_email_false_registers_and_returns_links(monkeypatch):
 
     seen: dict = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         seen["path"] = request.url.path
         seen["body"] = json.loads(request.content)
-        return httpx.Response(200, json=[{"email": "jozo@jozo.sk", "result": "ok", "profile_interview_id": "p1", "interview_url": "https://x/i"}])
+        return httpx2.Response(200, json=[{"email": "jozo@jozo.sk", "result": "ok", "profile_interview_id": "p1", "interview_url": "https://x/i"}])
 
-    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(base_url="https://api.test/functions/v1", transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx2.AsyncClient(base_url="https://api.test/functions/v1", transport=httpx2.MockTransport(handler)))
     result = await server.mcp.call_tool(
         "invite_candidates",
         {"interview_id": INTERVIEW, "candidates": [{"email": "jozo@jozo.sk"}], "send_email": False, "message_from_recruiter": "ignored"},
@@ -236,10 +236,10 @@ async def test_an_unreachable_api_is_a_tool_error_in_both_modes(monkeypatch, sen
     import invitations
     import server
 
-    def refuse(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused", request=request)
+    def refuse(request: httpx2.Request) -> httpx2.Response:
+        raise httpx2.ConnectError("refused", request=request)
 
-    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(base_url="https://api.test", transport=httpx.MockTransport(refuse)))
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx2.AsyncClient(base_url="https://api.test", transport=httpx2.MockTransport(refuse)))
     with pytest.raises(ToolError, match="Could not reach the JobMojito API"):
         await server.mcp.call_tool(
             "invite_candidates", {"interview_id": INTERVIEW, "candidates": [{"email": "a@b.co"}], "send_email": send_email}

@@ -11,7 +11,7 @@ import dataclasses
 import json
 import os
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -133,9 +133,9 @@ def _answer(monkeypatch, response):
     def fake_get(url, **kwargs):
         if isinstance(response, Exception):
             raise response
-        return httpx.Response(response[0], json=response[1], request=httpx.Request("GET", url))
+        return httpx2.Response(response[0], json=response[1], request=httpx2.Request("GET", url))
 
-    monkeypatch.setattr(loader.httpx, "get", fake_get)
+    monkeypatch.setattr(loader.httpx2, "get", fake_get)
 
 
 def test_a_live_spec_is_prepared_and_cached(paths, monkeypatch):
@@ -145,7 +145,7 @@ def test_a_live_spec_is_prepared_and_cached(paths, monkeypatch):
 
 
 def test_a_cache_wins_over_the_snapshot_when_live_is_down(paths, monkeypatch):
-    _answer(monkeypatch, httpx.ConnectError("down"))
+    _answer(monkeypatch, httpx2.ConnectError("down"))
     paths.snapshot_path.write_text(json.dumps({"paths": {"/snapshot": {}}}))
     paths.cache_path.parent.mkdir(parents=True)
     paths.cache_path.write_text(json.dumps({"paths": {"/cache": {}}}))

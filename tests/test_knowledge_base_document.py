@@ -15,7 +15,7 @@ import copy
 import json
 import os
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -37,14 +37,14 @@ async def _tool():
     return {t.name: t for t in await server.mcp.list_tools()}["upload_knowledge_base_document"]
 
 
-def _fake_upstream(monkeypatch, answer: dict, status: int = 200) -> list[httpx.Request]:
-    seen: list[httpx.Request] = []
+def _fake_upstream(monkeypatch, answer: dict, status: int = 200) -> list[httpx2.Request]:
+    seen: list[httpx2.Request] = []
 
     async def fake_send(self, request, **kwargs):
         seen.append(request)
-        return httpx.Response(status, json=answer, request=request)
+        return httpx2.Response(status, json=answer, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     return seen
 
 

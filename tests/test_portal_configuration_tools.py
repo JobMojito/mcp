@@ -36,7 +36,7 @@ def _annotations(tool) -> dict:
         return {}
     if isinstance(annotations, dict):
         return annotations
-    return annotations.model_dump(exclude_none=True)
+    return annotations.model_dump(exclude_none=True, by_alias=True)
 
 
 async def _tool(name: str):

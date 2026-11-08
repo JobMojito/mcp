@@ -96,7 +96,7 @@ async def _fetch_sub_merchants(
 # Imported at module level so the `-> PrefabApp` annotation resolves; requires
 # fastmcp[apps]. If unavailable, `list_my_merchants` still covers the flow.
 try:
-    from fastmcp.apps.app import FastMCPApp
+    from fastmcp import FastMCPApp
     from prefab_ui.actions import SetState
     from prefab_ui.actions.mcp import CallTool, SendMessage
     from prefab_ui.app import PrefabApp

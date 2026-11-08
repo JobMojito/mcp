@@ -19,7 +19,7 @@ import json
 import os
 from urllib.parse import urlsplit
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -65,18 +65,18 @@ class Upstream:
     """Answers every request at the transport; records what would have left the process."""
 
     def __init__(self) -> None:
-        self.requests: list[httpx.Request] = []
+        self.requests: list[httpx2.Request] = []
         self.status = 200
         self.body: object = {}
         self.by_url: dict[str, tuple[int, object]] = {}
 
-    async def handle(self, request: httpx.Request) -> httpx.Response:
+    async def handle(self, request: httpx2.Request) -> httpx2.Response:
         await request.aread()
         self.requests.append(request)
         for fragment, (status, body) in self.by_url.items():
             if fragment in str(request.url):
-                return httpx.Response(status, json=body, request=request)
-        return httpx.Response(self.status, json=self.body, request=request)
+                return httpx2.Response(status, json=body, request=request)
+        return httpx2.Response(self.status, json=self.body, request=request)
 
 
 @pytest.fixture
@@ -93,7 +93,7 @@ def upstream(monkeypatch):
     async def handle_async_request(transport, request):
         return await fake.handle(request)
 
-    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", handle_async_request)
+    monkeypatch.setattr(httpx2.AsyncHTTPTransport, "handle_async_request", handle_async_request)
     monkeypatch.setattr(
         upstream_module, "settings", dataclasses.replace(upstream_module.settings, dev_bearer_token=DEV_TOKEN)
     )
@@ -196,7 +196,7 @@ def _jwt_role(token: str) -> str | None:
     return payload.get("role") if isinstance(payload, dict) else None
 
 
-def _assert_carries_only_the_caller(request: httpx.Request, where: str) -> None:
+def _assert_carries_only_the_caller(request: httpx2.Request, where: str) -> None:
     from config import settings
 
     headers = request.headers
@@ -217,7 +217,7 @@ def _assert_carries_only_the_caller(request: httpx.Request, where: str) -> None:
         assert secret not in wire, f"{where}: settings.{name} reached the request"
 
 
-def _assert_mapped_endpoint(request: httpx.Request, method: str, path: str, where: str) -> None:
+def _assert_mapped_endpoint(request: httpx2.Request, method: str, path: str, where: str) -> None:
     from config import settings
 
     base = urlsplit(settings.api_base_url)
@@ -370,13 +370,13 @@ async def test_read_and_write_follow_the_method_with_named_exceptions():
         meta = next(m for m in TOOL_META.values() if m.name == name)
         annotations = tools[name].annotations
         if method == "GET":
-            assert meta.read_only and annotations.readOnlyHint is True, f"{name} is a GET but not read-only"
-            assert annotations.destructiveHint is False, name
+            assert meta.read_only and annotations.read_only_hint is True, f"{name} is a GET but not read-only"
+            assert annotations.destructive_hint is False, name
         elif meta.read_only:
             read_only_posts.add(name)
         else:
-            assert annotations.readOnlyHint is False, name
-            assert annotations.destructiveHint is True, f"{name} writes but is not destructive"
+            assert annotations.read_only_hint is False, name
+            assert annotations.destructive_hint is True, f"{name} writes but is not destructive"
     # POSTs only because the input is a JSON body; both store nothing (see their justifications)
     assert read_only_posts == {"run_report", "generate_component_styles"}
 
@@ -386,9 +386,9 @@ async def test_irreversible_tools_always_ask():
     tools = await _listed()
     for name in IRREVERSIBLE:
         annotations = tools[name].annotations
-        assert annotations.readOnlyHint is False, name
-        assert annotations.destructiveHint is True, name
-    assert tools["merge_candidates"].annotations.idempotentHint is False
+        assert annotations.read_only_hint is False, name
+        assert annotations.destructive_hint is True, name
+    assert tools["merge_candidates"].annotations.idempotent_hint is False
 
 
 def test_no_write_is_retried_by_the_size_guard():

@@ -18,8 +18,7 @@ import html
 import logging
 import re
 
-import httpx
-
+import httpx2
 from config import settings
 
 logger = logging.getLogger("jobmojito_mcp.featurebase")
@@ -64,7 +63,7 @@ async def list_articles(state: str = "live", page_limit: int = 100, max_pages: i
     url = f"{settings.featurebase_api_base_url}/v2/help_center/articles"
     out: list[dict] = []
     cursor: str | None = None
-    async with httpx.AsyncClient(headers=_headers(), timeout=30.0) as client:
+    async with httpx2.AsyncClient(headers=_headers(), timeout=30.0) as client:
         for _ in range(max_pages):
             params: dict[str, str | int] = {"state": state, "limit": page_limit}
             if cursor:
@@ -89,7 +88,7 @@ async def get_article(article_id: str, state: str = "live") -> dict | None:
     if not is_enabled():
         return None
     url = f"{settings.featurebase_api_base_url}/v2/help_center/articles/{article_id}"
-    async with httpx.AsyncClient(headers=_headers(), timeout=30.0) as client:
+    async with httpx2.AsyncClient(headers=_headers(), timeout=30.0) as client:
         try:
             resp = await client.get(url, params={"state": state})
             resp.raise_for_status()

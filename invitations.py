@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-import httpx
+import httpx2
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, Field
 
@@ -233,7 +233,7 @@ def register(mcp) -> None:
         async with build_api_client() as client:
             try:
                 resp = await client.post(path, json=body)
-            except httpx.HTTPError as exc:
+            except httpx2.HTTPError as exc:
                 raise ToolError(f"Could not reach the JobMojito API: {exc}") from exc
         if resp.status_code >= 400:
             # the shape UpstreamErrorMiddleware turns into a cause + next step

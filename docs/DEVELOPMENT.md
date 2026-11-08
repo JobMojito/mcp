@@ -15,7 +15,7 @@ pip install -e ".[dev]"     # runtime + pytest
 pip install -r requirements.txt
 ```
 
-Runtime deps: `fastmcp[apps]>=3.4,<4`, `httpx`, `python-dotenv`.
+Runtime deps: `fastmcp[apps]>=4.1.6,<5` (MCP SDK 2), `httpx2`, `python-dotenv`, `posthog`.
 
 ## Run locally
 
@@ -77,7 +77,7 @@ Selected keys:
 | `ENABLE_AUTH` | `true` | Master switch for Supabase OAuth. Set `false` only for local dev. |
 | `BASE_URL` | `http://localhost:8000` | Public server URL used for OAuth discovery. Must be the real https URL in production. |
 | `MCP_PATH` | `/mcp` | Path the MCP endpoint is served on; combined with `BASE_URL` to form the OAuth resource id. |
-| `ENABLE_LAZY_AUTH` | `true` | Serve `initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a JWT. |
+| `ENABLE_LAZY_AUTH` | `true` | Serve `server/discover`/`initialize`/`tools/list` without a token so directory crawlers can list tools. Tool calls still require a JWT. |
 | `OAUTH_SCOPES_SUPPORTED` | `openid,email,offline_access` | Advertised in the protected-resource metadata and in `scope=` on the 401 challenge. `offline_access` is what makes Supabase issue a refresh token — drop it and users re-authorize in a browser every hour. |
 | `SUPABASE_SESSION_CHECK` | `true` | Resolve each JWT to a live Supabase session before running a tool, matching what the Edge Functions check. Off means this server accepts tokens the API rejects. Needs `SUPABASE_ANON_KEY`. |
 | `SUPABASE_SESSION_CHECK_TTL` | `60` | Seconds a successful session check is cached — the worst-case delay between a sign-out and this server noticing. |

@@ -55,7 +55,10 @@ EXPECTED_API_TOOLS = {
 }
 EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
 # Written by hand in the server, outside the OpenAPI path.
-EXPECTED_SERVER_TOOLS = {"invite_candidates", "upload_media_file", "list_my_merchants", "jobmojito_configuration"}
+# search_merchants is the picker app's backend tool. FastMCP 4 lists app-only tools
+# (meta.ui.visibility == ["app"]) because the MCP Apps spec leaves hiding them to
+# the host; FastMCP 3 left it out of tools/list.
+EXPECTED_SERVER_TOOLS = {"invite_candidates", "upload_media_file", "list_my_merchants", "jobmojito_configuration", "search_merchants"}
 # Endpoints intentionally excluded from the MCP (must NOT appear as tools), and the
 # tools that were merged into another one through an optional parameter (2.0.0).
 IGNORED_TOOLS = {
@@ -775,7 +778,7 @@ def test_full_view_condenses_through_the_middleware():
     import asyncio
     import types
 
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from middleware import ResponseViewMiddleware
     from naming import response_view_rules
@@ -816,7 +819,7 @@ async def test_oversized_result_drops_the_duplicate_copy_instead_of_failing():
     """The protocol's second copy must not be what refuses a result that fits."""
     import types
 
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from middleware import ResultSizeGuardMiddleware
 
@@ -848,7 +851,7 @@ async def test_result_over_budget_on_its_own_still_raises():
     import types
 
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from middleware import ResultSizeGuardMiddleware
 
@@ -876,7 +879,7 @@ async def test_results_within_budget_keep_both_copies():
     """Nothing changes for the ordinary case — the text copy is still sent."""
     import types
 
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from middleware import ResultSizeGuardMiddleware
 
@@ -1008,7 +1011,7 @@ async def test_oversized_read_is_re_fetched_at_a_page_size_that_fits():
     there; on 29 Aug and 3 Sep the model recovered on its own, 12 and 19 seconds
     later. Doing it server-side makes that automatic.
     """
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     guard = _guard()
     calls = []
@@ -1042,7 +1045,7 @@ async def test_oversized_read_is_re_fetched_at_a_page_size_that_fits():
 async def test_a_write_is_never_re_run():
     """Retrying a POST could create a second interview. Only reads are repeated."""
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from naming import read_only_tool_names
 
@@ -1067,7 +1070,7 @@ async def test_an_oversized_view_is_refused_rather_than_silently_narrowed():
     record came back with fields removed, so `view` is never narrowed for it.
     """
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     guard = _guard()
     calls = []
@@ -1087,7 +1090,7 @@ async def test_an_oversized_view_is_refused_rather_than_silently_narrowed():
 async def test_a_retry_that_still_overflows_reports_the_retry():
     """Sending the model back to a page size we just disproved helps nobody."""
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     guard = _guard()
     calls = []
@@ -1108,7 +1111,7 @@ async def test_a_retry_that_still_overflows_reports_the_retry():
 @pytest.mark.asyncio
 async def test_auto_narrow_can_be_switched_off_without_a_code_change():
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     guard = _guard(auto_narrow=False)
     calls = []
@@ -1130,7 +1133,7 @@ async def test_a_retry_keeps_the_view_the_caller_asked_for():
     so the caller gets different fields than they asked for — the exact failure
     mode auto-narrowing is supposed to avoid.
     """
-    from fastmcp.tools.base import ToolResult
+    from fastmcp.tools import ToolResult
 
     from naming import VIEW_PARAM_NAME
 
@@ -1162,7 +1165,7 @@ async def test_view_and_dedup_work_together_through_the_real_middleware_stack(mo
     receives. That ordering is invisible in unit tests; this exercises the built
     server end to end against a mocked upstream.
     """
-    import httpx
+    import httpx2
     from fastmcp import Client
     from fastmcp.exceptions import ToolError
 
@@ -1189,9 +1192,9 @@ async def test_view_and_dedup_work_together_through_the_real_middleware_stack(mo
 
     async def fake_send(self, request, **kwargs):
         seen_urls.append(str(request.url))
-        return httpx.Response(200, json=upstream, request=request)
+        return httpx2.Response(200, json=upstream, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     args = {"interview_result_id": "93c98d21-e04d-4a84-9afa-ed154cf73636"}
 
     async with Client(server.mcp) as client:
@@ -1251,7 +1254,7 @@ async def test_auto_narrowing_through_the_real_middleware_stack(monkeypatch):
     """
     import urllib.parse
 
-    import httpx
+    import httpx2
     from fastmcp import Client
 
     import server
@@ -1264,7 +1267,7 @@ async def test_auto_narrowing_through_the_real_middleware_stack(monkeypatch):
         requested_limits.append(limit)
         # ~5,260 chars per row: the worst size measured in production for this
         # endpoint (263,118 chars at limit=50, PostHog, 3 Sep 2026).
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "data": [
@@ -1281,7 +1284,7 @@ async def test_auto_narrowing_through_the_real_middleware_stack(monkeypatch):
             request=request,
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
 
     async with Client(server.mcp) as client:
         result = await client.call_tool("list_interview_results", {"limit": 50})

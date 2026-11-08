@@ -16,8 +16,7 @@ import os
 import sys
 from pathlib import Path
 
-import httpx
-
+import httpx2
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -32,7 +31,7 @@ _HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "tr
 
 def main() -> int:
     print(f"Fetching {OPENAPI_URL} ...")
-    resp = httpx.get(OPENAPI_URL, timeout=30.0, follow_redirects=True)
+    resp = httpx2.get(OPENAPI_URL, timeout=30.0, follow_redirects=True)
     resp.raise_for_status()
     spec = resp.json()
 

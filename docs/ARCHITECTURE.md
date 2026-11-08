@@ -26,7 +26,7 @@ Two ideas drive the design:
    Supabase project, and consent is handled by the JobMojito app.
 2. The client calls a tool. FastMCP validates the **input** against the tool's
    schema (derived from the OpenAPI request schema).
-3. The generated tool calls the JobMojito API through the shared httpx client in
+3. The generated tool calls the JobMojito API through the shared httpx2 client in
    `upstream.py`. `SupabaseTokenForwardAuth` pulls the current request's access
    token via `get_access_token()` and sets `Authorization: Bearer <jwt>`; the
    `apikey` header is added when `SUPABASE_ANON_KEY` is set.
@@ -42,7 +42,7 @@ Two ideas drive the design:
 `build_server()`:
 
 - Loads the spec via `openapi_loader.load_openapi_spec()`.
-- Builds the httpx client via `upstream.build_api_client()`.
+- Builds the httpx2 client via `upstream.build_api_client()`.
 - Constructs auth via `_build_auth()` (`SupabaseProvider`, or `None` when
   `ENABLE_AUTH=false`).
 - Computes route maps: excluded paths first (`MCPType.EXCLUDE`), then a catch-all
@@ -175,15 +175,17 @@ The server is built to pass the Anthropic connector directory, the OpenAI plugin
 directory and the MCP Registry without code changes.
 
 - **`lazy_auth.py`** wraps the auth provider class so capability discovery
-  (`initialize`, `ping`, `tools/list` and the other `*/list` methods) is served
+  (`server/discover`; `initialize` and `ping` on pre-2026 protocol versions;
+  `tools/list` and the other `*/list` methods) is served
   **without** a token — crawlers can render the tool list — while every
   `tools/call`, resource read and prompt still requires a verified JWT.
   `WWWAuthenticateScopeMiddleware` adds `scope="openid email"` to the 401
   challenge. This hooks undocumented FastMCP internals, which is why `fastmcp` is
-  pinned `<4` and the lazy-auth tests gate any upgrade.
+  pinned `<5` and the lazy-auth tests gate any upgrade.
 - **`TransportRejectionASGIMiddleware`** (same module, same slot) reports the
   statuses this layer produces *before* dispatch — a stale `Mcp-Session-Id` is a
-  400, a terminated session a 404 — which no tool-level metric can see. Without
+  400, a terminated session a 404, an unsupported protocol version a 400 (the
+  event carries `transport_protocol_version` and `transport_rpc_method`) — which no tool-level metric can see. Without
   it a client stuck in a reconnect loop reads as a zero error rate. 401 is
   excluded: it is the lazy-auth handshake, not a fault, the same carve-out
   `posthog_analytics._classify_upstream_exception` makes.
@@ -312,8 +314,11 @@ calls (omitted for the user's own account).
 
 ## Transport & sessions
 
-The server uses MCP Streamable HTTP. Sessions are identified by `Mcp-Session-Id`.
-Per spec, the server returns **400** for a non-initialize request with a missing
+The server uses MCP Streamable HTTP and serves two protocol eras on one endpoint
+(FastMCP 4, MCP SDK 2). **2026-07-28** is sessionless: no `initialize`, no
+`Mcp-Session-Id`; every request carries its protocol version, and a client may
+call `server/discover` first. **2025-11-25 and older** keep the handshake, and
+sessions are identified by `Mcp-Session-Id`. For those, per spec, the server returns **400** for a non-initialize request with a missing
 session id and **404** for an unknown/expired session; a compliant client must
 re-`initialize` on 404. This is standard transport behavior, not application
 logic — see `docs/DEPLOYMENT.md` for the operational implications.

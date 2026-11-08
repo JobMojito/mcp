@@ -14,7 +14,7 @@ import json
 import os
 import pathlib
 
-import httpx
+import httpx2
 import pytest
 
 os.environ.setdefault("ENABLE_AUTH", "false")
@@ -38,14 +38,14 @@ async def _tools():
     return {t.name: t for t in await server.mcp.list_tools()}
 
 
-def _fake_upstream(monkeypatch, answer: dict, status: int = 200) -> list[httpx.Request]:
-    seen: list[httpx.Request] = []
+def _fake_upstream(monkeypatch, answer: dict, status: int = 200) -> list[httpx2.Request]:
+    seen: list[httpx2.Request] = []
 
     async def fake_send(self, request, **kwargs):
         seen.append(request)
-        return httpx.Response(status, json=answer, request=request)
+        return httpx2.Response(status, json=answer, request=request)
 
-    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+    monkeypatch.setattr(httpx2.AsyncClient, "send", fake_send)
     return seen
 
 
@@ -81,8 +81,8 @@ async def test_the_hint_says_what_each_value_does():
 async def test_annotations():
     tools = await _tools()
     write, read = tools[SET_TOOL].annotations, tools[LIST_TOOL].annotations
-    assert (write.readOnlyHint, write.destructiveHint, write.idempotentHint) == (False, True, True)
-    assert (read.readOnlyHint, read.destructiveHint) == (True, False)
+    assert (write.read_only_hint, write.destructive_hint, write.idempotent_hint) == (False, True, True)
+    assert (read.read_only_hint, read.destructive_hint) == (True, False)
 
 
 @pytest.mark.asyncio
@@ -236,7 +236,7 @@ async def test_listing_a_store_and_an_open_document_validate(monkeypatch):
 
 
 class _Director:
-    def __init__(self, request: httpx.Request) -> None:
+    def __init__(self, request: httpx2.Request) -> None:
         self.request = request
         self.calls: list[tuple] = []
 
@@ -245,31 +245,31 @@ class _Director:
         return self.request
 
 
-def _wrapped(request: httpx.Request):
+def _wrapped(request: httpx2.Request):
     from null_body_args import KeepNullBodyArgs
 
     return KeepNullBodyArgs(_Director(request), ("ids", "other"))
 
 
 def test_without_a_null_the_request_is_untouched():
-    request = httpx.Request("POST", "http://api.test/x", json={"ids": ["a"]})
+    request = httpx2.Request("POST", "http://api.test/x", json={"ids": ["a"]})
     wrapped = _wrapped(request)
     assert wrapped.build("route", {"ids": ["a"]}) is request
     assert wrapped._director.calls == [("route", {"ids": ["a"]}, "http://localhost")]
 
 
 def test_a_named_argument_that_was_not_passed_is_not_invented():
-    request = httpx.Request("POST", "http://api.test/x", json={"name": "n"})
+    request = httpx2.Request("POST", "http://api.test/x", json={"name": "n"})
     assert _wrapped(request).build("route", {"name": "n"}) is request
 
 
 def test_a_null_for_an_argument_that_is_not_named_stays_out():
-    request = httpx.Request("POST", "http://api.test/x", json={"name": "n"})
+    request = httpx2.Request("POST", "http://api.test/x", json={"name": "n"})
     assert _wrapped(request).build("route", {"name": "n", "skip": None}) is request
 
 
 def test_a_null_joins_the_body_and_the_rest_survives():
-    request = httpx.Request("POST", "http://api.test/x?a=1", json={"name": "n"}, headers={"x-keep": "1"})
+    request = httpx2.Request("POST", "http://api.test/x?a=1", json={"name": "n"}, headers={"x-keep": "1"})
     out = _wrapped(request).build("route", {"name": "n", "ids": None}, "http://b.test")
     assert json.loads(out.content) == {"name": "n", "ids": None}
     assert (out.method, str(out.url), out.headers["x-keep"]) == ("POST", "http://api.test/x?a=1", "1")
@@ -278,6 +278,6 @@ def test_a_null_joins_the_body_and_the_rest_survives():
 
 
 def test_a_null_when_nothing_else_was_sent_is_still_a_body():
-    request = httpx.Request("POST", "http://api.test/x")
+    request = httpx2.Request("POST", "http://api.test/x")
     out = _wrapped(request).build("route", {"ids": None, "other": None})
     assert json.loads(out.content) == {"ids": None, "other": None}

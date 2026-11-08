@@ -31,9 +31,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import httpx
-
-
+import httpx2
 class KeepNullBodyArgs:
     """Wraps a director so the named arguments reach the JSON body when they are null."""
 
@@ -41,7 +39,7 @@ class KeepNullBodyArgs:
         self._director = director
         self._names = names
 
-    def build(self, route: Any, flat_args: dict[str, Any], base_url: str = "http://localhost") -> httpx.Request:
+    def build(self, route: Any, flat_args: dict[str, Any], base_url: str = "http://localhost") -> httpx2.Request:
         request = self._director.build(route, flat_args, base_url)
         nulls = {name: None for name in self._names if name in flat_args and flat_args[name] is None}
         if not nulls:
@@ -49,4 +47,4 @@ class KeepNullBodyArgs:
         body = json.loads(request.content) if request.content else {}
         # httpx sets these again for the new body; a stale content-length would truncate it.
         headers = {k: v for k, v in request.headers.items() if k.lower() not in {"content-length", "content-type"}}
-        return httpx.Request(request.method, request.url, headers=headers, json={**body, **nulls})
+        return httpx2.Request(request.method, request.url, headers=headers, json={**body, **nulls})

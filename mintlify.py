@@ -21,14 +21,13 @@ import re
 import time
 from typing import Generator
 
-import httpx
-
+import httpx2
 from config import settings
 
 logger = logging.getLogger("jobmojito_mcp.mintlify")
 
 
-class MintlifyClientCredentialsAuth(httpx.Auth):
+class MintlifyClientCredentialsAuth(httpx2.Auth):
     """httpx auth that obtains/caches a Mintlify MCP access token (client creds)."""
 
     # Ensure the token response body is fully read before it's handed back.
@@ -51,8 +50,8 @@ class MintlifyClientCredentialsAuth(httpx.Auth):
     def _token_valid(self) -> bool:
         return bool(self._access_token) and time.time() < (self._expiry - self._leeway)
 
-    def _token_request(self) -> httpx.Request:
-        return httpx.Request(
+    def _token_request(self) -> httpx2.Request:
+        return httpx2.Request(
             "POST",
             self._token_url,
             data={
@@ -66,7 +65,7 @@ class MintlifyClientCredentialsAuth(httpx.Auth):
             },
         )
 
-    def _store_token(self, response: httpx.Response) -> None:
+    def _store_token(self, response: httpx2.Response) -> None:
         try:
             data = response.json()
         except Exception:
@@ -83,14 +82,14 @@ class MintlifyClientCredentialsAuth(httpx.Auth):
                 response.status_code,
             )
 
-    def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+    def sync_auth_flow(self, request: httpx2.Request) -> Generator[httpx2.Request, httpx2.Response, None]:
         if not self._token_valid():
             self._store_token((yield self._token_request()))
         if self._access_token:
             request.headers["Authorization"] = f"Bearer {self._access_token}"
         yield request
 
-    async def async_auth_flow(self, request: httpx.Request):
+    async def async_auth_flow(self, request: httpx2.Request):
         if not self._token_valid():
             self._store_token((yield self._token_request()))
         if self._access_token:

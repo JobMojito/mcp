@@ -54,7 +54,7 @@ annotations, justifications, version consistency, lazy auth, error rewriting
 ## Architecture at a glance
 
 Request flow for an API tool: MCP client → (Supabase OAuth) → `server.py` tool →
-`upstream.py` httpx client (forwards the user's JWT) → JobMojito API → response
+`upstream.py` httpx2 client (forwards the user's JWT) → JobMojito API → response
 validated against the (relaxed) OpenAPI output schema → back to client.
 
 | File | Responsibility |
@@ -64,14 +64,14 @@ validated against the (relaxed) OpenAPI output schema → back to client.
 | `openapi_loader.py` | Loads spec (live → cache → snapshot), injects curated `operationId`s, **relaxes nullable/enum schemas** for output validation. |
 | `naming.py` | `TOOL_META` maps `(METHOD, path)` → curated tool name + hint. `IGNORED_PATHS` excludes endpoints. |
 | `raw_assessment.py` | Condenses the per-answer raw assessment blob for `get_interview_result_details` `view="full"`. |
-| `upstream.py` | httpx `AsyncClient` + `SupabaseTokenForwardAuth` (forwards end-user JWT; `apikey` header; dev-token fallback). |
+| `upstream.py` | httpx2 `AsyncClient` + `SupabaseTokenForwardAuth` (forwards end-user JWT; `apikey` header; dev-token fallback). |
 | `docs_tools.py` | `search_documentation` (help + developer in parallel) and `get_documentation`. |
 | `featurebase.py` / `mintlify.py` | Help-center (Featurebase REST) and developer-docs (Mintlify) backends for docs search. |
 | `merchants.py` | `jobmojito_configuration` (UI picker MCP App) + `list_my_merchants` (text fallback). |
 | `invitations.py` | `invite_candidates`: `/invite-users` with candidate rows only (the endpoint is otherwise ignored — its `type` also creates staff accounts). |
 | `media_upload.py` | `upload_media_file`: start, send the base64 bytes to the signed address, finish, for a client that cannot send a file itself. |
 | `middleware.py` | Tool-call logging, upstream-error rewriting, result-size guard, output-validation errors, annotation backfill. |
-| `lazy_auth.py` | Auth-layer ASGI middleware: serves `initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, 401s tokens the API has rejected, and reports the transport-level 400/404s that never reach a tool. |
+| `lazy_auth.py` | Auth-layer ASGI middleware: serves `server/discover`/`initialize`/`tools/list` unauthenticated, adds `scope=` to the 401 challenge, 401s tokens the API has rejected, and reports the transport-level 400/404s that never reach a tool. |
 | `session_verifier.py` | Token verifier that also resolves the JWT to a live Supabase session (what the Edge Functions check), + the rejected-token registry behind the re-auth challenge. |
 | `wellknown.py` | Unauthenticated routes: `/healthz`, OpenAI domain challenge, Smithery server card. |
 | `server.json` | Official MCP Registry entry (published by `.github/workflows/publish-registry.yml`). |
@@ -135,15 +135,27 @@ More detail: `docs/ARCHITECTURE.md`.
   Supabase JWT is forwarded by `upstream.py`. For local testing use
   `ENABLE_AUTH=false` or supply `JOBMOJITO_DEV_BEARER_TOKEN`.
 - **Lazy auth is deliberate, and narrow.** `lazy_auth.py` serves only capability
-  discovery (`initialize`, `tools/list`, `ping`, the other `*/list` methods)
-  without a token, so directory crawlers can show the tool list. Every tool call,
+  discovery (`server/discover` on 2026-07-28; `initialize`, `ping` on the older
+  versions; `tools/list` and the other `*/list` methods) without a token, so directory crawlers can show the tool list. Every tool call,
   resource read and prompt still requires a verified JWT. If you add a method to
   `PUBLIC_METHODS`, you are making it anonymous — be sure it exposes no data.
-  It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<4` and
+  It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<5` and
   the lazy-auth tests gate any upgrade.
+- **FastMCP 4 / MCP SDK 2 serve two protocol eras on one endpoint.** 2026-07-28
+  is sessionless: no `initialize`, no `Mcp-Session-Id`, every request carries its
+  version in `_meta` and the `MCP-Protocol-Version` / `Mcp-Method` headers, and
+  `server/discover` replaces the handshake. 2025-11-25 and older keep
+  `initialize` and sessions. Under FastMCP 3 a 2026-07-28 client got HTTP 400
+  "Unsupported protocol version". Two FastMCP 4 changes to keep in mind: it uses
+  **httpx2** for every HTTP call, so this server does too (an `httpx` client,
+  `Auth` or `except httpx.` no longer matches); and SDK models store snake_case
+  fields, so read annotations with `model_dump(by_alias=True)` (the wire names) or
+  `read_only_hint`, never `readOnlyHint` as an attribute. App-only tools
+  (`search_merchants`) are now listed in `tools/list`; hiding them is the host's
+  job under the MCP Apps spec.
 - **The tool error rate is a floor, not a total.** Streamable HTTP answers a stale
-  `Mcp-Session-Id` with a 400 and a terminated session with a 404 *before*
-  dispatch, so those failures appear in no tool-call metric and the PostHog MCP
+  `Mcp-Session-Id` with a 400, a terminated session with a 404 and a protocol
+  version it does not support with a 400, all *before* dispatch, so those failures appear in no tool-call metric and the PostHog MCP
   adapter — which hooks the request handlers — never sees them either.
   `lazy_auth.TransportRejectionASGIMiddleware` reports them (401 excluded: that is
   the lazy-auth handshake, matching the `$exception` filter's carve-out). When a

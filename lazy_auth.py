@@ -370,14 +370,20 @@ class TransportRejectionASGIMiddleware:
         try:
             headers = {k.lower(): v for k, v in scope.get("headers") or []}
             # Presence, never the value: a session id identifies a live session.
+            # 2026-07-28 requests are sessionless, so for them it is always absent.
             had_session = b"mcp-session-id" in headers
             user_agent = headers.get(b"user-agent", b"").decode("latin-1")[:200]
+            # Protocol identifiers, not secrets: kept short against junk headers.
+            protocol_version = headers.get(b"mcp-protocol-version", b"").decode("latin-1")[:40]
+            rpc_method = headers.get(b"mcp-method", b"").decode("latin-1")[:80]
             logger.warning(
                 "Transport rejected a request before dispatch: HTTP %d on %s "
-                "(Mcp-Session-Id %s, user-agent %r). No tool ran, so this appears "
-                "in no tool-call metric.",
+                "(protocol %r, method %r, Mcp-Session-Id %s, user-agent %r). No tool "
+                "ran, so this appears in no tool-call metric.",
                 status,
                 self.mcp_path,
+                protocol_version,
+                rpc_method,
                 "present" if had_session else "absent",
                 user_agent,
             )
@@ -387,6 +393,8 @@ class TransportRejectionASGIMiddleware:
                 method=scope.get("method", ""),
                 had_session_id=had_session,
                 user_agent=user_agent,
+                protocol_version=protocol_version,
+                rpc_method=rpc_method,
             )
         except Exception:
             # Telemetry must never be able to break a response.

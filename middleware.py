@@ -23,7 +23,7 @@ from jsonschema.validators import validator_for
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from fastmcp.tools.base import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent, ToolAnnotations
 
 # `naming` holds no imports of its own from this module, so this stays one-way.
@@ -924,7 +924,10 @@ def _annotations_as_dict(annotations) -> dict:
         return dict(annotations)
     dump = getattr(annotations, "model_dump", None)
     if callable(dump):
-        return dump(exclude_none=True)
+        # by_alias: the wire names (readOnlyHint, ...). mcp 2 models store
+        # snake_case fields, so a plain dump has read_only_hint and every
+        # curated hint looked missing (and was overwritten as destructive).
+        return dump(exclude_none=True, by_alias=True)
     return {}
 
 

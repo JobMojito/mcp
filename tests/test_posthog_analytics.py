@@ -94,7 +94,7 @@ def test_server_errors_are_reported_and_labelled(message, status):
 
 def test_result_size_guard_refusal_is_dropped():
     """Built by the real guard, so a rewording there cannot silently re-open the issue."""
-    from fastmcp.tools.tool import ToolResult
+    from fastmcp.tools import ToolResult
 
     from middleware import ResultSizeGuardMiddleware
 
@@ -297,6 +297,61 @@ async def test_only_unexpected_transport_statuses_are_reported(status, reported)
         assert seen[0]["had_session_id"] is True
         assert seen[0]["user_agent"] == "claude-code/2.1"
         assert "dead" not in str(seen[0]), "the session id itself is never recorded"
+
+
+@pytest.mark.asyncio
+async def test_a_refused_protocol_version_is_reported_with_the_version_and_method():
+    """The 400 a 2026-07-28 client got from the 1.x SDK: only diagnosable by the version."""
+    from lazy_auth import TransportRejectionASGIMiddleware
+
+    seen = []
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 400, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    middleware = TransportRejectionASGIMiddleware(
+        app, mcp_path="/mcp", report=lambda **kw: seen.append(kw)
+    )
+
+    async def send(message):
+        return None
+
+    scope = {
+        "type": "http",
+        "path": "/mcp",
+        "method": "POST",
+        "headers": [
+            (b"MCP-Protocol-Version", b"2026-07-28"),
+            (b"Mcp-Method", b"server/discover"),
+            (b"user-agent", b"histor/0.6.2"),
+        ],
+    }
+    await middleware(scope, None, send)
+
+    assert seen == [
+        {
+            "status": 400,
+            "method": "POST",
+            "had_session_id": False,
+            "user_agent": "histor/0.6.2",
+            "protocol_version": "2026-07-28",
+            "rpc_method": "server/discover",
+        }
+    ]
+
+
+def test_transport_rejection_event_carries_protocol_version_and_method(recording_client):
+    from posthog_analytics import capture_transport_rejection
+
+    capture_transport_rejection(
+        status=400, method="POST", protocol_version="2026-07-28", rpc_method="server/discover"
+    )
+    (event, kwargs), = recording_client.events
+    assert event == "mcp_transport_rejected"
+    properties = kwargs["properties"]
+    assert properties["transport_protocol_version"] == "2026-07-28"
+    assert properties["transport_rpc_method"] == "server/discover"
 
 
 @pytest.mark.asyncio
