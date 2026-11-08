@@ -336,17 +336,22 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Get interview definition",
         "Get the definition/configuration of an interview (position), including "
         "its ordered `questions` array. The questions come back in the same "
-        "format create_interview_from_questions accepts, so you can read an "
+        "format create_interview accepts in `questions`, so you can read an "
         "interview here, change the array, and send it to update_interview. Each "
-        "question's `id` identifies it — keep the ids you did not mean to change.",
+        "question's `id` identifies it — keep the ids you did not mean to change. "
+        "For a position add include=process (its steps with their settings and "
+        "updated_at, for update_position_step), slots (upcoming meeting slots), team, "
+        "lifecycle, publishing.",
         _READ_WHY,
     ),
     ("POST", "/job-interview-update"): _write(
         "update_interview",
         "Update interview or position",
         "Update the configuration of an existing interview/position: name, "
-        "description, avatar template, recording, scoring, tags and the rest of "
-        "the create-time settings. Only the fields you send are changed. "
+        "description, avatar template, recording, scoring, tags, category and the rest "
+        "of the create-time settings; for a position also its hiring `team` and "
+        "recruiter. A position's steps are changed with set_position_process and "
+        "update_position_step. Only the fields you send are changed. "
         "To change the questions, send `questions` — the WHOLE list you want the "
         "interview to end up with, in order, in the format "
         "get_interview_definition returns. OMIT `questions` and the existing "
@@ -423,8 +428,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ),
     ("POST", "/job-interview-set-state"): _write(
         "set_interview_state",
-        "Change interview state",
-        "Change the state of an interview/position (e.g. open, closed).",
+        "Change publication status, vacancy lifecycle or embedding",
+        "Change an interview's or position's publication `status` (draft, active, "
+        "archived...), or a position's vacancy `lifecycle` (open, applications_closed, "
+        "on_hold, filled, cancelled, closed) with an optional reason_id and note, or its "
+        "embed key (is_embedded). Closing a position e-mails the candidates whose "
+        "applications are still open.",
         "readOnlyHint=false / destructiveHint=true: this mutates a live interview. "
         "Closing a position stops candidates from being able to complete it, which "
         "is user-visible and disruptive if done by mistake. idempotentHint=true: "
@@ -486,9 +495,13 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-create"): _write(
         "create_interview",
         "Create interview",
-        "Create a new interview and auto-generate its question sequence from "
-        "position data. The `interview_template_id` you pass also sets the "
-        "modality (voice-only vs realtime/pre-recorded avatar) — see `list_avatars`.",
+        "Create a new interview. Without `questions` its question sequence is "
+        "generated from the position data. With `questions` (an explicit list) those "
+        "are used: the AI rephrases your wording unless you pass "
+        "`interview_tone=\"exact\"`, which asks each question verbatim (compliance, "
+        "translated or legally reviewed text). The `interview_template_id` you pass "
+        "also sets the modality (voice-only vs realtime/pre-recorded avatar): see "
+        "`list_avatars`.",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "interview definition on the account and consumes credits. " + _OPEN_WORLD,
     ),
@@ -561,52 +574,58 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "them, default first).",
         _READ_WHY,
     ),
+    # One save tool: POST /catalogue-tag-create takes action create (default) or
+    # update; /catalogue-tag-update stays in the API, hidden here (IGNORED_PATHS).
     ("POST", "/catalogue-tag-create"): _write(
-        "create_catalogue_directory",
-        "Create coaching catalogue directory",
-        "Create a directory (page) in the coaching portal catalogue. A directory "
-        "nests other directories (`tags_sub`), lists coaching sessions whose own "
-        "`tags` match its `tags_interview_set_filter`, and can carry a fully "
-        "custom Markdown page (`content_md`) with `[sessions]`, `[directory:…]`, "
-        "`[session:…]` and `[plan-progress]` directives. One directory can hold "
-        "several languages: the top-level fields are the default language, "
-        "`translations` adds the others. Coaching-platform feature.",
-        "readOnlyHint=false / destructiveHint=true: creates a persistent, "
-        "publicly reachable catalogue page on the merchant's coaching portal. "
-        + _OPEN_WORLD,
-    ),
-    ("POST", "/catalogue-tag-update"): _write(
-        "update_catalogue_directory",
-        "Update coaching catalogue directory",
-        "Update a coaching catalogue directory: rename it, change which sessions "
-        "it lists (`tags_interview_set_filter`), re-order its sub-directories "
-        "(`tags_sub`), author its custom Markdown page (`content_md`), or add, "
-        "replace or remove a language version (`translations`, per language; "
-        "null removes one). Only the fields you send are changed. A top-level null "
-        "counts as not sent, except `content_md: null`, the only way to remove the "
-        "custom page and restore the default grid: leave `content_md` out unless "
-        "that is what you mean. Coaching-platform feature.",
-        "readOnlyHint=false / destructiveHint=true: overwrites a live, publicly "
-        "reachable catalogue page in place. idempotentHint=true: sending the same "
-        "body twice leaves the same stored state. " + _OPEN_WORLD,
-        idempotent=True,
+        "save_catalogue_directory",
+        "Create or update a coaching catalogue directory",
+        "With action create (the default): create a directory (page) in the coaching "
+        "portal catalogue. A directory nests other directories (`tags_sub`), lists "
+        "coaching sessions whose own `tags` match its `tags_interview_set_filter`, and "
+        "can carry a fully custom Markdown page (`content_md`) with `[sessions]`, "
+        "`[directory:…]`, `[session:…]` and `[plan-progress]` directives; the top-level "
+        "fields are the default language, `translations` adds the others. With action "
+        "update and `id`: rename it, change which sessions it lists, re-order its "
+        "sub-directories, author its page, or add, replace or remove a language version "
+        "(`translations`, per language; null removes one). On update only the fields you "
+        "send change; a top-level null counts as not sent, except `content_md: null`, the "
+        "only way to remove the custom page and restore the default grid. "
+        "Coaching-platform feature.",
+        "readOnlyHint=false / destructiveHint=true: creates a publicly reachable "
+        "catalogue page, or overwrites a live one in place. idempotentHint=false: each "
+        "create makes another directory. " + _OPEN_WORLD,
         null_body_args=("content_md",),
+        # The create endpoint's text (with action update it does what catalogue-tag-update
+        # did): its "null clears" promises are false here, a top-level null is left out.
         description_fixes=(
             (
-                ", and sending null clears a nullable field.",
-                ". A top-level null argument counts as not sent, except on content_md.",
+                "(null clears a nullable field; in `translations` null removes a language)",
+                "(a top-level null argument counts as not sent, except on content_md; in "
+                "`translations` a language sent as null is removed)",
             ),
-            # The portal card hides a blank cover (CategoryCard).
-            ("null clears it.", "An empty string clears it."),
+            # The portal card hides a blank cover (CategoryCard), so a blank string is
+            # the way to clear it on update.
+            (
+                "Cover image URL shown on the directory card.",
+                "Cover image URL for the directory card. An empty string clears it.",
+            ),
             (
                 "Omit/null to leave it out of any plan.",
-                "Omit to keep the current stage. A null is ignored: use `other` when no "
-                "stage fits.",
+                "Omit to leave it out of any plan, or on update to keep the current stage. "
+                "A null is ignored: use `other` when no stage fits.",
             ),
-            # Each language's null does arrive: nested values are not left out.
+            # Each language's null does arrive: nested values are not left out. The
+            # whole-object null does not, so say how to remove every version.
             (
-                "Send `translations: null` to remove every version.",
-                "To remove every version, send null for each language.",
+                "and null removes that language.",
+                "and a language sent as null is removed; to remove every version, send null "
+                "for each language.",
+            ),
+            # content_md opted in (null_body_args): its null arrives and removes the page.
+            (
+                "; null renders the plain grid of sub-directories and sessions.",
+                ". Sending null removes the custom page and renders the plain grid of "
+                "sub-directories and sessions.",
             ),
         ),
     ),
@@ -669,14 +688,20 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     # --- Merchant lists (read-only) ---
     ("GET", "/merchant-interview-list"): _read(
         "list_interviews",
-        "List interviews",
-        "List the merchant's interview definitions.",
+        "List interviews and positions",
+        "List the merchant's interviews and positions, with lifecycle, category, tags, "
+        "recruiter and step count; filter by lifecycle, recruiter_profile_id or "
+        "interview_category.",
         _READ_WHY,
     ),
     ("GET", "/merchant-candidate-list"): _read(
         "list_candidates",
-        "List candidates",
-        "List the merchant's candidates.",
+        "List and search candidates",
+        "List the merchant's candidates, filtered by text, activity tab, source, channel, "
+        "owner, prospect or applicant. To search like the admin's segment builder (tags, "
+        "positions, steps, status, dates, countries, skills, custom fields...) pass `rules` "
+        "as JSON {\"match\": \"all\", \"rules\": [...]}, field ids and values from "
+        "list_candidate_filters; or `segment_id` for a segment's members.",
         _READ_WHY,
     ),
     ("GET", "/merchant-result-list"): _read(
@@ -685,7 +710,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List the merchant's interview results. Rows carry the candidate's "
         "scores and recruiter risk flags, so this returns 20 at a time; page "
         "with `offset` while `pagination.has_more` is true, or narrow with "
-        "`tab`/`interview_id`/`filter_text`.",
+        "`tab`/`interview_id`/`filter_text`/`owner`/`position_def_step_id`. "
+        "extended=true adds the owner, time on the step, outcome and decision reason.",
         _READ_WHY,
         # Measured in production (PostHog $mcp_tool_call, Aug-Sep 2026): three
         # default 50-row calls came back at 124,120 / 149,276 / 263,118 chars on
@@ -861,17 +887,20 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List media library files",
         "List the company's media library: images, MP4 video, audio and WOFF2 fonts, newest "
         "first. Use a file's `url` in page blocks, brand logos and font settings. Logos and "
-        "images the company stored before are included. Filter by `folder` (\"\" is the top; "
-        "list_media_folders gives the names). A sub-company also sees its parent's files, "
-        "marked read_only: usable, not changeable.",
+        "images the company stored before are included. Filter by `folder` (\"\" is the top). "
+        "Pass include_folders=true to also get every folder (empty ones included) with how "
+        "many files each holds; use a name as `folder` here, in start_media_upload and in "
+        "manage_media_file. A sub-company also sees its parent's files, marked read_only: "
+        "usable, not changeable.",
         _READ_WHY,
     ),
+    # Kept for the record only: GET /media-folders is hidden (IGNORED_OPERATIONS);
+    # list_media_files include_folders=true returns the same folders.
     ("GET", "/media-folders"): _read(
         "list_media_folders",
         "List media library folders",
         "List the folders of the company's media library, empty ones included, with how many "
-        "files each holds, A to Z. Use a name as `folder` in list_media_files, "
-        "start_media_upload and update_media_file.",
+        "files each holds, A to Z.",
         _READ_WHY,
     ),
     ("POST", "/media-folders"): _write(
@@ -908,17 +937,24 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "repeating the call on a finished file returns it unchanged. " + _OPEN_WORLD,
         idempotent=True,
     ),
+    # One tool for a file: POST /media-update takes action update (default) or delete;
+    # /media-delete stays in the API, hidden here (IGNORED_PATHS).
     ("POST", "/media-update"): _write(
-        "update_media_file",
-        "Describe a media file",
-        "Change a file's name, alt text, focal point or poster, or move it to another folder "
-        "(\"\" is the top). Fields left out keep their value. alt replaces the whole set of "
-        "languages. A null focal_x, focal_y or poster_url clears it. A move gives the file a "
-        "new `url`: live pages keep the old one and page drafts move at once (drafts_updated).",
+        "manage_media_file",
+        "Describe, move or delete a media file",
+        "With action update (the default): change a file's name, alt text, focal point or "
+        "poster, or move it to another folder (\"\" is the top). Fields left out keep their "
+        "value. alt replaces the whole set of languages. A null focal_x, focal_y or poster_url "
+        "clears it. A move gives the file a new `url`: live pages keep the old one and page "
+        "drafts move at once (drafts_updated). With action delete and only media_id: delete "
+        "the file for good, once the user has confirmed it. Refused while a page, brand, CSS "
+        "file, style setting, company logo or branding, interview, position, blog post, avatar "
+        "or coaching catalogue uses it: the error lists what does, so tell the user rather "
+        "than removing those uses yourself.",
         "readOnlyHint=false / destructiveHint=true: overwrites the file's description in "
-        "place, and a folder change gives the file a new address and rewrites page drafts. "
-        "idempotentHint=true: the same values give the same result. " + _OPEN_WORLD,
-        idempotent=True,
+        "place, a folder change gives the file a new address and rewrites page drafts, and "
+        "delete removes the file and its resized copies for good. idempotentHint=false: a "
+        "second delete answers that the file does not exist. " + _OPEN_WORLD,
         null_body_args=("focal_x", "focal_y", "poster_url"),
     ),
     ("POST", "/media-delete"): _write(
@@ -933,7 +969,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "does not exist. " + _OPEN_WORLD,
     ),
     # --- Custom reports (SQL 133). Flow: list_report_fields -> write a
-    # definition -> preview_report -> create_report / update_report.
+    # definition -> run_report (definition) -> save_report.
     ("GET", "/report-catalog"): _read(
         "list_report_fields",
         "List report datasets and fields",
@@ -949,49 +985,62 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ),
     ("GET", "/report-list"): _read(
         "list_reports",
-        "List custom reports",
-        "List custom reports you can open (yours, shared with you) and the "
-        "JobMojito templates, with id, title, visibility, your access and version.",
+        "List reports",
+        "List the reports you can run: custom reports you can open (yours, shared with "
+        "you), the JobMojito templates, and the built-in reports (kind builtin, id "
+        "builtin:<name>, with their sections and whether they are available to you). "
+        "scope=builtin lists only the built-in ones; they are listed even while custom "
+        "reports are switched off.",
         _READ_WHY,
     ),
     ("GET", "/report-get"): _read(
         "get_report",
         "Get custom report",
         "Get a custom report's JSON definition, visibility, your access and its "
-        "version. Read it before update_report: the definition is replaced whole "
+        "version. Read it before save_report with report_id: the definition is replaced whole "
         "and the version must match.",
         _READ_WHY,
     ),
+    # Kept for the record only: GET /report-run is hidden (IGNORED_PATHS); run_report
+    # (POST /report-preview) runs saved, built-in and unsaved reports.
     ("GET", "/report-run"): _read(
-        "run_report",
+        "run_saved_report",
         "Run custom report",
-        "Run a saved custom report and return each block's rows (aggregated "
-        "numbers, at most 500 rows per block). Optional `filters` JSON overrides "
-        "the period / positions / interviews for this run only. Report numbers are "
-        "decision-support material for a human reviewer.",
+        "Run a saved custom report and return each block's rows.",
         _READ_WHY,
     ),
     ("POST", "/report-preview"): _read(
-        "preview_report",
-        "Check and preview a report definition",
-        "Validate a report definition against the catalogue and run it without "
-        "saving anything. Use it before create_report / update_report: a block "
-        "that is wrong comes back with ok=false and an error naming the field and "
-        "the valid ids.",
-        "readOnlyHint=true: although the request is a POST (the definition is a "
-        "JSON body), nothing is stored or changed; it only reads and aggregates "
-        "existing records. idempotentHint=true: the same body returns the same "
-        "data. " + _OPEN_WORLD,
+        "run_report",
+        "Run a report",
+        "Run a report and return each block's rows (aggregated numbers, at most 500 rows "
+        "per block). Three ways: `report_id` of a saved custom report (your saved filters, "
+        "then `filters`, apply; with `version` a newer report is refused with 409); "
+        "`report_id` builtin:<name> of a built-in report from list_reports (`section`, "
+        "`from` / `to`, `position_id` or `interview_id`, `limit` / `offset`; sections that "
+        "list candidates by name run only with include_candidates=true and are audited); or "
+        "an unsaved `definition`, which is validated against list_report_fields and run "
+        "without storing anything: check a definition this way before save_report, a wrong "
+        "block comes back with ok=false and an error naming the field and the valid ids. "
+        "Report numbers are decision-support material for a human reviewer.",
+        "readOnlyHint=true: although the request is a POST (a definition is a JSON body), "
+        "nothing is stored or changed; it only reads and aggregates existing records. "
+        "idempotentHint=true: the same body returns the same data. " + _OPEN_WORLD,
     ),
+    # One save tool: POST /report-create with report_id + version updates exactly as
+    # /report-update does; /report-update stays in the API, hidden here (IGNORED_PATHS).
     ("POST", "/report-create"): _write(
-        "create_report",
-        "Create custom report",
-        "Save a new custom report from a definition (schema jobmojito.report/v1). "
-        "It is created as Only me: tell the user they can share it from the "
-        "returned admin_url. Check the definition with preview_report first.",
-        "readOnlyHint=false / destructiveHint=true: stores a new report on the "
-        "merchant account. idempotentHint=false: each call creates another report. "
-        + _OPEN_WORLD,
+        "save_report",
+        "Save a custom report",
+        "Without report_id: save a new custom report from a definition (schema "
+        "jobmojito.report/v1); it is created as Only me, tell the user they can share it "
+        "from the returned admin_url. With report_id and the version from get_report: "
+        "replace that report's whole definition; on a report shared with other people the "
+        "change is saved as a draft that the owner publishes in the admin, a private report "
+        "updates at once. Check the definition with run_report (definition, no report_id) "
+        "first.",
+        "readOnlyHint=false / destructiveHint=true: stores a new report or overwrites a "
+        "stored definition (or its draft). idempotentHint=false: each create makes another "
+        "report and every update bumps the version. " + _OPEN_WORLD,
     ),
     ("POST", "/report-update"): _write(
         "update_report",
@@ -1004,6 +1053,205 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "definition (or its draft). idempotentHint=false: every save bumps the "
         "version, so repeating the call with the old version is refused. "
         + _OPEN_WORLD,
+    ),
+    # --- Positions (SQL 316): process, step settings, meeting slots, copies ---
+    ("POST", "/merchant-position-process-save"): _write(
+        "set_position_process",
+        "Set a position's steps",
+        "Add, remove or reorder the steps of a DRAFT position (pre-screening, AI interview, "
+        "meeting, external assessment, Certo verification), sending the whole ordered list. "
+        "New steps get the admin's defaults; change a step's settings with "
+        "update_position_step. A step candidates already reached cannot be removed, nor a "
+        "meeting step that still has slots. Read the current steps with "
+        "get_interview_definition include=process. dry_run=true returns the diff (added, "
+        "removed, moved, changed) without saving.",
+        "readOnlyHint=false / destructiveHint=true: replaces the position's step list. "
+        "idempotentHint=true: the same list gives the same steps. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
+    ("POST", "/merchant-position-step-update"): _write(
+        "update_position_step",
+        "Change a position step's settings",
+        "Change one step's settings: send `step_id`, optionally `name`, `advance` and "
+        "`kombo`, and only the settings object of the step's type (`meeting`, `certo`, "
+        "`external_assessment`, `interview`, `pre_screening`); only the keys you send change "
+        "and null removes a key. Read the step first with get_interview_definition "
+        "include=process and send its `updated_at` back as expected_updated_at: a newer "
+        "change is refused with 409. Settings are live: candidates already on the step get "
+        "them at once. Use dry_run=true first: it shows the changed keys, the candidates on "
+        "the step, booked meetings and warnings, and saves nothing.",
+        "readOnlyHint=false / destructiveHint=true: changes live settings that candidates "
+        "already on the step get immediately. idempotentHint=true: the same values give the "
+        "same settings. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
+    ("POST", "/merchant-meeting-slot-manage"): _write(
+        "manage_meeting_slot",
+        "Create, change or delete a meeting slot",
+        "Bookable time slots of a meeting step: action create, update or delete (with "
+        "start_at, duration_minutes, capacity, location, meeting_url, interviewer and panel). "
+        "Moving, shortening or relocating a booked slot e-mails its candidates the change, "
+        "and deleting one cancels their bookings and e-mails them. Use dry_run=true first: "
+        "it lists the booked candidates who would be e-mailed. List slots with "
+        "get_interview_definition include=slots.",
+        "readOnlyHint=false / destructiveHint=true: changes or removes bookable time and can "
+        "cancel candidates' bookings, e-mailing them; a cancellation cannot be undone. "
+        + _OPEN_WORLD,
+    ),
+    ("POST", "/merchant-position-duplicate"): _write(
+        "duplicate_position",
+        "Copy a position",
+        "Copy a position with its steps and settings as a new draft, optionally with a new "
+        "name, country, location, openings or availability date, or into another company you "
+        "manage (target_merchant_id; admins and sub-merchant operators only). Candidates and "
+        "results are not copied.",
+        "readOnlyHint=false / destructiveHint=true: creates a new position. "
+        "idempotentHint=false: each call makes another copy. " + _OPEN_WORLD,
+    ),
+    ("POST", "/merchant-interview-duplicate"): _write(
+        "duplicate_interview",
+        "Copy an interview",
+        "Copy a stand-alone interview (not a position's step) as a new draft, optionally "
+        "renamed or into another company you manage. Results are not copied.",
+        "readOnlyHint=false / destructiveHint=true: creates a new interview. "
+        "idempotentHint=false: each call makes another copy. " + _OPEN_WORLD,
+    ),
+    # --- Candidates (SQL 317, 319): card, notes, tags, search values, duplicates, segments ---
+    ("GET", "/merchant-candidate-get"): _read(
+        "get_candidate",
+        "Get a candidate",
+        "One candidate in full: profile, applications with their steps and decisions, tags "
+        "and automatic tags, counts of notes, open tasks, document requests and segments, and "
+        "the duplicate flag. Add include=notes,duplicates,documents,tasks,segments for those "
+        "lists; a section whose feature is off is named in `unavailable`. Candidate data is "
+        "decision-support material for a human reviewer.",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-candidate-note-add"): _write(
+        "add_candidate_note",
+        "Add a note to a candidate",
+        "Add a note to a candidate (candidate_id) or to one result (result_id), visible to "
+        "the team or private to you, optionally mentioning colleagues (each mention gets one "
+        "e-mail). Notes cannot be changed or deleted through this tool.",
+        "readOnlyHint=false / destructiveHint=true: stores a note the team sees and can "
+        "e-mail mentioned colleagues. idempotentHint=false: each call adds another note. "
+        + _OPEN_WORLD,
+    ),
+    ("POST", "/merchant-candidate-tags-set"): _write(
+        "set_candidate_tags",
+        "Tag candidates",
+        "Add and remove the company's tags on up to 5000 candidates in one call "
+        "(add_tag_ids, remove_tag_ids; ids from list_candidate_filters). Candidates you "
+        "cannot see are skipped and counted in not_visible.",
+        "readOnlyHint=false / destructiveHint=true: changes the tags of many candidates at "
+        "once. idempotentHint=true: the same call gives the same tags. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
+    ("POST", "/merchant-candidate-tag-manage"): _write(
+        "manage_candidate_tag",
+        "Create, change or delete a candidate tag",
+        "The company's candidate tag list: action create, update (rename, recolor) or "
+        "delete. Rename, recolor and delete are for owners; delete removes the tag from "
+        "every candidate for good (dry_run=true shows how many carry it).",
+        "readOnlyHint=false / destructiveHint=true: delete removes the tag from every "
+        "candidate and cannot be undone. " + _OPEN_WORLD,
+    ),
+    ("GET", "/merchant-candidate-filter-options"): _read(
+        "list_candidate_filters",
+        "List candidate search filters",
+        "Every rule field and operator list_candidates accepts in `rules`, and every value "
+        "with its id: tags with counts, automatic tags, positions with their steps, "
+        "interviews, countries, sources, statuses, history, and where switched on decision "
+        "reasons, job categories, skills, seniority and custom fields. Call it before "
+        "building rules or tagging, so no id is guessed.",
+        _READ_WHY,
+    ),
+    ("GET", "/merchant-candidate-merge-preview"): _read(
+        "preview_candidate_merge",
+        "Preview merging two candidates",
+        "Show what merging merge_id into keep_id would do: both values of each field, the "
+        "records that move, blockers, and `preview_token`. merge_candidates needs that "
+        "token, and refuses it if either candidate changed since.",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-candidate-merge"): _write(
+        "merge_candidates",
+        "Merge two candidates",
+        "Merge merge_id into keep_id after preview_candidate_merge (send its preview_token; "
+        "field_choices picks keep or merge per field). Owners and admins only. "
+        "IRREVERSIBLE: there is no unmerge. The candidate is not told. Only run it when the "
+        "user confirmed this exact pair.",
+        "readOnlyHint=false / destructiveHint=true: permanently merges two candidate records "
+        "and cannot be undone. " + _OPEN_WORLD,
+    ),
+    ("POST", "/merchant-candidate-duplicate-dismiss"): _write(
+        "dismiss_candidate_duplicate",
+        "Dismiss a possible duplicate",
+        "Mark a suggested duplicate pair (duplicate_id from get_candidate "
+        "include=duplicates) as not the same person, with an optional note.",
+        "readOnlyHint=false / destructiveHint=true: records a decision the duplicate list "
+        "follows from then on. idempotentHint=true. " + _OPEN_WORLD,
+        idempotent=True,
+    ),
+    ("GET", "/merchant-segment-list"): _read(
+        "list_segments",
+        "List candidate segments",
+        "List the company's candidate segments (dynamic, by rules, or static lists) with "
+        "their size, or with segment_id one segment in full: rules, analytics and linked "
+        "positions. List a segment's members with list_candidates segment_id.",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-segment-manage"): _write(
+        "manage_segment",
+        "Create, change or delete a candidate segment",
+        "action save (create without id, update with id; name, description, kind, rules as "
+        "in list_candidates), delete, or add_members / remove_members of a static segment "
+        "(candidate ids). Fields left out keep their value. Try the rules with "
+        "list_candidates rules=... first. Sends nothing to candidates.",
+        "readOnlyHint=false / destructiveHint=true: delete removes the segment for good. "
+        + _OPEN_WORLD,
+    ),
+    # --- Tasks, document requests (SQL 318) ---
+    ("GET", "/merchant-task-list"): _read(
+        "list_tasks",
+        "List tasks",
+        "The hiring team's follow-up tasks: mine, created by me or all; by candidate, "
+        "position, assignee, status or due date; with counts.",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-task-save"): _write(
+        "save_task",
+        "Create or change a task",
+        "Without task_id: create a task (title, notes, due date, assignee, about a candidate, "
+        "application or position). With task_id: change the fields you send, or the status "
+        "(done, cancelled; a cancelled task stays cancelled). Assigning a task to someone "
+        "else e-mails them (assignee_notified).",
+        "readOnlyHint=false / destructiveHint=true: stores a task and can e-mail its "
+        "assignee. " + _OPEN_WORLD,
+    ),
+    ("GET", "/merchant-document-request-list"): _read(
+        "list_document_requests",
+        "List document requests",
+        "Documents asked from candidates: company-wide or for one candidate, by status, or "
+        "attention=true for the ones that need a look (uploaded, overdue).",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-document-request-create"): _write(
+        "request_candidate_documents",
+        "Ask a candidate for documents",
+        "Ask a candidate for up to 10 documents (certificate, ID, reference...) with a "
+        "message and due date. With notify (the default) the candidate is e-mailed. Use "
+        "dry_run=true first: it shows whether the e-mail would go out (will_send, "
+        "not_requested, no_valid_email, suppressed) and stores nothing.",
+        "readOnlyHint=false / destructiveHint=true: e-mails the candidate, which cannot be "
+        "undone. idempotentHint=false. " + _OPEN_WORLD,
+    ),
+    ("POST", "/merchant-document-request-update"): _write(
+        "update_document_request",
+        "Cancel a document request or mark it reviewed",
+        "action cancel (the candidate can no longer upload) or reviewed (the uploads were "
+        "checked). A request in the wrong state is refused with 409.",
+        "readOnlyHint=false / destructiveHint=true: cancel cannot be undone. " + _OPEN_WORLD,
     ),
     # --- Feedback ---
     ("POST", "/merchant-feature-request"): ToolMeta(
@@ -1061,7 +1309,26 @@ IGNORED_PATHS: set[str] = {
     "/job-interview-pre-screening-api-resume-text",  # pre-screening — excluded
     "/job-interview-pre-screening-api-resume-binary",  # pre-screening — excluded
     "/merchant-document-download",  # 302 to a signed file URL for HR systems (webhooks v2) — not a tool
+    # merged into another tool through an optional parameter; the endpoints stay in the API
+    "/job-interview-create-from-array",  # create_interview with questions
+    "/job-interview-register-users",  # invite_candidates with send_email=false
+    "/catalogue-tag-update",  # save_catalogue_directory with action update
+    "/media-delete",  # manage_media_file with action delete
+    "/report-run",  # run_report (POST /report-preview with report_id)
+    "/report-update",  # save_report with report_id
+    "/merchant-analytics",  # run_report builtin:usage
+    "/merchant-analytics-credits-used",  # run_report builtin:usage
 }
+
+# Single operations to exclude when the path serves other tools too.
+IGNORED_OPERATIONS: set[tuple[str, str]] = {
+    ("GET", "/media-folders"),  # list_media_files include_folders=true; POST stays manage_media_folder
+}
+
+
+def is_ignored(method: str, path: str) -> bool:
+    """True when the operation is not exposed as a tool (by path or by method + path)."""
+    return path in IGNORED_PATHS or (method.upper(), path) in IGNORED_OPERATIONS
 
 
 def meta_for(method: str, path: str) -> ToolMeta | None:
@@ -1249,8 +1516,8 @@ def annotation_justifications(include_ignored: bool = False) -> dict[str, str]:
     to produce the copy-pasteable answer set.
     """
     out: dict[str, str] = {}
-    for (_method, path), meta in sorted(TOOL_META.items(), key=lambda kv: kv[1].name):
-        if path in IGNORED_PATHS and not include_ignored:
+    for (method, path), meta in sorted(TOOL_META.items(), key=lambda kv: kv[1].name):
+        if is_ignored(method, path) and not include_ignored:
             continue
         out[meta.name] = meta.justification
     # tools written by hand, outside the OpenAPI path

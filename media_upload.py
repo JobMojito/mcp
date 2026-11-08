@@ -140,7 +140,7 @@ def register(mcp) -> None:
         ],
         folder: Annotated[
             str | None,
-            Field(description="Library folder, one level, such as Crew life (list_media_folders gives the names). Default: the top. A new name makes the folder."),
+            Field(description="Library folder, one level, such as Crew life (list_media_files include_folders=true gives the names). Default: the top. A new name makes the folder."),
         ] = None,
         replace_media_id: Annotated[
             str | None,

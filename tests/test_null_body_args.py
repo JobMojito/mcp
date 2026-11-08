@@ -25,17 +25,19 @@ os.environ.setdefault("DEVELOPER_DOCS_MCP_URL", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_ID", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_SECRET", "")
 
-from naming import IGNORED_PATHS, TOOL_META  # noqa: E402
+from naming import TOOL_META, is_ignored  # noqa: E402
 from openapi_loader import apply_description_fixes  # noqa: E402
 
 INTERVIEW = "de300000-0000-4000-8001-000000000007"
 DIRECTORY = "sales-coaching-en"
 UPDATE_INTERVIEW = "update_interview"
-UPDATE_DIRECTORY = "update_catalogue_directory"
-TARGET = {UPDATE_INTERVIEW: {"position_id": INTERVIEW}, UPDATE_DIRECTORY: {"id": DIRECTORY}}
+# One tool creates and updates a directory (POST /catalogue-tag-create, action update);
+# the partial update is what the null rules are about.
+UPDATE_DIRECTORY = "save_catalogue_directory"
+TARGET = {UPDATE_INTERVIEW: {"position_id": INTERVIEW}, UPDATE_DIRECTORY: {"action": "update", "id": DIRECTORY}}
 ANSWER = {
     UPDATE_INTERVIEW: {"position_id": INTERVIEW, "is_multistage": False, "updated_fields": []},
-    UPDATE_DIRECTORY: {"id": DIRECTORY, "updated_fields": [], "catalogue_url": None},
+    UPDATE_DIRECTORY: {"id": DIRECTORY, "merchant_id": "m", "parent_tag": None, "updated_fields": [], "catalogue_url": None},
 }
 ENABLED = [
     (UPDATE_DIRECTORY, "content_md", "## Sales\n"),
@@ -57,7 +59,7 @@ def _nullable_body_fields() -> list[tuple[str, str]]:
     """(tool, field) for every top-level nullable body field of a curated, exposed POST."""
     out = []
     for (method, path), meta in TOOL_META.items():
-        if method != "POST" or path in IGNORED_PATHS:
+        if method != "POST" or is_ignored(method, path):
             continue
         operation = SNAPSHOT["paths"][path]["post"]
         if "application/json" not in operation.get("requestBody", {}).get("content", {}):
@@ -104,7 +106,7 @@ def test_the_opt_in_list_is_exactly_this():
         "set_knowledge_base_document_interviews": {"interview_ids"},
         UPDATE_DIRECTORY: {"content_md"},
         UPDATE_INTERVIEW: {"candidate_notification_channel", "questions_random_subset", "pdf_export_auto_config"},
-        "update_media_file": {"focal_x", "focal_y", "poster_url"},
+        "manage_media_file": {"focal_x", "focal_y", "poster_url"},
     }
 
 
@@ -287,12 +289,14 @@ async def test_each_field_says_what_really_happens(tool, field, says):
     assert says in (await _tools())[tool].parameters["properties"][field]["description"]
 
 
-@pytest.mark.parametrize("tool", ["create_interview", "create_interview_from_questions"])
 @pytest.mark.asyncio
-async def test_the_create_tools_keep_their_text(tool):
+async def test_the_create_tools_keep_their_text():
     """On a create, null and omit are the same thing, so "Omit/null to disable" is true."""
-    properties = (await _tools())[tool].parameters["properties"]
-    assert "Omit/null to disable." in properties["recording"]["description"]
+    tools = await _tools()
+    assert "Omit/null to disable." in tools["create_interview"].parameters["properties"]["recording"]["description"]
+    # the explicit-questions create is create_interview with `questions` now
+    assert "create_interview_from_questions" not in tools
+    assert "questions" in tools["create_interview"].parameters["properties"]
 
 
 def test_a_correction_never_contains_what_it_replaces():
@@ -313,7 +317,11 @@ def test_every_correction_finds_its_text_in_the_snapshot(key, meta):
 
 # ---- apply_description_fixes --------------------------------------------------------------
 
-FIX_PATH = "/catalogue-tag-update"
+# save_catalogue_directory: the create endpoint, whose action update replaced
+# /catalogue-tag-update (hidden now, and without corrections of its own).
+FIX_PATH = "/catalogue-tag-create"
+PROMISE_TEXT = "Update: (null clears a nullable field; in `translations` null removes a language)."
+COVER = "Cover image URL shown on the directory card."
 
 
 def _spec(schema: dict, components: dict | None = None) -> dict:
@@ -322,7 +330,7 @@ def _spec(schema: dict, components: dict | None = None) -> dict:
             FIX_PATH: {
                 "parameters": [],
                 "post": {
-                    "description": "Only sent fields, and sending null clears a nullable field.",
+                    "description": PROMISE_TEXT,
                     "requestBody": {"content": {"application/json": {"schema": schema}}},
                 },
             },
@@ -334,18 +342,25 @@ def _spec(schema: dict, components: dict | None = None) -> dict:
 
 
 def test_a_correction_reaches_the_operation_and_a_field_behind_a_ref():
-    schema = {"properties": {"cover_image_url": {"description": "Cover. null clears it."}, "x": {}, "y": True}}
+    schema = {"properties": {"cover_image_url": {"description": f"Cover. {COVER}"}, "x": {}, "y": True}}
     spec = _spec({"$ref": "#/components/schemas/Body"}, {"Body": schema})
     apply_description_fixes(spec)
     assert "counts as not sent" in spec["paths"][FIX_PATH]["post"]["description"]
-    assert schema["properties"]["cover_image_url"]["description"] == "Cover. An empty string clears it."
+    assert "null clears" not in spec["paths"][FIX_PATH]["post"]["description"]
+    assert schema["properties"]["cover_image_url"]["description"] == (
+        "Cover. Cover image URL for the directory card. An empty string clears it."
+    )
+    # the hidden update endpoint is not a tool, so nothing corrects its text
+    hidden = {"paths": {"/catalogue-tag-update": {"post": {"description": PROMISE_TEXT}}}}
+    apply_description_fixes(hidden)
+    assert hidden["paths"]["/catalogue-tag-update"]["post"]["description"] == PROMISE_TEXT
     assert spec["paths"]["/job-interview-get"]["get"]["description"] == "null clears it."
 
 
 def test_an_inline_body_is_corrected_too():
-    schema = {"properties": {"cover_image_url": {"description": "null clears it."}}}
+    schema = {"properties": {"cover_image_url": {"description": COVER}}}
     apply_description_fixes(_spec(schema))
-    assert schema["properties"]["cover_image_url"]["description"] == "An empty string clears it."
+    assert schema["properties"]["cover_image_url"]["description"].endswith("An empty string clears it.")
 
 
 def test_preparing_twice_changes_nothing_and_warns_about_nothing_new(caplog):
@@ -363,8 +378,8 @@ def test_wording_the_api_changed_is_logged(caplog):
     spec = _spec({"properties": {"x": {"description": "Reworded."}}})
     with caplog.at_level(logging.WARNING, logger="jobmojito_mcp.openapi"):
         apply_description_fixes(spec)
-    assert "update_catalogue_directory" in caplog.text
-    assert "null clears it." in caplog.text
+    assert "save_catalogue_directory" in caplog.text
+    assert COVER in caplog.text
 
 
 def test_an_operation_without_a_json_body_is_only_checked_for_its_own_text(caplog):

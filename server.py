@@ -40,6 +40,7 @@ import merchants
 import wellknown
 from config import settings
 from naming import (
+    IGNORED_OPERATIONS,
     IGNORED_PATHS,
     curated_defaults,
     fallback_meta,
@@ -56,7 +57,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "1.5.0"
+SERVER_VERSION = "2.0.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -98,7 +99,7 @@ so results respect that user's own permissions.
 
 THREE PRODUCTS, and they are easy to confuse:
 • Interviews — a scored Q&A. `create_interview` (questions generated from a job
-  description) or `create_interview_from_questions` (your own list).
+  description, or your own list in `questions`).
 • Simulated personas — a scored free-form role-play used to assess or screen.
   `create_persona` with `portal="interview"`. Invited, billed and listed exactly
   like an interview.
@@ -114,9 +115,19 @@ product, billed to the wrong credits and invisible to the recruiter.
 CUSTOM REPORTS: a report is a JSON definition (schema "jobmojito.report/v1")
 the user also edits in the admin. Always call `list_report_fields` first and use
 only the dataset, dimension and measure ids it returns; check the definition with
-`preview_report` (nothing is saved) before `create_report` / `update_report`.
+`run_report` and a `definition` (nothing is saved) before `save_report`.
 New reports are private to the user; they share them from the returned admin_url.
-`update_report` on a shared report saves a draft the owner publishes in the admin.
+`save_report` with a `report_id` on a shared report saves a draft the owner publishes
+in the admin. Built-in reports (the admin's analytics pages) are in `list_reports`
+as builtin:<name> and run with `run_report`.
+
+ATS: candidates are one record per company (`get_candidate`, `list_candidates`);
+an application is a candidate on a position, moving through the position's steps.
+`list_candidates` with `rules` searches like the admin's segment builder (tags,
+positions, steps, status, dates, countries, skills...): call `list_candidate_filters`
+first for the fields and ids. Changes that reach candidates or cannot be undone
+(`merge_candidates`, slot changes, document requests, step settings) take
+`dry_run` or a preview first: show the user what would happen, then run it.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,
@@ -164,20 +175,30 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
 • Documentation: search_documentation, get_documentation
 • Configuration / merchants: jobmojito_configuration (searchable picker),
   list_my_merchants (text equivalent, supports a `search` filter)
-• Interview (create/manage): create_interview, create_interview_from_questions,
-  get_interview_definition, set_interview_state, request_another_interview_attempt
+• Interview (create/manage): create_interview, get_interview_definition (add
+  include=process,slots,team,lifecycle,publishing for a position), update_interview,
+  set_interview_state (publication status, vacancy lifecycle), duplicate_interview,
+  request_another_interview_attempt
+• Positions: set_position_process (steps of a draft), update_position_step (one
+  step's settings), manage_meeting_slot, duplicate_position
+• Candidates: list_candidates, get_candidate, list_candidate_filters,
+  add_candidate_note, set_candidate_tags, manage_candidate_tag; duplicates:
+  preview_candidate_merge, merge_candidates, dismiss_candidate_duplicate;
+  segments: list_segments, manage_segment
+• Tasks and documents: list_tasks, save_task, list_document_requests,
+  request_candidate_documents, update_document_request
 • Role-play (simulated persona or coaching persona — chosen with `portal`):
   create_persona
 • Coaching catalogue: list_catalogue_directories, get_catalogue_directory,
-  create_catalogue_directory, update_catalogue_directory
+  save_catalogue_directory
 • Invitations: invite_candidates (e-mails each candidate their invitation, the
-  same as the admin console), register_users_for_interview (personal interview
-  links only, NO e-mail), generate_interview_url (a signed link to share)
-• Results & reports: get_interview_result_details, generate_interview_report
+  same as the admin console; send_email=false returns personal interview links
+  only, NO e-mail), generate_interview_url (a signed link to share)
+• Results & reports: get_interview_result_details, generate_interview_report,
+  list_reports, run_report, get_report, list_report_fields, save_report
 • Knowledge base: upload_knowledge_base_document, list_knowledge_base_documents, set_knowledge_base_document_interviews
 • Merchant lists (read-only): list_interviews, list_candidates,
-  list_interview_results, list_avatars, list_sub_merchants, get_merchant_analytics,
-  get_merchant_status
+  list_interview_results, list_avatars, list_sub_merchants, get_merchant_status
 • Portal configuration: get_portal_configuration, update_portal_configuration
 • Career page styles: publish_portal_stylesheet (settings and CSS files are written
   with update_portal_configuration)
@@ -187,15 +208,16 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   style is on)
 • Media library: list_media_files, upload_media_file (one call, base64),
   start_media_upload + finish_media_upload (for a client that can send a file to an
-  address), update_media_file (also moves a file to a folder), delete_media_file;
-  folders: list_media_folders, manage_media_folder
+  address), manage_media_file (describe, move to a folder, or delete);
+  folders: list_media_files include_folders=true, manage_media_folder
 
 Typical flows:
 - "Set up an interview for a role" → create_interview → invite_candidates, or
   generate_interview_url for one shareable link.
 - "Invite candidates to an interview" → invite_candidates (sends the invitation
   e-mail; report each row's result as returned). For links the user shares
-  themselves: register_users_for_interview (no e-mail) or generate_interview_url.
+  themselves: invite_candidates with send_email=false (no e-mail) or
+  generate_interview_url.
 - "Review a candidate's result" → list_interview_results → get_interview_result_details
   → generate_interview_report.
 - "Screen someone with a role-play instead of questions" → create_persona with
@@ -205,7 +227,7 @@ Typical flows:
   `tags_interview_set_filter` those tags satisfy lists it automatically.
 - "Offer a coaching page in several languages" → one session per language
   (create_interview / create_persona with its `mojito_language_code` and a
-  language tag such as `sales-sk`) → ONE directory: create_catalogue_directory with
+  language tag such as `sales-sk`) → ONE directory: save_catalogue_directory with
   the default language at the top level and the others in `translations`, each with
   its own `tags_interview_set_filter` → check each language with
   get_catalogue_directory(`mojito_language_code`=…). Never one directory per
@@ -216,6 +238,11 @@ Typical flows:
   when the user asked to publish; otherwise pages stay drafts in the admin.
 - "Add a picture to a career page" → list_media_files, or upload_media_file → put the
   file's `url` in the block with update_portal_configuration.
+- "Change the meeting step of a position" → get_interview_definition
+  include=process → update_position_step with expected_updated_at and dry_run=true
+  → the same call without dry_run.
+- "Find candidates tagged X on position Y" → list_candidate_filters →
+  list_candidates with rules.
 """
 
 
@@ -420,11 +447,16 @@ def build_server() -> FastMCP:
     auth = _build_auth()
 
     ignored = _ignored_paths()
-    # Exclude ignored endpoints first, then map everything else to a Tool.
-    route_maps = [
-        RouteMap(pattern=rf"^{re.escape(p)}$", mcp_type=MCPType.EXCLUDE)
-        for p in sorted(ignored)
-    ] + [RouteMap(mcp_type=MCPType.TOOL)]
+    # Exclude ignored endpoints and single ignored operations first, then map
+    # everything else to a Tool.
+    route_maps = (
+        [RouteMap(pattern=rf"^{re.escape(p)}$", mcp_type=MCPType.EXCLUDE) for p in sorted(ignored)]
+        + [
+            RouteMap(methods=[m], pattern=rf"^{re.escape(p)}$", mcp_type=MCPType.EXCLUDE)
+            for m, p in sorted(IGNORED_OPERATIONS)
+        ]
+        + [RouteMap(mcp_type=MCPType.TOOL)]
+    )
 
     mcp = FastMCP.from_openapi(
         openapi_spec=spec,

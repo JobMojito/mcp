@@ -26,7 +26,7 @@ os.environ.setdefault("DEVELOPER_DOCS_MCP_URL", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_ID", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_SECRET", "")
 
-from naming import IGNORED_PATHS, TOOL_META  # noqa: E402
+from naming import TOOL_META, is_ignored  # noqa: E402
 from openapi_loader import RESPONSE_COPY_SUFFIX, _prepare, relax_nullable_schemas  # noqa: E402
 
 INTERVIEW = "de300000-0000-4000-8001-000000000007"
@@ -239,7 +239,7 @@ def _paired_nodes(tool_node: dict, raw_node: dict, where: str):
 
 def _generated_tools_with_a_body():
     for (method, path), meta in TOOL_META.items():
-        if path in IGNORED_PATHS:
+        if is_ignored(method, path):
             continue
         operation = RAW["paths"][path][method.lower()]
         content = operation.get("requestBody", {}).get("content", {})
@@ -297,7 +297,7 @@ async def test_every_typed_output_property_accepts_null():
     tools = await _listed_tools()
     checked = 0
     for (method, path), meta in TOOL_META.items():
-        if path in IGNORED_PATHS or not tools[meta.name].outputSchema:
+        if is_ignored(method, path) or not tools[meta.name].outputSchema:
             continue
         responses = RAW["paths"][path][method.lower()]["responses"]
         ok = next(content for status, content in responses.items() if status.startswith("2"))

@@ -1,8 +1,99 @@
 # ATS tools for the MCP: specification
 
-Status: proposed, not built. Written 2026-11-08 from reading the code only, current tools checked
-against `mcp` main `0bf9229`; nothing here was run against a database, and output sizes are
-estimates.
+Status: BUILT 2026-11-08 (local commits, not pushed, not deployed). The section "As built" below is
+what exists; the sections after it are the original proposal, kept for the reasoning. Where they
+differ, "As built" wins.
+
+## As built
+
+**Tool surface:** 67 tools (61 generated from the API + 6 defined in the server), against 56
+before and 97 in the first proposal. Tools were merged through optional API parameters, so no
+endpoint was removed and the API stays backward compatible.
+
+New tools (20):
+- **Positions:** set_position_process, update_position_step, manage_meeting_slot,
+  duplicate_position, duplicate_interview.
+- **Candidates:** get_candidate, add_candidate_note, set_candidate_tags, manage_candidate_tag,
+  list_candidate_filters.
+- **Duplicates and segments:** preview_candidate_merge, merge_candidates,
+  dismiss_candidate_duplicate, list_segments, manage_segment.
+- **Tasks and documents:** list_tasks, save_task, list_document_requests,
+  request_candidate_documents, update_document_request.
+
+Extended (new optional parameters / fields):
+- **Interviews and positions:** get_interview_definition (include=process,slots,team,lifecycle,publishing),
+  update_interview (team, tags and category on positions), set_interview_state (vacancy
+  lifecycle).
+- **Lists:** list_interviews, list_candidates (rules / segment_id search, owner, kind, channel),
+  list_interview_results (extended, owner, step).
+- **Results and status:** get_interview_result_details, get_merchant_status.
+- **Reports:** list_reports and run_report (built-in reports).
+
+Merged:
+- **Interviews and invitations:** create_interview takes questions (create-from-array hidden);
+  invite_candidates takes send_email=false (register_users_for_interview hidden).
+- **Coaching catalogue:** save_catalogue_directory (catalogue-tag-create with action).
+- **Media:** manage_media_file (media-update with action delete); list_media_files
+  include_folders (GET media-folders hidden).
+- **Reports:** run_report = POST report-preview (saved, built-in or unsaved); save_report =
+  report-create with report_id.
+- **Usage:** get_merchant_analytics and get_merchant_credit_usage are now run_report
+  builtin:usage.
+
+MCP version 2.0.0 (tools renamed and removed).
+
+**SQL (deploy in number order):**
+- **316:** step settings validator and patch RPC, slot manage, interview duplicate. Closes: staff
+  could copy a confidential position.
+- **317:** candidate card, note add. Closes: tagging, segment options and duplicates ignored
+  position access; notes could be rewritten or deleted by colleagues; a spoofed sub-merchant
+  claim could add notes.
+- **318:** document requests follow position access (RPCs and direct reads).
+- **319:** merge preview, duplicate decisions and segment members follow position access;
+  another company's staff and hiring-manager writes get 42501.
+- **320:** interview_transcript adds ids and the decision for staff.
+- **321:** built-in report RPCs. EXECUTE revoked from anon on 11 legacy analytics RPCs;
+  interview_analytics refuses candidate tokens.
+- **322:** team, lifecycle, openings and publishing follow position access;
+  merchant_interview_list_filtered.
+
+Then the edge functions, then the MCP restart, then the admin. Separately and first:
+**8ae0060d**, the invite-users fix (it trusted an unsigned service_role claim).
+
+**Security testing:** every endpoint's unit tests run `_shared/ats/security-testing.ts` once per
+token type:
+- none, anon, service role, candidate interview token, consumer, untyped;
+- hiring manager, recruiter, owner, another company's owner, sub-merchant operator, admin.
+
+It checks four things:
+- refusal before any data call;
+- hiring managers read only;
+- only the token's own company reaches the database;
+- no undocumented column in a response (planted leak column).
+
+Every new or newly exposed SQL function is tested in `tests/sql/316-322` on
+`tests/sql/_ats_world.sql`:
+- outsiders, spoofed claims, other companies and the service role;
+- a recruiter outside a confidential position, who must see none of it;
+- switches off, rollback and re-apply.
+
+Coverage is 100% line and branch on every changed Deno file and 100% branch on every new or
+changed PL/pgSQL function.
+
+**Known gaps, not exposed by the API, follow-up:**
+- **Ignore position access:** merchant_definition_publishing_set,
+  merchant_definition_target_days_set and merchant_position_close_notice_preview.
+- **Ignore position access, still in the admin:** merchant_workflow_analytics,
+  merchant_vacancy_aging, merchant_position_time_to_fill, distributions, cheating, interviewer
+  insights, sourcing cost and referrers, chat, touchpoints and the credit ledger. The API leaves
+  them out or filters them for position-scoped callers.
+- **Trust the token's claim:** RLS on several tables trusts the token's sub_merchant_id claim
+  without the grant table (spoofed agency claims read through invoker RPCs); the API's definer
+  RPCs check the grant.
+- **Ignore position access, other paths:** merchant_custom_fields_set (candidate side) and
+  merchant_interview_token_profile_id_claims.
+- **Validation gap:** merchant_position_process_save validates new steps only partly when called
+  directly; the API validates them fully.
 
 Goal: give the MCP (and so the admin AI assistant, which picks up every MCP write tool behind its
 confirm card) the ATS features built since October: position process editing (meeting, Certo,

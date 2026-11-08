@@ -53,7 +53,7 @@ async def test_invite_candidates_is_listed_as_a_destructive_write():
         "idempotentHint": False,
         "openWorldHint": True,
     }
-    assert "register_users_for_interview" in tool.description  # points to the link-only tool
+    assert "send_email=false" in tool.description  # the link-only way is the same tool
 
 
 @pytest.mark.asyncio
@@ -102,7 +102,7 @@ def test_summary_counts_only_invited_as_sent():
         {"email": "e@f.co", "result": "Activated"},
         "junk",
     ])
-    assert (out["invited"], out["failed"], out["other"]) == (1, 1, 1)
+    assert (out["email_sent"], out["invited"], out["failed"], out["other"]) == (True, 1, 1, 1)
     assert out["results"][1] == {"email": "c@d.co", "result": "Error: no invitations left", "profile_interview_id": None}
     assert summarize_results(None)["results"] == []
 
@@ -142,21 +142,105 @@ async def test_upstream_failure_is_a_tool_error_the_middleware_can_rewrite(monke
 
 
 @pytest.mark.asyncio
-async def test_register_users_for_interview_promises_no_email():
-    tool = (await _tools())["register_users_for_interview"]
-    assert "send_email" not in tool.parameters["properties"]
-    assert "NO e-mail" in tool.description
-    assert "invite_candidates" in tool.description
+async def test_register_users_for_interview_is_merged_into_invite_candidates():
+    tools = await _tools()
+    assert "register_users_for_interview" not in tools
+    params = tools["invite_candidates"].parameters["properties"]
+    assert params["send_email"]["default"] is True
+    assert "NOTHING" in params["send_email"]["description"]
+
+
+def test_register_body_and_link_summary():
+    from invitations import CandidateToInvite, build_register_body, summarize_links
+
+    body = build_register_body(
+        INTERVIEW,
+        [CandidateToInvite(email=" jozo@jozo.sk ", name="Jozo", phone="+421903123456"), CandidateToInvite(email="a@b.co", name=" ")],
+        merchant_id="bee53937-4593-4de0-a3cd-cb24036d1245",
+        is_test=True,
+    )
+    assert body == {
+        "interview_id": INTERVIEW,
+        "users": [{"email": "jozo@jozo.sk", "name": "Jozo", "phone": "+421903123456"}, {"email": "a@b.co"}],
+        "is_test": True,
+        "merchant_id": "bee53937-4593-4de0-a3cd-cb24036d1245",
+    }
+    assert "is_test" not in build_register_body(INTERVIEW, [CandidateToInvite(email="a@b.co")])
+    out = summarize_links([
+        {"email": "a@b.co", "result": "ok", "profile_interview_id": "p1", "interview_url": "https://x/i?t=1"},
+        {"email": "c@d.co", "result": "Error: invalid e-mail"},
+        {"email": "e@f.co"},
+        "junk",
+    ])
+    assert (out["email_sent"], out["registered"], out["failed"]) == (False, 1, 2)
+    assert out["results"][0]["interview_url"] == "https://x/i?t=1"
+    assert out["results"][2]["result"] == "Error: no result"
+    assert "No e-mail was sent" in out["note"]
+    assert summarize_links(None)["results"] == []
+
+
+@pytest.mark.asyncio
+async def test_send_email_false_registers_and_returns_links(monkeypatch):
+    import invitations
+    import server
+
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=[{"email": "jozo@jozo.sk", "result": "ok", "profile_interview_id": "p1", "interview_url": "https://x/i"}])
+
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(base_url="https://api.test/functions/v1", transport=httpx.MockTransport(handler)))
+    result = await server.mcp.call_tool(
+        "invite_candidates",
+        {"interview_id": INTERVIEW, "candidates": [{"email": "jozo@jozo.sk"}], "send_email": False, "message_from_recruiter": "ignored"},
+    )
+    assert seen["path"].endswith("/job-interview-register-users")
+    assert seen["body"] == {"interview_id": INTERVIEW, "users": [{"email": "jozo@jozo.sk"}]}
+    data = result.structured_content
+    assert data["email_sent"] is False and data["registered"] == 1 and data["results"][0]["interview_url"] == "https://x/i"
 
 
 def test_instructions_route_invites_to_invite_candidates():
     import server
 
-    assert '"Invite candidates to an interview" → invite_candidates' in server.INSTRUCTIONS
-    assert "register_users_for_interview (personal interview\n  links only, NO e-mail)" in server.INSTRUCTIONS
+    flat = " ".join(server.INSTRUCTIONS.split())  # line wrapping is not the point
+    assert '"Invite candidates to an interview" → invite_candidates' in flat
+    assert "send_email=false returns personal interview links only, NO e-mail" in flat
+    assert "register_users_for_interview" not in server.INSTRUCTIONS
 
 
 def test_justification_is_submittable():
     import naming
 
     assert len(naming.annotation_justifications()["invite_candidates"]) >= 40
+
+
+def test_blank_phones_and_rows_without_a_result():
+    from invitations import CandidateToInvite, build_invite_body, build_register_body, summarize_results
+
+    blank = [CandidateToInvite(email="a@b.co", phone="   ")]
+    assert build_invite_body(INTERVIEW, blank)["users"] == [{"email": "a@b.co", "type": "candidate", "interview_id": INTERVIEW}]
+    assert build_register_body(INTERVIEW, blank)["users"] == [{"email": "a@b.co"}]
+    out = summarize_results([{"email": "a@b.co"}])
+    assert out["results"][0]["result"] == "Error: no result"
+    assert (out["invited"], out["failed"]) == (0, 1)
+
+
+@pytest.mark.parametrize("send_email", [True, False])
+@pytest.mark.asyncio
+async def test_an_unreachable_api_is_a_tool_error_in_both_modes(monkeypatch, send_email):
+    from fastmcp.exceptions import ToolError
+
+    import invitations
+    import server
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    monkeypatch.setattr(invitations, "build_api_client", lambda: httpx.AsyncClient(base_url="https://api.test", transport=httpx.MockTransport(refuse)))
+    with pytest.raises(ToolError, match="Could not reach the JobMojito API"):
+        await server.mcp.call_tool(
+            "invite_candidates", {"interview_id": INTERVIEW, "candidates": [{"email": "a@b.co"}], "send_email": send_email}
+        )

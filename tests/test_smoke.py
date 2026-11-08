@@ -23,29 +23,59 @@ os.environ.setdefault("DEVELOPER_DOCS_MCP_URL", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_ID", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_SECRET", "")
 
+# Every tool generated from the API (61): curated in naming.TOOL_META, not ignored.
 EXPECTED_API_TOOLS = {
-    "generate_interview_report", "get_interview_definition", "set_interview_state",
-    "request_another_interview_attempt", "generate_interview_url",
-    "get_interview_result_details", "register_users_for_interview",
-    "create_interview", "create_interview_from_questions", "update_interview",
-    "create_catalogue_directory", "update_catalogue_directory",
-    "list_catalogue_directories", "get_catalogue_directory",
+    # interviews and positions
+    "create_interview", "create_persona", "get_interview_definition", "update_interview",
+    "set_interview_state", "list_interviews", "duplicate_interview", "generate_interview_url",
+    "request_another_interview_attempt", "set_position_process", "update_position_step",
+    "manage_meeting_slot", "duplicate_position",
+    # results and reports
+    "list_interview_results", "get_interview_result_details", "generate_interview_report",
+    "set_assessment_result", "list_report_fields", "list_reports", "get_report", "run_report",
+    "save_report",
+    # candidates (ATS)
+    "list_candidates", "get_candidate", "list_candidate_filters", "add_candidate_note",
+    "set_candidate_tags", "manage_candidate_tag", "preview_candidate_merge", "merge_candidates",
+    "dismiss_candidate_duplicate", "list_segments", "manage_segment", "list_tasks", "save_task",
+    "list_document_requests", "request_candidate_documents", "update_document_request",
+    # coaching catalogue, knowledge base
+    "list_catalogue_directories", "get_catalogue_directory", "save_catalogue_directory",
     "upload_knowledge_base_document", "list_knowledge_base_documents",
-    "set_knowledge_base_document_interviews", "list_interviews", "list_candidates",
-    "list_interview_results", "list_avatars", "list_sub_merchants",
-    "get_merchant_analytics", "get_merchant_status",
-    "list_report_fields", "list_reports", "get_report", "run_report",
-    "preview_report", "create_report", "update_report",
+    "set_knowledge_base_document_interviews",
+    # company
+    "list_avatars", "list_sub_merchants", "get_merchant_status", "list_languages",
+    # portal, styles, media
+    "get_portal_configuration", "update_portal_configuration", "publish_portal_stylesheet",
+    "get_component_style_guide", "save_component_style", "generate_component_styles",
+    "list_media_files", "start_media_upload", "finish_media_upload", "manage_media_file",
+    "manage_media_folder",
+    # feedback
     "submit_feature_request", "report_technical_issue",
-    "get_portal_configuration", "update_portal_configuration",
-    "publish_portal_stylesheet", "list_media_files", "start_media_upload",
-    "finish_media_upload", "update_media_file", "delete_media_file",
 }
 EXPECTED_DOC_TOOLS = {"search_documentation", "get_documentation"}
-# Endpoints intentionally excluded from the MCP (must NOT appear as tools).
+# Written by hand in the server, outside the OpenAPI path.
+EXPECTED_SERVER_TOOLS = {"invite_candidates", "upload_media_file", "list_my_merchants", "jobmojito_configuration"}
+# Endpoints intentionally excluded from the MCP (must NOT appear as tools), and the
+# tools that were merged into another one through an optional parameter (2.0.0).
 IGNORED_TOOLS = {
     "invite_users", "create_interview_for_candidate",
     "upsert_pre_screening", "pre_screen_resume_text", "pre_screen_resume_binary",
+}
+MERGED_TOOLS = {
+    "create_interview_from_questions": "create_interview",  # questions
+    "register_users_for_interview": "invite_candidates",  # send_email=false
+    "create_catalogue_directory": "save_catalogue_directory",
+    "update_catalogue_directory": "save_catalogue_directory",  # action update
+    "update_media_file": "manage_media_file",
+    "delete_media_file": "manage_media_file",  # action delete
+    "list_media_folders": "list_media_files",  # include_folders
+    "preview_report": "run_report",  # definition
+    "run_saved_report": "run_report",  # report_id
+    "create_report": "save_report",
+    "update_report": "save_report",  # report_id
+    "get_merchant_analytics": "run_report",  # builtin:usage
+    "get_merchant_credit_usage": "run_report",  # builtin:usage
 }
 
 
@@ -61,9 +91,14 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 41
+    assert len(EXPECTED_API_TOOLS) == 61
+    # the whole list, so a tool that appears without being curated fails here too
+    assert names == EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS | EXPECTED_SERVER_TOOLS
     # Ignored endpoints must not be exposed.
     assert not (IGNORED_TOOLS & names), f"ignored tools leaked: {IGNORED_TOOLS & names}"
+    # merged tools are gone, and what replaced each one is there
+    assert not (set(MERGED_TOOLS) & names), f"merged tools leaked: {set(MERGED_TOOLS) & names}"
+    assert set(MERGED_TOOLS.values()) <= names
 
 
 @pytest.mark.asyncio

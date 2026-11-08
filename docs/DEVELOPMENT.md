@@ -113,11 +113,11 @@ quartet consistently — and supply all four arguments: `name`, `title`, `hint`,
 MCP tool name; `server.py::_customize_component` applies the rest.
 
 ```python
-("POST", "/catalogue-tag-update"): _write(
-    "update_catalogue_directory",
-    "Update catalogue directory",
-    "Rename or re-describe a coaching catalogue directory.",
-    "readOnlyHint=false / destructiveHint=true: overwrites an existing record.",
+("POST", "/merchant-task-save"): _write(
+    "save_task",
+    "Create or change a task",
+    "Without task_id: create a task. With task_id: change the fields you send.",
+    "readOnlyHint=false / destructiveHint=true: stores a task and can e-mail its assignee.",
 ),
 ```
 

@@ -79,12 +79,13 @@ async def test_listed_with_the_right_annotations():
     assert _annotations(tools["list_media_files"]) == {
         "title": "List media library files", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True,
     }
-    assert _annotations(tools["list_media_folders"]) == {
-        "title": "List media library folders", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True,
-    }
+    # merged: folders come from list_media_files include_folders=true, describe and delete
+    # are manage_media_file (idempotentHint=false: a second delete is refused)
+    for gone in ("list_media_folders", "update_media_file", "delete_media_file"):
+        assert gone not in tools, gone
     for name, idempotent in [
-        ("start_media_upload", False), ("finish_media_upload", True), ("update_media_file", True),
-        ("delete_media_file", False), ("publish_portal_stylesheet", False), ("upload_media_file", False),
+        ("start_media_upload", False), ("finish_media_upload", True), ("manage_media_file", False),
+        ("publish_portal_stylesheet", False), ("upload_media_file", False),
         ("manage_media_folder", False),
     ]:
         annotations = _annotations(tools[name])
@@ -105,11 +106,13 @@ def test_every_tool_has_a_written_justification():
     import naming
 
     written = naming.annotation_justifications()
-    for name in ("list_media_files", "list_media_folders", "manage_media_folder", "start_media_upload", "finish_media_upload", "update_media_file", "delete_media_file", "publish_portal_stylesheet", "upload_media_file"):
+    for name in ("list_media_files", "manage_media_folder", "start_media_upload", "finish_media_upload", "manage_media_file", "publish_portal_stylesheet", "upload_media_file"):
         assert written[name], name
-    assert "destructiveHint=true" in written["delete_media_file"]
-    assert "cannot be undone" in written["delete_media_file"]
-    assert "readOnlyHint=true" in written["list_media_folders"]
+    for gone in ("list_media_folders", "update_media_file", "delete_media_file"):
+        assert gone not in written, gone
+    assert "destructiveHint=true" in written["manage_media_file"]
+    assert "for good" in written["manage_media_file"]  # delete cannot be undone
+    assert "readOnlyHint=true" in written["list_media_files"]
     assert "destructiveHint=true" in written["manage_media_folder"]
     assert "new address" in written["manage_media_folder"]
 
@@ -123,22 +126,25 @@ async def test_the_descriptions_steer_the_model():
     assert "read_only" in tools["list_media_files"].description
     assert "only when the user asked" in tools["publish_portal_stylesheet"].description.lower()
     assert "update_portal_configuration" in tools["publish_portal_stylesheet"].description
-    assert "confirmed" in tools["delete_media_file"].description
+    assert "confirmed" in tools["manage_media_file"].description
     # SQL 313: every company has the library, folders are storage directories, and more things use a file
-    for name in ("list_media_files", "start_media_upload", "update_media_file", "delete_media_file", "list_media_folders", "manage_media_folder"):
+    for name in ("list_media_files", "start_media_upload", "manage_media_file", "manage_media_folder"):
         assert "switched" not in tools[name].description, name
         assert "career-media" not in tools[name].description, name
-    assert "list_media_folders" in tools["list_media_files"].description
+    assert "include_folders=true" in tools["list_media_files"].description
     assert "profile" in tools["manage_media_folder"].description
-    assert "folder" in tools["update_media_file"].description
-    assert "logo" in tools["delete_media_file"].description
-    assert "list_media_folders" in tools["upload_media_file"].parameters["properties"]["folder"]["description"]
+    assert "folder" in tools["manage_media_file"].description
+    assert "logo" in tools["manage_media_file"].description
+    assert "action delete" in tools["manage_media_file"].description
+    folder_help = tools["upload_media_file"].parameters["properties"]["folder"]["description"]
+    assert "list_media_files include_folders=true" in folder_help
+    assert "list_media_folders" not in folder_help
 
 
 @pytest.mark.asyncio
 async def test_inputs_match_the_api():
     tools = await _tools()
-    assert {"merchant_id", "kind", "folder", "search", "include_parent", "limit", "offset"} <= set(tools["list_media_files"].parameters["properties"])
+    assert {"merchant_id", "kind", "folder", "search", "include_parent", "include_folders", "limit", "offset"} <= set(tools["list_media_files"].parameters["properties"])
     start = tools["start_media_upload"].parameters
     assert set(start["required"]) == {"file_name", "content_type", "size_bytes"}
     assert "video/webm" not in json.dumps(start)
@@ -146,10 +152,10 @@ async def test_inputs_match_the_api():
     assert "text/css" not in json.dumps(start["properties"]["content_type"])
     assert set(tools["finish_media_upload"].parameters["required"]) == {"media_id"}
     # what the upload functions own is not there to set
-    update = set(tools["update_media_file"].parameters["properties"])
-    assert update == {"media_id", "file_name", "folder", "alt", "focal_x", "focal_y", "poster_url"}
-    assert set(tools["delete_media_file"].parameters["properties"]) == {"media_id"}
-    assert set(tools["list_media_folders"].parameters["properties"]) == {"merchant_id"}
+    manage_file = tools["manage_media_file"].parameters
+    assert set(manage_file["properties"]) == {"media_id", "action", "file_name", "folder", "alt", "focal_x", "focal_y", "poster_url"}
+    assert set(manage_file["required"]) == {"media_id"}
+    assert manage_file["properties"]["action"]["enum"] == ["update", "delete"]
     manage = tools["manage_media_folder"].parameters
     assert set(manage["properties"]) == {"merchant_id", "action", "folder", "to"}
     assert set(manage["required"]) == {"action", "folder"}
@@ -163,8 +169,11 @@ async def test_inputs_match_the_api():
 def test_instructions_list_the_tools():
     import server
 
-    for name in ("publish_portal_stylesheet", "list_media_files", "upload_media_file", "start_media_upload", "update_media_file", "delete_media_file", "list_media_folders", "manage_media_folder"):
+    for name in ("publish_portal_stylesheet", "list_media_files", "upload_media_file", "start_media_upload", "manage_media_file", "manage_media_folder"):
         assert name in server.INSTRUCTIONS, name
+    for gone in ("list_media_folders", "update_media_file", "delete_media_file"):
+        assert gone not in server.INSTRUCTIONS, gone
+    assert "list_media_files include_folders=true" in server.INSTRUCTIONS
 
 
 # ---- what reaches the API ------------------------------------------------------------------
@@ -178,7 +187,7 @@ async def test_a_null_focal_point_is_sent_and_a_field_left_out_is_not(monkeypatc
 
     seen = _route(monkeypatch, {"/media-update": (200, {**FILE, "drafts_updated": 0, "warnings": []})})
     async with Client(server.mcp) as client:
-        await client.call_tool("update_media_file", {"media_id": MEDIA, "focal_x": None, "alt": {"en": "Deck"}})
+        await client.call_tool("manage_media_file", {"media_id": MEDIA, "focal_x": None, "alt": {"en": "Deck"}})
     assert json.loads(seen[0].content) == {"media_id": MEDIA, "focal_x": None, "alt": {"en": "Deck"}}
 
 
@@ -191,8 +200,10 @@ async def test_a_move_answers_the_file_with_its_new_address_and_the_drafts(monke
     moved = {**FILE, "folder": "Crew life", "path": "m/Crew life/a-v1.png", "drafts_updated": 2, "warnings": []}
     seen = _route(monkeypatch, {"/media-update": (200, moved)})
     async with Client(server.mcp) as client:
-        result = await client.call_tool("update_media_file", {"media_id": MEDIA, "folder": "Crew life"})
-    assert json.loads(seen[0].content) == {"media_id": MEDIA, "folder": "Crew life"}
+        result = await client.call_tool("manage_media_file", {"action": "update", "media_id": MEDIA, "folder": "Crew life"})
+    assert json.loads(seen[0].content) == {"action": "update", "media_id": MEDIA, "folder": "Crew life"}
+    # update or delete answer with one object schema, so the update fields stay at the top level
+    assert "result" not in result.structured_content
     assert result.structured_content["drafts_updated"] == 2
     assert result.structured_content["width"] is None
 
@@ -203,13 +214,17 @@ async def test_the_folders_are_read_and_managed(monkeypatch):
 
     import server
 
-    seen = _route(monkeypatch, {
-        "/media-folders": (200, {"folders": [{"name": "Crew life", "files": 2}]}),
-    })
+    listing = {
+        "data": [], "pagination": {"total": 0, "limit": 50, "offset": 0, "has_more": False},
+        "folders": [{"name": "Crew life", "files": 2}],
+    }
+    seen = _route(monkeypatch, {"/media-list": (200, listing)})
     async with Client(server.mcp) as client:
-        listed = await client.call_tool("list_media_folders", {})
-        assert listed.structured_content == {"folders": [{"name": "Crew life", "files": 2}]}
-        assert seen[-1].method == "GET"
+        listed = await client.call_tool("list_media_files", {"include_folders": True})
+    assert seen[-1].method == "GET"
+    assert seen[-1].url.path.endswith("/media-list")
+    assert seen[-1].url.params["include_folders"] == "true"
+    assert listed.structured_content["folders"] == [{"name": "Crew life", "files": 2}]
     renamed = {"folder": "Fleet", "moved": 2, "drafts_updated": 1, "warnings": []}
     seen = _route(monkeypatch, {"/media-folders": (200, renamed)})
     async with Client(server.mcp) as client:
@@ -257,10 +272,26 @@ async def test_in_use_comes_back_with_where(monkeypatch):
 
     import server
 
-    _route(monkeypatch, {"/media-delete": (409, {"error": "This file is in use in 1 place(s).", "usage": {"count": 1, "items": [{"type": "page", "slug": "about"}], "other_companies": 0}})})
+    seen = _route(monkeypatch, {"/media-update": (409, {"error": "This file is in use in 1 place(s).", "usage": {"count": 1, "items": [{"type": "page", "slug": "about"}], "other_companies": 0}})})
     async with Client(server.mcp) as client:
         with pytest.raises(ToolError, match="in use"):
-            await client.call_tool("delete_media_file", {"media_id": MEDIA})
+            await client.call_tool("manage_media_file", {"action": "delete", "media_id": MEDIA})
+    assert json.loads(seen[0].content) == {"action": "delete", "media_id": MEDIA}
+
+
+@pytest.mark.asyncio
+async def test_a_delete_goes_through_media_update_and_answers_the_deleted_id(monkeypatch):
+    from fastmcp import Client
+
+    import server
+
+    seen = _route(monkeypatch, {"/media-update": (200, {"id": MEDIA, "status": "deleted"})})
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("manage_media_file", {"action": "delete", "media_id": MEDIA})
+    assert seen[0].method == "POST"
+    assert seen[0].url.path.endswith("/media-update")  # /media-delete is hidden, never called
+    assert json.loads(seen[0].content) == {"action": "delete", "media_id": MEDIA}
+    assert result.structured_content == {"id": MEDIA, "status": "deleted"}
 
 
 @pytest.mark.asyncio
