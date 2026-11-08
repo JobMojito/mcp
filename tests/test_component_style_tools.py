@@ -24,7 +24,7 @@ BRAND = "44444444-4444-4444-8444-444444444444"
 GUIDE = {
     "portal": "interview",
     "brand": None,
-    "file_rule": "Write only components/<block type>.css",
+    "file_rule": "Write only components/<block type>/<style>.css",
     "how_to": ["Pick the block type"],
     "shared_parts": [{"selector": ".jm-button", "what": "a button"}],
     "tokens": [{"selector": "--jm-color-text", "what": "text colour"}],
@@ -37,14 +37,14 @@ GUIDE = {
             "parts": [{"selector": "h1", "what": "the title"}],
             "variants": [],
             "styles": [
-                {"name": "Dark band", "class": "jm-style-dark-band", "file": "components/hero.css", "line": 1, "brand_id": None, "written_by": "agent", "live": False},
+                {"name": "Dark band", "class": "jm-style-dark-band", "file": "components/hero/dark-band.css", "line": 1, "brand_id": None, "written_by": "agent", "live": False, "pages": []},
             ],
         }
     ],
 }
 SAVED = {
     "action": "created", "block_type": "hero", "name": "Dark band", "class": "jm-style-dark-band", "style_name": "Dark band",
-    "file": "components/hero.css", "file_id": None, "live": False, "warnings": [],
+    "file": "components/hero/dark-band.css", "file_id": None, "live": False, "warnings": [],
 }
 
 
@@ -94,7 +94,7 @@ async def test_listed_read_and_write_apart():
 async def test_descriptions_say_draft_own_file_and_how_to_apply():
     tools = await _tools()
     save = tools["save_component_style"].description
-    for words in ("DRAFT", "components/<block_type>.css", "never changed", "styleName", "publish_portal_stylesheet", "remove: true"):
+    for words in ("DRAFT", "components/<block_type>/<style>.css", "never changed", "styleName", "publish_portal_stylesheet", "remove: true", "which pages use it"):
         assert words in save, words
     assert "root" in save
 

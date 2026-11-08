@@ -810,29 +810,32 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "return to it. idempotentHint=false: each call records a new build. " + _OPEN_WORLD,
     ),
     # Component styles: named looks per block type, which the page editor offers on
-    # every block of that type. The agent writes only components/<block type>.css.
+    # every block of that type. The agent writes only components/<block type>/<style>.css,
+    # one file per style.
     ("GET", "/portal-component-styles"): _read(
         "get_component_style_guide",
         "Get the component style guide",
         "Read before designing a style for a kind of page block (hero, cards, faq, ...): the "
         "selectors each block renders, its layout variants, the brand's CSS variables, and "
-        "the styles the editor already offers per block type (written_by agent or company). "
-        "Leave out brand_id for the main brand.",
+        "the styles the editor already offers per block type (written_by agent or company), "
+        "each with the pages that use it (draft or published). Leave out brand_id for the "
+        "main brand.",
         _READ_WHY,
     ),
     ("POST", "/portal-component-styles"): _write(
         "save_component_style",
         "Save a component style",
-        "Write one named style for a block type as a DRAFT in components/<block_type>.css, "
-        "the agent's own file; the company's other CSS files are never changed. The page "
-        "editor then offers it on every block of that type. Start every selector from the "
-        "guide's root plus the style class. To apply it set styleName on blocks with "
+        "Write one named style for a block type as a DRAFT in its own file, "
+        "components/<block_type>/<style>.css; the company's other CSS files are never changed. "
+        "The page editor then offers it on every block of that type. Start every selector "
+        "from the guide's root plus the style class. To apply it set styleName on blocks with "
         "update_portal_configuration; it goes live only with publish_portal_stylesheet "
-        "(files: [file_id]), when the user asks. remove: true takes a style out.",
-        "readOnlyHint=false / destructiveHint=true: replaces or removes a style's draft CSS "
-        "in the brand's component file, which the editor offers at once. Nothing goes live "
-        "until the stylesheet is published. idempotentHint=true: the same call again leaves "
-        "the file as it is. " + _OPEN_WORLD,
+        "(files: [file_id]), when the user asks. remove: true deletes a style's file: first "
+        "tell the user which pages use it (the guide lists them); their blocks go back to the "
+        "standard look once the stylesheet is published.",
+        "readOnlyHint=false / destructiveHint=true: replaces or deletes a style's draft file, "
+        "which the editor offers at once. Nothing goes live until the stylesheet is published. "
+        "idempotentHint=true: the same call again leaves the file as it is. " + _OPEN_WORLD,
         idempotent=True,
     ),
     # Proposals only: nothing is stored, so read-only; each call asks the model again,

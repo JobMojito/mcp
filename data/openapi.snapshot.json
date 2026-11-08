@@ -9925,7 +9925,7 @@
                       "file": {
                         "type": "string",
                         "description": "The CSS file that defines it.",
-                        "example": "components/hero.css"
+                        "example": "components/hero/dark-band.css"
                       },
                       "line": {
                         "type": "integer"
@@ -9946,6 +9946,50 @@
                       "live": {
                         "type": "boolean",
                         "description": "Whether the published stylesheet already has it."
+                      },
+                      "pages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "The page."
+                            },
+                            "slug": {
+                              "type": "string",
+                              "description": "Its address; built-in pages start with \"_\", the home page is empty.",
+                              "example": "life-at-sea"
+                            },
+                            "title": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Its title in the first language."
+                            },
+                            "brand_id": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Its sub-brand; null for the main brand."
+                            },
+                            "published": {
+                              "type": "boolean",
+                              "description": "The published page uses the style."
+                            },
+                            "draft": {
+                              "type": "boolean",
+                              "description": "The draft uses the style."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "title",
+                            "brand_id",
+                            "published",
+                            "draft"
+                          ]
+                        },
+                        "description": "The pages with a block that uses it, as draft or published. A main-brand style counts every page; a sub-brand style, that brand's pages."
                       }
                     },
                     "required": [
@@ -9955,7 +9999,8 @@
                       "line",
                       "brand_id",
                       "written_by",
-                      "live"
+                      "live",
+                      "pages"
                     ]
                   },
                   "description": "The styles the editor already offers for this type."
@@ -10039,7 +10084,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 60,
-            "description": "What the editor calls the style. Saving the same block type and name again replaces it.",
+            "description": "What the editor calls the style. Saving the same block type and name again replaces it. Its file is components/<block_type>/<the name as a slug>.css.",
             "example": "Dark band"
           },
           "css": {
@@ -10054,7 +10099,7 @@
           },
           "remove": {
             "type": "boolean",
-            "description": "true removes the style; blocks that use it fall back to the standard look."
+            "description": "true deletes the style and its file. Blocks that use it (the guide lists the pages) keep the name and show the standard look once the stylesheet is published."
           }
         },
         "required": [
@@ -10090,12 +10135,12 @@
           },
           "file": {
             "type": "string",
-            "example": "components/hero.css"
+            "example": "components/hero/dark-band.css"
           },
           "file_id": {
             "type": "string",
             "nullable": true,
-            "description": "Pass it in `files` to publish_portal_stylesheet to publish this file alone. Null when the removal left the file empty and it was deleted."
+            "description": "Pass it in `files` to publish_portal_stylesheet to publish this file alone. Null after a removal, which deletes the file."
           },
           "live": {
             "type": "boolean",
@@ -10109,6 +10154,50 @@
             "items": {
               "type": "string"
             }
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "The page."
+                },
+                "slug": {
+                  "type": "string",
+                  "description": "Its address; built-in pages start with \"_\", the home page is empty.",
+                  "example": "life-at-sea"
+                },
+                "title": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Its title in the first language."
+                },
+                "brand_id": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Its sub-brand; null for the main brand."
+                },
+                "published": {
+                  "type": "boolean",
+                  "description": "The published page uses the style."
+                },
+                "draft": {
+                  "type": "boolean",
+                  "description": "The draft uses the style."
+                }
+              },
+              "required": [
+                "id",
+                "slug",
+                "title",
+                "brand_id",
+                "published",
+                "draft"
+              ]
+            },
+            "description": "After a removal: the pages that used the style, whose blocks now show the standard look."
           }
         },
         "required": [
@@ -15737,7 +15826,7 @@
           "Admin"
         ],
         "summary": "Get the component style guide",
-        "description": "Everything needed to design a style for one kind of page block (hero, cards, faq, ...): the selectors each block renders, its layout variants, the CSS variables of the brand, and the styles the editor already offers per block type. Read it before save_component_style. Style settings are switched on per company by JobMojito; while they are off this endpoint answers 403.",
+        "description": "Everything needed to design a style for one kind of page block (hero, cards, faq, ...): the selectors each block renders, its layout variants, the CSS variables of the brand, and the styles the editor already offers per block type, each with the pages that use it. Read it before save_component_style. Style settings are switched on per company by JobMojito; while they are off this endpoint answers 403.",
         "security": [
           {
             "bearerAuth": []
@@ -15849,7 +15938,7 @@
           "Admin"
         ],
         "summary": "Save a component style",
-        "description": "Writes one named style for a kind of page block, as a draft, into components/<block type>.css of the brand: the agent's own file, one section per style. The company's other CSS files are never changed. The page editor then offers the style on every block of that type; to apply it, set `styleName` on the block in page content with update_portal_configuration. It shows on the site once the stylesheet is published (publish_portal_stylesheet, `files: [file_id]` for this file alone). A name the company already uses in its own files is refused with 409.",
+        "description": "Writes one named style for a kind of page block, as a draft, into its own file, components/<block type>/<style>.css of the brand. The company's other CSS files are never changed. With remove: true it deletes the style's file; the answer lists the pages that used it. The page editor then offers the style on every block of that type; to apply it, set `styleName` on the block in page content with update_portal_configuration. It shows on the site once the stylesheet is published (publish_portal_stylesheet, `files: [file_id]` for this file alone). A name the company already uses in its own files is refused with 409.",
         "security": [
           {
             "bearerAuth": []
@@ -15907,7 +15996,7 @@
             }
           },
           "409": {
-            "description": "The name is the company's own style, or someone changed the file at the same moment (send it again).",
+            "description": "The name is the company's own style, makes the same class as another style, or someone changed the file at the same moment (send it again).",
             "content": {
               "application/json": {
                 "schema": {

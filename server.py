@@ -183,7 +183,8 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   with update_portal_configuration)
 • Component styles: get_component_style_guide, generate_component_styles (proposals,
   nothing stored), save_component_style (a named look for one block type, written as a
-  draft to components/<type>.css only)
+  draft to its own file, components/<type>/<style>.css; the guide lists the pages each
+  style is on)
 • Media library: list_media_files, upload_media_file (one call, base64),
   start_media_upload + finish_media_upload (for a client that can send a file to an
   address), update_media_file (also moves a file to a folder), delete_media_file;
