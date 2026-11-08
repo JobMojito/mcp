@@ -34,12 +34,22 @@ UPDATE_INTERVIEW = "update_interview"
 # One tool creates and updates a directory (POST /catalogue-tag-create, action update);
 # the partial update is what the null rules are about.
 UPDATE_DIRECTORY = "save_catalogue_directory"
-TARGET = {UPDATE_INTERVIEW: {"position_id": INTERVIEW}, UPDATE_DIRECTORY: {"action": "update", "id": DIRECTORY}}
+DUPLICATE_POSITION = "duplicate_position"
+POSITION = "de300000-0000-4000-8001-000000000008"
+TARGET = {
+    UPDATE_INTERVIEW: {"position_id": INTERVIEW},
+    UPDATE_DIRECTORY: {"action": "update", "id": DIRECTORY},
+    DUPLICATE_POSITION: {"position_id": POSITION},
+}
 ANSWER = {
     UPDATE_INTERVIEW: {"position_id": INTERVIEW, "is_multistage": False, "updated_fields": []},
     UPDATE_DIRECTORY: {"id": DIRECTORY, "merchant_id": "m", "parent_tag": None, "updated_fields": [], "catalogue_url": None},
+    DUPLICATE_POSITION: {"position_id": INTERVIEW, "source_position_id": POSITION},
 }
 ENABLED = [
+    # the live retest of 9 Nov: a null closing date was dropped and the copy kept a 2025 one
+    (DUPLICATE_POSITION, "interview_available_till", "2026-12-31T23:59:59Z"),
+    (DUPLICATE_POSITION, "openings_total", 3),
     (UPDATE_DIRECTORY, "content_md", "## Sales\n"),
     (UPDATE_INTERVIEW, "candidate_notification_channel", "reminders"),
     (UPDATE_INTERVIEW, "questions_random_subset", 0.5),
@@ -107,6 +117,7 @@ def test_the_opt_in_list_is_exactly_this():
         UPDATE_DIRECTORY: {"content_md"},
         UPDATE_INTERVIEW: {"candidate_notification_channel", "questions_random_subset", "pdf_export_auto_config"},
         "manage_media_file": {"focal_x", "focal_y", "poster_url"},
+        DUPLICATE_POSITION: {"interview_available_till", "openings_total"},
     }
 
 

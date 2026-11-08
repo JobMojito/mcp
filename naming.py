@@ -1104,9 +1104,14 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Copy a position with its steps and settings as a new draft, optionally with a new "
         "name, country, location, openings or availability date, or into another company you "
         "manage (target_merchant_id; admins and sub-merchant operators only). Candidates and "
-        "results are not copied.",
+        "results are not copied. Left out, interview_available_till and openings_total keep the "
+        "original's; null makes the copy open (interview_available_till) or without a number of "
+        "openings (openings_total).",
         "readOnlyHint=false / destructiveHint=true: creates a new position. "
         "idempotentHint=false: each call makes another copy. " + _OPEN_WORLD,
+        # The original's closing date is often past: null is the only way to an open copy, and
+        # a stray null only touches the new draft, which update_interview corrects.
+        null_body_args=("interview_available_till", "openings_total"),
     ),
     ("POST", "/merchant-interview-duplicate"): _write(
         "duplicate_interview",
