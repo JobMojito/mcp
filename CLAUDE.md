@@ -164,7 +164,15 @@ More detail: `docs/ARCHITECTURE.md`.
   default, e-mail, dry_run...), on an enum argument one "Values:" line with each
   option's first sentence (the spec's "Options — `a`: … | `b`: …", "- `a`: …" lines
   or inline "`a`: … | `b`: …"), no examples or nested descriptions, and an output
-  schema without annotations. Separately, `openapi_loader.apply_tool_names` rewrites
+  schema without annotations. Where that trimmed text reads badly, write the short
+  version in the spec source next to the field's description:
+  `.openapi({ description: '<long, for the docs>', 'x-mcp-description': '<short>' })`.
+  tools/list shows the override; `get_tool_reference` and Mintlify (which validates it,
+  `mint openapi-check`, and ignores x- keys) show the long text. Write tool names in an
+  override; endpoint names are rewritten there too. A flag typed as the strings
+  'true'/'false' gets "Send the string 'true' or 'false'." added. An exception in this
+  hook is swallowed by FastMCP and leaves tools untrimmed, so a new rule needs a test on
+  a nullable schema. Separately, `openapi_loader.apply_tool_names` rewrites
   endpoint names in every description to tool names (`naming.MERGED_ENDPOINTS` for
   hidden endpoints), so write the spec in endpoint names and the model still reads tools. The structure (types,
   enums, required, nesting) is never touched — `tests/test_tool_reference.py`

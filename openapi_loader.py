@@ -259,7 +259,7 @@ def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
     def walk(node: Any) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                if key in ("description", "summary") and isinstance(value, str):
+                if key in ("description", "summary", "x-mcp-description") and isinstance(value, str):
                     node[key] = pattern.sub(lambda m: names[m.group(1)], value)
                 else:
                     walk(value)

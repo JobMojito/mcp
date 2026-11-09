@@ -314,3 +314,35 @@ async def test_result_tools_say_which_list_row_id_is_the_result():
         assert "a single-stage row's `id`" in listed[name].description, name
     assert "NOT the result row's `id`" not in server.INSTRUCTIONS
     assert "a single-stage row's" in server.INSTRUCTIONS
+
+
+def test_the_specs_own_short_text_wins_and_never_leaks():
+    """x-mcp-description: the source's short version of a field, for where trimming reads badly."""
+    from tool_reference import OVERRIDE, _without_overrides
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {"type": "string", "description": "Long. Options — `x`: one.", OVERRIDE: "Short."},
+            "b": {"type": "object", "properties": {"c": {"type": "string", "description": "nested", OVERRIDE: "n"}}},
+            "flag": {"type": ["string", "null"], "enum": ["true", "false", None], "description": "When true, more."},
+        },
+    }
+    full = _without_overrides(copy.deepcopy(schema))
+    assert OVERRIDE not in json.dumps(full) and full["properties"]["a"]["description"] == "Long. Options — `x`: one."
+    trim_input_schema(schema)
+    assert schema["properties"]["a"] == {"type": "string", "description": "Short."}
+    assert schema["properties"]["b"]["properties"]["c"] == {"type": "string"}
+    # a nullable enum must not break the trimmer: FastMCP swallows the exception and
+    # the tool is then advertised untrimmed
+    assert schema["properties"]["flag"]["description"] == "When true, more. Send the string 'true' or 'false'."
+
+
+@pytest.mark.asyncio
+async def test_no_override_key_reaches_a_client():
+    listed = await _listed()
+    assert all(OVERRIDE_KEY not in json.dumps(t.input_schema) for t in listed.values())
+    assert OVERRIDE_KEY not in json.dumps(await _reference("list_candidates", "all"))
+
+
+OVERRIDE_KEY = "x-mcp-description"

@@ -18,6 +18,8 @@ So, per generated tool (``server._customize_component`` calls ``capture`` and th
   e-mail, dry_run, a status code...), so the rules a model needs to call the tool
   correctly stay where it reads them; the "Options —" essays, examples and the
   descriptions of nested fields go;
+* a field whose spec carries ``x-mcp-description`` shows that text instead of
+  the trimmed one: the source's own short version, for where trimming reads badly;
 * the output schema keeps its structure (validation is unchanged) and loses its
   annotations.
 
@@ -53,16 +55,35 @@ _RULE = re.compile(
 # all questions."); not after "e.g." / "i.e.", and not inside a number (0.9). A line
 # break also ends one.
 _SENTENCE_END = re.compile(r"(?<=[.!?])(?<!e\.g\.)(?<!i\.e\.)\s+(?=\S)|\n+")
-_ANNOTATIONS = ("description", "example", "examples", "title")
+#: A field's own short text, written in the spec next to its description. tools/list
+#: shows it instead of the trimmed description; the docs (Mintlify) ignore x- keys.
+OVERRIDE = "x-mcp-description"
+_ANNOTATIONS = ("description", "example", "examples", "title", OVERRIDE)
 
 
 def capture(name: str, *, title: str | None, description: str, input_schema: dict | None, output_schema: dict | None) -> None:
     FULL[name] = {
         "title": title,
         "description": description,
-        "input_schema": copy.deepcopy(input_schema or {}),
-        "output_schema": copy.deepcopy(output_schema) if output_schema else None,
+        "input_schema": _without_overrides(copy.deepcopy(input_schema or {})),
+        "output_schema": _without_overrides(copy.deepcopy(output_schema)) if output_schema else None,
     }
+
+
+def _without_overrides(schema: dict) -> dict:
+    """The full definition has the full texts: the short ones are tools/list's."""
+
+    def walk(node: dict) -> None:
+        node.pop(OVERRIDE, None)
+        for key in ("$defs", "definitions"):
+            for child in (node.get(key) or {}).values():
+                if isinstance(child, dict):
+                    walk(child)
+        for child, _ in _children(node):
+            walk(child)
+
+    walk(schema)
+    return schema
 
 
 _CODE = re.compile(r"`[^`\n]*`")
@@ -138,6 +159,12 @@ def brief(text: str, *, options: bool = False) -> str:
     return out
 
 
+def _is_string_flag(node: dict) -> bool:
+    """A query flag typed as the strings 'true' / 'false', which a model sends as a boolean."""
+    enum = node.get("enum")
+    return isinstance(enum, list) and set(enum) - {None} == {"true", "false"}
+
+
 def _has_enum(node: dict) -> bool:
     if "enum" in node:
         return True
@@ -170,12 +197,17 @@ def trim_input_schema(schema: dict) -> dict:
                     walk(child, 2)
         node.pop("example", None)
         node.pop("examples", None)
+        short = node.pop(OVERRIDE, None)
         text = node.get("description")
-        if isinstance(text, str):
+        if depth == 1 and isinstance(short, str) and short.strip():
+            node["description"] = short.strip()
+        elif isinstance(text, str):
             if depth >= 2:
                 del node["description"]
             elif depth == 1:
                 node["description"] = brief(text, options=_has_enum(node))
+        if depth == 1 and _is_string_flag(node) and "'true'" not in node.get("description", ""):
+            node["description"] = (node.get("description", "") + " Send the string 'true' or 'false'.").strip()
         for child, deeper in _children(node):
             walk(child, depth + 1 if deeper else depth)
 
