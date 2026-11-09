@@ -19418,7 +19418,7 @@
           "Reports"
         ],
         "summary": "List custom reports",
-        "description": "Custom reports you can open on this account (yours, the ones shared with you) and the JobMojito templates, pinned first, then most recently updated. scope=builtin lists the built-in analytics reports instead (the JobMojito admin's Analytics: pipeline, ATS, interviews, feedback, workload, sourcing, fairness, usage and credits), each with its sections and whether it is available to you; scope=all ends with them too (kind builtin). Run either kind with run_report.",
+        "description": "Custom reports you can open on this account (yours, the ones shared with you) and the JobMojito templates, pinned first, then most recently updated. scope=builtin lists the built-in analytics reports instead (the JobMojito admin's Analytics: pipeline, ATS, interviews, feedback, workload, sourcing, fairness, usage and credits), each with its sections and whether it is available to you; the other scopes never include them. Run either kind with run_report.",
         "security": [
           {
             "bearerAuth": []
@@ -19447,7 +19447,7 @@
                 "builtin"
               ],
               "default": "all",
-              "description": "all (default: custom reports, templates and the built-in reports), mine, shared (by colleagues), templates, or builtin (the built-in reports only)."
+              "description": "all (default: custom reports and templates), mine, shared (by colleagues), templates, or builtin (the built-in reports only)."
             },
             "required": false,
             "name": "scope",
