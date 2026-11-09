@@ -200,6 +200,29 @@ def test_instructions_avoid_imperative_tool_calling_language():
     assert not banned, f"prompt-injection-flavoured phrasing in INSTRUCTIONS: {banned}"
 
 
+def test_tool_descriptions_state_facts_rather_than_command_the_model():
+    """Anthropic's compliance step attests no tool description instructs the model.
+
+    The merchant tools read "ALWAYS call this", "Do NOT use this", "STOP and wait"
+    until 2.6.1. Saying when a tool applies is fine; ordering the model is not.
+    """
+    import asyncio
+
+    import server
+
+    pattern = re.compile(
+        r"\bALWAYS\b|\bDo NOT\b|\bSTOP\b|\bMUST call\b|\bcall .{0,30} FIRST\b"
+        r"|\bdo not call it\b",
+    )
+    tools = asyncio.run(server.mcp.list_tools())
+    offenders = {
+        tool.name: pattern.findall(tool.description or "")
+        for tool in tools
+        if pattern.search(tool.description or "")
+    }
+    assert not offenders, f"model-directing phrasing in tool descriptions: {offenders}"
+
+
 def test_instructions_carry_the_responsible_use_language():
     """Hiring is a named high-risk use case in both vendors' usage policies.
 

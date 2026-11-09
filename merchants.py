@@ -142,8 +142,9 @@ if _APPS_AVAILABLE:
 
             @self.tool()
             async def search_merchants(query: str = "") -> list[dict]:
-                """Called by the jobmojito_configuration picker's Search button; do not call it
-                yourself. To list merchants as text use list_my_merchants (its `search`)."""
+                """The search behind the jobmojito_configuration picker's Search button,
+                which calls it with the typed text. The text list of merchants is
+                list_my_merchants (its `search`)."""
                 subs = await _fetch_sub_merchants(search=query)
                 return [
                     {"merchant_id": m["merchant_id"], "name": m["name"]}
@@ -152,15 +153,14 @@ if _APPS_AVAILABLE:
 
             @self.ui()
             async def jobmojito_configuration() -> PrefabApp:
-                """Show the interactive JobMojito merchant picker (UI).
+                """Interactive picker (MCP App UI) for the JobMojito merchant account a
+                conversation acts as.
 
-                ALWAYS call this when the user wants to choose, switch, or set a
-                merchant, or when a tool needs a `merchant_id` and none is selected.
-                It renders a searchable picker with clickable options. Do NOT list
-                merchants as text or ask the user to type a name — render this
-                picker instead. After calling it, STOP and wait for the user's
-                selection; then pass `merchant_id=<chosen id>` on every JobMojito
-                call (omit it for the user's own account).
+                For when the user wants to choose, switch or set a merchant, or a call
+                needs a `merchant_id` and none is chosen yet. It renders a searchable
+                list with clickable options, and the user's choice arrives as their
+                next message. Later JobMojito calls then carry
+                `merchant_id=<chosen id>`; the user's own account needs none.
                 """
                 with Card(css_class="max-w-lg mx-auto") as view:
                     with CardHeader():
@@ -244,14 +244,13 @@ def register(mcp) -> None:
         tags={"jobmojito"},
     )
     async def list_my_merchants(ctx: Context, search: str = "") -> dict:
-        """FALLBACK merchant list for clients WITHOUT UI support.
+        """Text list of the merchant accounts you can act as, for clients that
+        cannot render MCP App UI.
 
-        Do NOT use this to choose or switch merchants when a UI is available —
-        call `jobmojito_configuration` instead (it renders an interactive picker),
-        and do not hand-format a merchant list as text. Use this tool only when the
-        client cannot render MCP App UI. Returns the user's own account plus any
-        sub-merchants; after a pick, pass `merchant_id=<chosen id>` on subsequent
-        calls (OMIT for the own account).
+        `jobmojito_configuration` offers the same accounts as an interactive
+        picker. Returns the user's own account plus any sub-merchants. Later calls
+        for a sub-merchant carry `merchant_id=<chosen id>`; the own account needs
+        none.
 
         Args:
             search: Optional case-insensitive filter on sub-merchant name.
