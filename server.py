@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.2.0"
+SERVER_VERSION = "2.2.1"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -134,7 +134,9 @@ an application is a candidate on a position, moving through the position's steps
 positions, steps, status, dates, countries, skills...): call `list_candidate_filters`
 first for the fields and ids. Changes that reach candidates or cannot be undone
 (`merge_candidates`, slot changes, document requests, step settings) take
-`dry_run` or a preview first: show the user what would happen, then run it.
+`dry_run` or a preview first: show the user what would happen, then run it. A
+change with neither (`set_interview_state`, `invite_candidates`) needs the user's
+go-ahead first.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,
@@ -176,8 +178,12 @@ HOW TO USE THIS SERVER:
 
 IDENTIFIERS & ADMIN LINKS:
 Ids are easy to mix up — the same interview is `interview_def_set_id` (on create),
-`position_id` (get/set-state), and `interview_id` (register/token); results use
-`interview_result_id`, NOT the result row's `id`. There is no link-building tool.
+`position_id` (get/set-state), and `interview_id` (register/token). A result's
+`interview_result_id`, from a list_interview_results row: a single-stage row's
+`id` (its interview_result_id is null), a multi-stage row's `interview_result_id`.
+Enum values are exact strings, sent as listed even when they look misspelt
+(`name_accending`); some flags are the strings "true"/"false", not booleans.
+There is no link-building tool.
 For the full id-to-field map, where each id comes from, and admin link patterns:
 get_documentation("https://developer.jobmojito.com/mcp/identifiers").
 
@@ -222,8 +228,9 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   folders: list_media_files include_folders=true, manage_media_folder
 
 Typical flows:
-- "Set up an interview for a role" → create_interview → invite_candidates, or
-  generate_interview_url for one shareable link.
+- "Set up an interview for a role" → create_interview (status active, or
+  set_interview_state later) → invite_candidates; with send_email=false it returns
+  each candidate's personal link to share instead.
 - "Invite candidates to an interview" → invite_candidates (sends the invitation
   e-mail; report each row's result as returned). For links the user shares
   themselves: invite_candidates with send_email=false (no e-mail) or

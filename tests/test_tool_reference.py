@@ -196,6 +196,41 @@ def test_brief_keeps_the_first_sentence_and_every_rule():
     assert brief("") == ""
 
 
+def test_an_enum_argument_keeps_what_each_option_means():
+    """The three ways the spec lists options; the label that repeats a value goes."""
+    essay = (
+        "Who can see it. Options — `merchant_public`: Listed on the public list — anyone can start it. "
+        "| `merchant_invite`: Invite-only — only invited candidates. Second sentence dropped."
+    )
+    assert brief(essay) == "Who can see it."
+    assert brief(essay, options=True) == (
+        "Who can see it. Values: `merchant_public`: Listed on the public list — anyone can start it | "
+        "`merchant_invite`: only invited candidates."
+    )
+    lines = "How much to return.\n\n- `summary`: scores only.\n- `full`: every field. This is long."
+    assert brief(lines, options=True) == "How much to return. Values: `summary`: scores only | `full`: every field."
+    inline = "Pick deliberately. `interview`: a role-play. More. | `coaching` (DEFAULT when omitted): practice."
+    assert brief(inline, options=True) == (
+        "Pick deliberately. Values: `interview`: a role-play | `coaching` (DEFAULT when omitted): practice."
+    )
+    label = "Style. Options — `pre-screening-with-test-questions`: Pre-screening with test questions — plus a test."
+    assert brief(label, options=True) == "Style. Values: `pre-screening-with-test-questions`: plus a test."
+
+
+def test_a_sentence_never_ends_inside_a_code_span():
+    text = "Every selector must include the class: `.jm-site h1 { ... }`. Trivia."
+    assert brief(text) == "Every selector must include the class: `.jm-site h1 { ... }`."
+
+
+@pytest.mark.asyncio
+async def test_the_advertised_enums_carry_their_option_meanings():
+    listed = await _listed()
+    visibility = listed["create_interview"].input_schema["properties"]["visibility"]["description"]
+    assert "`merchant_invite`: only candidates explicitly invited" in visibility
+    view = listed["get_interview_result_details"].input_schema["properties"]["view"]["description"]
+    assert "`summary`:" in view and "`full`:" in view and "This is the default" not in view
+
+
 def test_trim_and_strip_work_in_place_on_nested_and_composed_schemas():
     schema = {
         "type": "object",
@@ -265,3 +300,17 @@ def test_the_public_tool_reads_nothing_upstream():
 
     assert PUBLIC_TOOL_CALLS == {TOOL_NAME}
     assert TOOL_NAME not in tool_reference.FULL
+
+
+@pytest.mark.asyncio
+async def test_result_tools_say_which_list_row_id_is_the_result():
+    """Single-stage rows of list_interview_results carry the result as `id`, with
+    interview_result_id null; telling a model to always use interview_result_id
+    sent a null for every single-stage result."""
+    import server
+
+    listed = await _listed()
+    for name in ("get_interview_result_details", "generate_interview_report", "request_another_interview_attempt"):
+        assert "a single-stage row's `id`" in listed[name].description, name
+    assert "NOT the result row's `id`" not in server.INSTRUCTIONS
+    assert "a single-stage row's" in server.INSTRUCTIONS

@@ -142,7 +142,8 @@ if _APPS_AVAILABLE:
 
             @self.tool()
             async def search_merchants(query: str = "") -> list[dict]:
-                """Backend: server-side sub-merchant search (called by the UI's Search button)."""
+                """Called by the jobmojito_configuration picker's Search button; do not call it
+                yourself. To list merchants as text use list_my_merchants (its `search`)."""
                 subs = await _fetch_sub_merchants(search=query)
                 return [
                     {"merchant_id": m["merchant_id"], "name": m["name"]}

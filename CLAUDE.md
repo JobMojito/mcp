@@ -161,8 +161,12 @@ More detail: `docs/ARCHITECTURE.md`.
   each generated tool in full (`tool_reference.capture`) and then advertises: the
   "[Category] hint" as the description, each top-level argument's first sentence
   plus every sentence that states a behaviour (null, empty value, omit, only, never,
-  default, e-mail, dry_run...), no "Options —" essays, examples or nested
-  descriptions, and an output schema without annotations. The structure (types,
+  default, e-mail, dry_run...), on an enum argument one "Values:" line with each
+  option's first sentence (the spec's "Options — `a`: … | `b`: …", "- `a`: …" lines
+  or inline "`a`: … | `b`: …"), no examples or nested descriptions, and an output
+  schema without annotations. Separately, `openapi_loader.apply_tool_names` rewrites
+  endpoint names in every description to tool names (`naming.MERGED_ENDPOINTS` for
+  hidden endpoints), so write the spec in endpoint names and the model still reads tools. The structure (types,
   enums, required, nesting) is never touched — `tests/test_tool_reference.py`
   compares it. So a rule a model must follow belongs in the hint or in a sentence
   the rule regex keeps; detail belongs in the spec, where `get_tool_reference`

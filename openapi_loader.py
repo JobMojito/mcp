@@ -19,6 +19,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from config import settings
 from naming import (
     VIEW_PARAM_MARKER,
     VIEW_PARAM_NAME,
+    endpoint_tool_names,
     meta_for,
     operation_id_for,
     view_parameter_schema,
@@ -238,6 +240,38 @@ def apply_description_fixes(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
+    """Name tools, not endpoints, in every description a model reads.
+
+    The spec is written for HTTP callers ("in the format job-interview-get
+    returns"); through this server the model knows only tool names. An endpoint
+    name is replaced where it stands alone: not inside a path ("/functions/v1/x")
+    or a longer name. The replacements contain no hyphenated endpoint name, so a
+    cached spec prepared again comes out the same.
+    """
+    names = endpoint_tool_names()
+    if not names:
+        return spec
+    pattern = re.compile(
+        r"(?<![\w/.-])(" + "|".join(re.escape(s) for s in sorted(names, key=len, reverse=True)) + r")(?![\w-])"
+    )
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in ("description", "summary") and isinstance(value, str):
+                    node[key] = pattern.sub(lambda m: names[m.group(1)], value)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(spec.get("paths", {}))
+    walk(spec.get("components", {}))
+    return spec
+
+
 def _allow_null(prop: dict[str, Any]) -> None:
     """Make a single property schema accept null (it stays the same type otherwise)."""
     t = prop.get("type")
@@ -445,9 +479,11 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     enum would advertise a value that means nothing.
     """
     return relax_nullable_schemas(
-        apply_description_fixes(
-            prefer_json_request_bodies(
-                inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+        apply_tool_names(
+            apply_description_fixes(
+                prefer_json_request_bodies(
+                    inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+                )
             )
         )
     )

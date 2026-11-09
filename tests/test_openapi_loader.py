@@ -188,3 +188,41 @@ def test_description_hint_for():
     (method, path), meta = next(iter(naming.TOOL_META.items()))
     assert naming.description_hint_for(method, path) == meta.hint
     assert naming.description_hint_for("GET", "/brand-new") is None
+
+
+# ---- apply_tool_names -------------------------------------------------------------------------
+
+
+def test_prose_names_tools_not_endpoints():
+    """A model knows tool names; the spec's prose names endpoints."""
+    spec = {
+        "paths": {
+            "/x": {
+                "post": {
+                    "description": "In the format job-interview-get returns; see job-interview-create-from-array.",
+                    "parameters": [{"name": "job-interview-get", "description": "curl /functions/v1/job-interview-get"}],
+                }
+            }
+        },
+        "components": {"schemas": {"S": {"properties": {"description": {"type": "string", "description": "job-interview-get-thing and job-interview-get."}}}}},
+    }
+    loader.apply_tool_names(spec)
+    operation = spec["paths"]["/x"]["post"]
+    assert operation["description"] == "In the format get_interview_definition returns; see create_interview."
+    # a path, a longer name and a non-description value are left alone
+    assert operation["parameters"][0] == {"name": "job-interview-get", "description": "curl /functions/v1/job-interview-get"}
+    prop = spec["components"]["schemas"]["S"]["properties"]["description"]
+    assert prop["description"] == "job-interview-get-thing and get_interview_definition."
+    assert prop["type"] == "string"
+    # prepared a second time (the cache), it comes out the same
+    again = json.loads(json.dumps(spec))
+    assert loader.apply_tool_names(again) == spec
+
+
+def test_every_endpoint_name_maps_to_a_real_tool_name():
+    names = naming.endpoint_tool_names()
+    tools = {meta.name for (method, path), meta in naming.TOOL_META.items() if not naming.is_ignored(method, path)}
+    assert set(naming.MERGED_ENDPOINTS) <= naming.IGNORED_PATHS
+    for slug, text in names.items():
+        assert "-" not in text.split()[0], (slug, text)
+        assert text.split()[0] in tools | {"invite_candidates"}, (slug, text)

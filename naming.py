@@ -306,6 +306,11 @@ _READ_WHY = (
     "modifies or deletes anything. idempotentHint=true: repeated calls return the "
     "same data. " + _OPEN_WORLD
 )
+# Which id of a list_interview_results row is the result: the two kinds of row differ.
+_RESULT_ID = (
+    "interview_result_id from list_interview_results: a single-stage row's `id`, a "
+    "multi-stage row's `interview_result_id`."
+)
 # Field reference for the portal configuration documents (developer docs).
 _PORTAL_COOKBOOKS = (
     "Field reference: https://developer.jobmojito.com/cookbooks/portal-branding/branding, "
@@ -323,7 +328,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Generate interview report",
         "Generate an interview result report (HTML/PDF/JSON) for a completed "
         "interview. The report is decision-support material for a human reviewer, "
-        "not an automated hiring decision.",
+        "not an automated hiring decision. " + _RESULT_ID,
         "readOnlyHint=false / destructiveHint=true: rendering a report is a POST "
         "that produces a stored, shareable artifact and consumes account credits, "
         "so the client should confirm before running it. idempotentHint=true: "
@@ -350,7 +355,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Update the configuration of an existing interview/position: name, "
         "description, avatar template, recording, scoring, tags, category and the rest "
         "of the create-time settings; for a position also its hiring `team` and "
-        "recruiter. A position's steps are changed with set_position_process and "
+        "recruiter. Change the publication status with set_interview_state, not here. "
+        "A position's steps are changed with set_position_process and "
         "update_position_step. Only the fields you send are changed. "
         "To change the questions, send `questions` — the WHOLE list you want the "
         "interview to end up with, in order, in the format "
@@ -433,7 +439,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "archived...), or a position's vacancy `lifecycle` (open, applications_closed, "
         "on_hold, filled, cancelled, closed) with an optional reason_id and note, or its "
         "embed key (is_embedded). Closing a position e-mails the candidates whose "
-        "applications are still open.",
+        "applications are still open. on_hold and cancelled need a reason_id: one of the "
+        "company's position status reasons, which no tool lists, so ask the user for it. "
+        "It has no preview: confirm the change with the user first. Prefer `archived` "
+        "to `deleted`: a deleted interview can no longer be read or updated. This is the "
+        "tool for status changes.",
         "readOnlyHint=false / destructiveHint=true: this mutates a live interview. "
         "Closing a position stops candidates from being able to complete it, which "
         "is user-visible and disruptive if done by mistake. idempotentHint=true: "
@@ -443,8 +453,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-result-request-another-attempt"): _write(
         "request_another_interview_attempt",
         "Re-open interview for another attempt",
-        "Re-open a submitted interview result so the candidate can retry. "
-        "Company owners, recruiters and platform admins only.",
+        "Re-open a submitted interview result so the candidate can retry: the result goes "
+        "back to draft and the recruiter's decision on it is cleared. Nothing is e-mailed: "
+        "tell the candidate yourself. Company owners, recruiters and platform admins only. "
+        + _RESULT_ID,
         "readOnlyHint=false / destructiveHint=true: re-opening a submitted result "
         "changes the candidate's recorded outcome and can invalidate a completed "
         "assessment. " + _OPEN_WORLD,
@@ -461,7 +473,14 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-token"): _write(
         "generate_interview_url",
         "Generate shareable interview link",
-        "Generate a signed public interview URL/token.",
+        "Generate a signed link; nothing is sent. `type` picks who it is for and the ids it "
+        "needs: interview-for-profile = one candidate's own interview link "
+        "(interview_profile_id + interview_id); results-for-profile = that candidate's "
+        "results (interview_profile_id); interview-result-candidate = one result for the "
+        "candidate, interview-result-talent-seeker = one result for a reviewer "
+        "(interview_result_id); interview-results-for-position = every result of an "
+        "active interview or position for a reviewer (interview_id). There is no "
+        "anonymous link to an interview: to invite people use invite_candidates.",
         "readOnlyHint=false / destructiveHint=true: this mints a signed credential "
         "that grants anyone holding it access to the interview, so it should not "
         "run without user confirmation. " + _OPEN_WORLD,
@@ -472,7 +491,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Get full interview result details including transcript and scores. "
         "Scores are assistive output for a human reviewer. One result is a large "
         "record, so `view` controls how much of it comes back — the default "
-        "(`standard`) omits only the raw machine assessment data.",
+        "(`standard`) omits only the raw machine assessment data. " + _RESULT_ID,
         _READ_WHY,
         views=_INTERVIEW_RESULT_VIEWS,
         default_view="standard",
@@ -700,8 +719,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List the merchant's candidates, filtered by text, activity tab, source, channel, "
         "owner, prospect or applicant. To search like the admin's segment builder (tags, "
         "positions, steps, status, dates, countries, skills, custom fields...) pass `rules` "
-        "as JSON {\"match\": \"all\", \"rules\": [...]}, field ids and values from "
-        "list_candidate_filters; or `segment_id` for a segment's members.",
+        "as a JSON STRING '{\"match\": \"all\", \"rules\": [...]}', field ids and values "
+        "from list_candidate_filters; or `segment_id` for a segment's members.",
         _READ_WHY,
     ),
     ("GET", "/merchant-result-list"): _read(
@@ -750,7 +769,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("GET", "/merchant-sub-merchant-list"): _read(
         "list_sub_merchants",
         "List sub-merchants",
-        "List sub-merchants under the merchant account.",
+        "List the sub-merchants (child companies) under a merchant account, with their "
+        "details. To pick the merchant to act for, use jobmojito_configuration or "
+        "list_my_merchants instead.",
         _READ_WHY,
     ),
     ("GET", "/merchant-analytics"): _read(
@@ -1064,7 +1085,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "update_position_step. A step candidates already reached cannot be removed, nor a "
         "meeting step that still has slots. Read the current steps with "
         "get_interview_definition include=process. dry_run=true returns the diff (added, "
-        "removed, moved, changed) without saving.",
+        "removed, moved, changed) without saving. No tool creates a position from "
+        "scratch: copy one as a draft with duplicate_position, or create it in the admin.",
         "readOnlyHint=false / destructiveHint=true: replaces the position's step list. "
         "idempotentHint=true: the same list gives the same steps. " + _OPEN_WORLD,
         idempotent=True,
@@ -1093,7 +1115,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Moving, shortening or relocating a booked slot e-mails its candidates the change, "
         "and deleting one cancels their bookings and e-mails them. Use dry_run=true first: "
         "it lists the booked candidates who would be e-mailed. List slots with "
-        "get_interview_definition include=slots.",
+        "get_interview_definition include=slots. start_at is ISO 8601 with a UTC offset "
+        "(2026-11-20T14:00:00+01:00) and not in the past: ask the user's time zone when "
+        "it is not clear.",
         "readOnlyHint=false / destructiveHint=true: changes or removes bookable time and can "
         "cancel candidates' bookings, e-mailing them; a cancellation cannot be undone. "
         + _OPEN_WORLD,
@@ -1209,8 +1233,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/merchant-segment-manage"): _write(
         "manage_segment",
         "Create, change or delete a candidate segment",
-        "action save (create without id, update with id; name, description, kind, rules as "
-        "in list_candidates), delete, or add_members / remove_members of a static segment "
+        "action save (create without id, update with id; name, description, kind, and "
+        "rules as an OBJECT {match, rules} with the rules list_candidates takes as a "
+        "string), delete, or add_members / remove_members of a static segment "
         "(candidate ids). Fields left out keep their value. Try the rules with "
         "list_candidates rules=... first. Sends nothing to candidates.",
         "readOnlyHint=false / destructiveHint=true: delete removes the segment for good. "
@@ -1329,6 +1354,37 @@ IGNORED_PATHS: set[str] = {
 IGNORED_OPERATIONS: set[tuple[str, str]] = {
     ("GET", "/media-folders"),  # list_media_files include_folders=true; POST stays manage_media_folder
 }
+
+
+#: What a model should call instead of an endpoint that has no tool of its own. The
+#: spec's prose names endpoints ("in the format job-interview-get returns"); a model
+#: only knows tool names, so ``openapi_loader.apply_tool_names`` rewrites them.
+MERGED_ENDPOINTS: dict[str, str] = {
+    "/invite-users": "invite_candidates",
+    "/job-interview-create-from-array": "create_interview",
+    "/job-interview-register-users": "invite_candidates with send_email=false",
+    "/catalogue-tag-update": "save_catalogue_directory",
+    "/media-delete": "manage_media_file with action delete",
+    "/report-run": "run_report",
+    "/report-update": "save_report with report_id",
+    "/merchant-analytics": "run_report builtin:usage",
+    "/merchant-analytics-credits-used": "run_report builtin:usage",
+}
+
+
+def endpoint_tool_names() -> dict[str, str]:
+    """Endpoint name (path without the slash) -> the tool name a model should read.
+
+    A path served by two tools (GET and POST) maps to both names, joined with " / ".
+    """
+    names: dict[str, list[str]] = {}
+    for (method, path), meta in TOOL_META.items():
+        if not is_ignored(method, path):
+            names.setdefault(path.lstrip("/"), []).append(meta.name)
+    out = {slug: " / ".join(sorted(set(tools))) for slug, tools in names.items()}
+    for path, text in MERGED_ENDPOINTS.items():
+        out.setdefault(path.lstrip("/"), text)
+    return out
 
 
 def is_ignored(method: str, path: str) -> bool:

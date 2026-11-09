@@ -65,13 +65,83 @@ def capture(name: str, *, title: str | None, description: str, input_schema: dic
     }
 
 
-def brief(text: str) -> str:
-    """The first sentence and every sentence that states a behaviour."""
-    head = text.split("Options — ", 1)[0].strip()
-    sentences = [s.strip() for s in _SENTENCE_END.split(head) if s and s.strip()]
-    if not sentences:
-        return head
-    return " ".join([sentences[0], *(s for s in sentences[1:] if _RULE.search(s))])
+_CODE = re.compile(r"`[^`\n]*`")
+# An option entry: `value`, an optional "(DEFAULT when omitted)", a colon.
+_OPTION = re.compile(r"`([^`\n]+)`(\s*\([^)\n]*\))?:\s*(.*)", re.S)
+_OPTION_BAR = re.compile(r"\s+\|\s+(?=`[^`\n]+`(?:\s*\([^)\n]*\))?:)")
+_OPTION_LINE = re.compile(r"^\s*- (?=`[^`\n]+`(?:\s*\([^)\n]*\))?:)", re.M)
+_INLINE_OPTIONS = re.compile(r"`[^`\n]+`(?:\s*\([^)\n]*\))?:\s")
+
+
+def _sentences(text: str) -> list[str]:
+    """Split into sentences, never inside a `code span` (".jm-site h1 { ... }")."""
+    spans: list[str] = []
+
+    def hide(m: re.Match) -> str:
+        spans.append(m.group(0))
+        return f"\x00{len(spans) - 1}\x00"
+
+    hidden = _CODE.sub(hide, text)
+    out = []
+    for s in _SENTENCE_END.split(hidden):
+        if s and s.strip():
+            out.append(re.sub(r"\x00(\d+)\x00", lambda m: spans[int(m.group(1))], s.strip()))
+    return out
+
+
+def _split_options(text: str) -> tuple[str, list[str]]:
+    """(the text before the options, one entry per option) for the three ways the
+    spec lists options: "Options — `a`: … | `b`: …", "- `a`: …" lines, and
+    "`a`: … | `b`: …" inline after the field's own sentences."""
+    if "Options — " in text:
+        head, rest = text.split("Options — ", 1)
+        return head, _OPTION_BAR.split(rest.strip())
+    lines = list(_OPTION_LINE.finditer(text))
+    if lines:
+        head = text[: lines[0].start()]
+        bounds = [m.end() for m in lines] + [len(text)]
+        return head, [text[bounds[i] : lines[i + 1].start() if i + 1 < len(lines) else len(text)] for i in range(len(lines))]
+    if _OPTION_BAR.search(text):
+        first = _INLINE_OPTIONS.search(text)
+        if first:
+            return text[: first.start()], _OPTION_BAR.split(text[first.start() :].strip())
+    return text, []
+
+
+def _option_gist(entry: str) -> str | None:
+    """`value`: the first sentence of what it means, without a label that repeats it."""
+    m = _OPTION.match(entry.strip())
+    if not m:
+        return None
+    name, qualifier, body = m.group(1), (m.group(2) or "").strip(), m.group(3)
+    sentences = _sentences(body)
+    gist = sentences[0] if sentences else body.strip()
+    label, dash, rest = gist.partition(" — ")
+    # "Pre-screening — quick qualification check…": the label repeats the value.
+    same = label.lower().replace("-", " ") == name.lower().replace("-", " ").replace("_", " ")
+    if dash and (same or len(label.split()) <= 3):
+        gist = rest
+    gist = gist.rstrip(". ")
+    return f"`{name}`{' ' + qualifier if qualifier else ''}: {gist}"
+
+
+def brief(text: str, *, options: bool = False) -> str:
+    """The first sentence and every sentence that states a behaviour; with
+    ``options`` (an enum argument) also one line per option: what it means."""
+    head, entries = _split_options(text)
+    sentences = _sentences(head.strip())
+    out = " ".join([sentences[0], *(s for s in sentences[1:] if _RULE.search(s))]) if sentences else head.strip()
+    if options and entries:
+        gists = [g for g in (_option_gist(e) for e in entries) if g]
+        if gists:
+            out = f"{out} Values: {' | '.join(gists)}.".strip()
+    return out
+
+
+def _has_enum(node: dict) -> bool:
+    if "enum" in node:
+        return True
+    return any(isinstance(c, dict) and "enum" in c for c in [*(node.get("anyOf") or []), *(node.get("oneOf") or []), *(node.get("allOf") or [])])
 
 
 def _children(node: dict) -> list[tuple[dict, bool]]:
@@ -105,7 +175,7 @@ def trim_input_schema(schema: dict) -> dict:
             if depth >= 2:
                 del node["description"]
             elif depth == 1:
-                node["description"] = brief(text)
+                node["description"] = brief(text, options=_has_enum(node))
         for child, deeper in _children(node):
             walk(child, depth + 1 if deeper else depth)
 

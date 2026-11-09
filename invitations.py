@@ -217,6 +217,10 @@ def register(mcp) -> None:
         With send_email=false NOTHING is e-mailed: each candidate is registered and
         their personal interview_url comes back for you to share (also for a test
         with is_test=true). The result's email_sent says which happened.
+        send_email=false does not use the invitation budget.
+
+        Candidates cannot take a draft interview: activate it with set_interview_state
+        first, or use send_email=false with is_test=true to try it yourself.
         """
         if send_email:
             path = "/invite-users"
