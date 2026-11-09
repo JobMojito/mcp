@@ -138,8 +138,9 @@ More detail: `docs/ARCHITECTURE.md`.
   `ENABLE_AUTH=false` or supply `JOBMOJITO_DEV_BEARER_TOKEN`.
 - **Lazy auth is deliberate, and narrow.** `lazy_auth.py` serves only capability
   discovery (`server/discover` on 2026-07-28; `initialize`, `ping` on the older
-  versions; `tools/list` and the other `*/list` methods) without a token, so directory crawlers can show the tool list. Every tool call,
-  resource read and prompt still requires a verified JWT. If you add a method to
+  versions; `tools/list` and the other `*/list` methods) without a token, so directory crawlers can show the tool list, plus
+  `resources/read` of a `ui://` MCP App template (`PUBLIC_RESOURCE_PREFIXES`: static HTML, and OpenAI's
+  scan fails without it). Every tool call, other resource read and prompt still requires a verified JWT. If you add a method to
   `PUBLIC_METHODS`, you are making it anonymous — be sure it exposes no data.
   It hooks two undocumented FastMCP internals, so `fastmcp` stays pinned `<5` and
   the lazy-auth tests gate any upgrade.

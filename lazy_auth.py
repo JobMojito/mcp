@@ -103,6 +103,14 @@ PUBLIC_METHODS: frozenset[str] = frozenset(
 #: passes only when EVERY message in it is a public method or a call to one of these.
 PUBLIC_TOOL_CALLS: frozenset[str] = frozenset({"get_tool_reference"})
 
+#: URI prefixes a ``resources/read`` may fetch without a token. ``ui://`` is an MCP App
+#: template: the static HTML a host loads before it can render a tool's UI (here the
+#: Prefab renderer behind ``jobmojito_configuration``, 471 bytes, no data). Directory
+#: scanners read it while reviewing the tools: OpenAI's daily scan read it without a
+#: token, got a 401 and never finished (9 Nov 2026). A ui:// resource must stay static:
+#: anything that reads JobMojito data belongs behind a tool call.
+PUBLIC_RESOURCE_PREFIXES: tuple[str, ...] = ("ui://",)
+
 #: client_id stamped on the synthetic token used for anonymous discovery. Code
 #: that needs to distinguish "anonymous discovery" from "real user" must compare
 #: against this — ``get_access_token()`` returns a token object, not None.
@@ -196,6 +204,13 @@ def _all_public(body: bytes, public_methods: frozenset[str], public_tool_calls: 
             continue
         params = message.get("params")
         if method == "tools/call" and isinstance(params, dict) and params.get("name") in public_tool_calls:
+            continue
+        if (
+            method == "resources/read"
+            and isinstance(params, dict)
+            and isinstance(params.get("uri"), str)
+            and params["uri"].startswith(PUBLIC_RESOURCE_PREFIXES)
+        ):
             continue
         return False
     return True

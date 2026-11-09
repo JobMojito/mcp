@@ -454,6 +454,63 @@ async def test_lazy_auth_still_gates_everything_else(method):
     assert not scope["headers"], "no synthetic Authorization header should be injected"
 
 
+@pytest.mark.parametrize(
+    ("params", "public"),
+    [
+        ({"uri": "ui://prefab/tool/8bb716989559/renderer.html"}, True),
+        ({"uri": "https://example.com/ui://x"}, False),
+        ({"uri": "file:///etc/passwd"}, False),
+        ({"uri": "jobmojito://candidates"}, False),
+        ({"uri": ["ui://x"]}, False),
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_only_ui_templates_are_readable_without_a_token(params, public):
+    """OpenAI's scan reads the MCP App template anonymously; a 401 there failed every scan."""
+    from lazy_auth import PUBLIC_METHODS, PUBLIC_TOOL_CALLS, _all_public
+
+    message = {"jsonrpc": "2.0", "id": 1, "method": "resources/read"}
+    if params is not None:
+        message["params"] = params
+    assert _all_public(json.dumps(message).encode(), PUBLIC_METHODS, PUBLIC_TOOL_CALLS) is public
+
+
+@pytest.mark.asyncio
+async def test_lazy_auth_serves_a_ui_template_without_a_token():
+    from lazy_auth import ANONYMOUS_CLIENT_ID
+
+    body = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "ui://prefab/tool/x/renderer.html"}}
+    ).encode()
+    seen = await _run_lazy_auth(body)
+    assert seen["scope"]["user"].access_token.client_id == ANONYMOUS_CLIENT_ID
+    assert seen["body"] == body
+
+
+@pytest.mark.asyncio
+async def test_every_ui_resource_is_a_static_template():
+    """What lazy_auth serves anonymously under ui:// must hold no data.
+
+    Fixed resources only (a template could be parameterised by user input), and the
+    content is the renderer page: no JobMojito address, no token, no merchant.
+    """
+    import server
+
+    assert not [
+        t.uri_template for t in await server.mcp.list_resource_templates() if str(t.uri_template).startswith("ui://")
+    ]
+    ui = [r for r in await server.mcp.list_resources() if str(r.uri).startswith("ui://")]
+    assert ui, "jobmojito_configuration's template is expected"
+    for resource in ui:
+        result = await server.mcp.read_resource(str(resource.uri))
+        contents = getattr(result, "contents", result)
+        for item in contents if isinstance(contents, list) else [contents]:
+            text = str(getattr(item, "text", None) or getattr(item, "content", ""))
+            assert len(text) < 5000, resource.uri
+            assert not re.search(r"jobmojito\.com|supabase|bearer|merchant", text, re.I), resource.uri
+
+
 @pytest.mark.asyncio
 async def test_lazy_auth_gates_mixed_batches():
     """A batch that mixes a public method with a tool call must be gated."""
