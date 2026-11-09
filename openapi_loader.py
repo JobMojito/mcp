@@ -224,7 +224,15 @@ def apply_description_fixes(spec: dict[str, Any]) -> dict[str, Any]:
             meta = meta_for(method, path)
             if not meta or not meta.description_fixes:
                 continue
-            targets = [operation, *_json_body_properties(spec, operation)]
+            # query and path parameters carry argument texts too (a GET's arguments)
+            parameters = [
+                node
+                for parameter in [*(path_item.get("parameters") or []), *(operation.get("parameters") or [])]
+                if isinstance(parameter, dict)
+                for node in (parameter, parameter.get("schema"))
+                if isinstance(node, dict)
+            ]
+            targets = [operation, *_json_body_properties(spec, operation), *parameters]
             for old, new in meta.description_fixes:
                 seen = False
                 for target in targets:

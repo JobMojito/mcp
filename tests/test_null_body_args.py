@@ -320,11 +320,11 @@ def test_a_correction_never_contains_what_it_replaces():
 @pytest.mark.parametrize(("key", "meta"), [(k, m) for k, m in TOOL_META.items() if m.description_fixes])
 def test_every_correction_finds_its_text_in_the_snapshot(key, meta):
     """Fails when the API rewords a sentence, which would bring the promise back."""
-    operation = SNAPSHOT["paths"][key[1]]["post"]
-    texts = [
-        operation.get(field, "")
-        for field in ("description", "x-mcp-description")
-    ] + [p.get(field, "") for p in _body_properties(key[1]).values() for field in ("description", "x-mcp-description")]
+    operation = SNAPSHOT["paths"][key[1]][key[0].lower()]
+    fields = ("description", "x-mcp-description")
+    parameters = [n for p in operation.get("parameters") or [] for n in (p, p.get("schema") or {})]
+    body = _body_properties(key[1]).values() if key[0] == "POST" else []
+    texts = [node.get(field, "") for node in [operation, *body, *parameters] for field in fields]
     for old, _new in meta.description_fixes:
         assert any(old in text for text in texts), f"{meta.name}: {old!r}"
 
@@ -439,3 +439,26 @@ def test_every_statement_fix_lands_in_the_built_tools():
         text = json.dumps(tools[name].parameters)
         for old, _new in fixes:
             assert json.dumps(old)[1:-1] not in text, f"{name}: {old!r}"
+
+
+def test_a_correction_reaches_query_parameters():
+    """A GET's arguments are query parameters: their texts get the same restatement."""
+    old = "Show it - how you verify a translation lists the right sessions."
+    spec = {
+        "paths": {
+            "/catalogue-tag-get": {
+                "parameters": ["not a parameter"],
+                "get": {
+                    "description": "Read one directory.",
+                    "parameters": [
+                        {"name": "mojito_language_code", "in": "query", "description": old, "schema": {"type": "string", "x-mcp-description": old}},
+                        {"name": "id", "in": "query"},
+                    ],
+                },
+            }
+        }
+    }
+    apply_description_fixes(spec)
+    parameter = spec["paths"]["/catalogue-tag-get"]["get"]["parameters"][0]
+    assert parameter["description"] == "Show it; it shows which sessions a translation lists."
+    assert parameter["schema"]["x-mcp-description"] == parameter["description"]

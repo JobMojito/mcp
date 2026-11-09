@@ -164,8 +164,8 @@ if _APPS_AVAILABLE:
                 """Interactive picker (MCP App UI) for the JobMojito merchant account a
                 conversation acts as.
 
-                For when the user wants to choose, switch or set a merchant, or a call
-                needs a `merchant_id` and none is chosen yet. It renders a searchable
+                For choosing, switching or setting the merchant, or for a call that
+                needs a `merchant_id` when none is chosen yet. It renders a searchable
                 list with clickable options, and the user's choice arrives as their
                 next message. Later JobMojito calls then carry
                 `merchant_id=<chosen id>`; the user's own account needs none.

@@ -107,7 +107,7 @@ def restate(name: str, text: str, hits: set[int] | None = None) -> str:
 def _restated(name: str, node: Any, hits: set[int]) -> Any:
     if isinstance(node, dict):
         for key, value in node.items():
-            if key == "description" and isinstance(value, str):
+            if key in ("description", "example") and isinstance(value, str):
                 node[key] = restate(name, value, hits)
             else:
                 _restated(name, value, hits)

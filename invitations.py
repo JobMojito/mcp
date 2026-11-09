@@ -215,7 +215,7 @@ def register(mcp) -> None:
         back with its outcome; only 'Invited' means an e-mail was queued.
 
         With send_email=false NOTHING is e-mailed: each candidate is registered and
-        their personal interview_url comes back for you to share. The result's
+        their personal interview_url comes back; nothing is sent. The result's
         email_sent says which happened. send_email=false sends nothing now or later: no
         invitation, no reminders, no SMS or WhatsApp, and it does not use the invitation
         budget.

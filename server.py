@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.6.5"
+SERVER_VERSION = "2.6.6"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -140,13 +140,17 @@ happen, then run it. A change with neither (`invite_candidates`, `update_intervi
 `request_another_interview_attempt`) needs the user's go-ahead first.
 Some tools and fields belong to company features that JobMojito switches on per
 company (prospects, meeting_panels...): a 403 naming one means it is off for this
-company, so tell the user instead of retrying.
+company (update_portal_configuration answers 422 for brands, style settings and CSS
+files), so tell the user instead of retrying.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,
 transcripts, summaries and reports are decision-support material — they are not
 hiring decisions. Present them as input for a qualified human reviewer, and never
 describe a candidate as accepted, rejected, or ranked as final by this system.
+Where a company has switched on automatic decisions for a step (a result's
+decision_status ai_accept / ai_reject, pre-screening auto-approve), report that as
+the company's configured rule, not as a judgement of yours.
 When a user is preparing candidate-facing material, remind them that candidates
 should be told AI is used in the process.
 
@@ -172,7 +176,8 @@ HOW TO USE THIS SERVER:
    its exact format or an example, `get_tool_reference(tool)` returns that tool in
    full (part=result: the fields it returns). The others are complete as listed.
 3. The read-only tools (`list_*`, `get_*`) are the safe way to look things up
-   before creating or changing anything.
+   before creating or changing anything (list_reasons and list_media_files also set
+   up defaults on their first read).
 4. Merchant selection: many tools accept a `merchant_id`. When one is needed and
    none has been selected — or the user wants to switch merchants —
    `jobmojito_configuration` renders an interactive searchable picker, which is a
@@ -193,7 +198,7 @@ list_interview_results row, take the row's `id` on a single-stage row (its
 interview_result_id is null) and its `interview_result_id` on a multi-stage row.
 Enum values are exact strings, sent as listed even when they look misspelt
 (`name_accending`).
-No tool builds admin console links.
+Apart from the `admin_url` the report tools return, no tool builds admin console links.
 For the full id-to-field map, where each id comes from, and admin link patterns:
 get_documentation("https://developer.jobmojito.com/mcp/identifiers").
 

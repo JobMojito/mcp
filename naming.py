@@ -326,9 +326,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         + _RESULT_ID,
         "readOnlyHint=false / destructiveHint=true: rendering a report is a POST "
         "that produces a stored, shareable artifact and consumes account credits, "
-        "so the client should confirm before running it. idempotentHint=true: "
-        "re-rendering the same result yields the same report. " + _OPEN_WORLD,
-        idempotent=True,
+        "so the client should confirm before running it. idempotentHint=false: a "
+        "translated report bills again and store_file stores another file on every "
+        "call. " + _OPEN_WORLD,
     ),
     # --- Interview ---
     ("GET", "/job-interview-get"): _read(
@@ -360,15 +360,16 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "get_interview_definition returns. OMIT `questions` and the existing "
         "questions are left completely alone; there is no way to change one question "
         "on its own: the array get_interview_definition returns is edited and sent "
-        "back whole. Resending an unchanged array does nothing. Questions of an "
-        "`active` interview on an offline (pre-rendered video) template change only "
-        "while it is `draft`. Not updated by this tool at all: the welcome and "
-        "thank-you messages and the instructional-video screen (stored as steps, not "
-        "questions), and the language, which the existing questions are already "
-        "written in (no tool changes these: the messages and the video screen are "
-        "changed in the admin, and another language takes a new interview). `tags` "
-        "places a coaching session into a catalogue directory. MULTI-STAGE "
-        "POSITIONS: the interview-only settings (recording, knowledge_base_store_id, "
+        "back whole. Resending an unchanged array does nothing. On an offline "
+        "(pre-rendered video) template the questions change only while the interview "
+        "is `draft`; on an interactive one also while it is `active`. Not updated by "
+        "this tool at all: the welcome and thank-you messages and the "
+        "instructional-video screen (stored as steps, not questions), and the "
+        "language, which the existing questions are already written in (no tool "
+        "changes these: the messages and the video screen are changed in the admin, "
+        "and another language takes a new interview). `tags` places a coaching "
+        "session into a catalogue directory. MULTI-STAGE POSITIONS: the "
+        "interview-only settings (recording, knowledge_base_store_id, "
         "candidate_expectations_json and the like) do not exist at position level "
         "and are refused with a 422 naming the field. They live on the AI interview "
         "step's own interview (the step's interview_set_id, from "
@@ -479,17 +480,18 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-token"): _write(
         "generate_interview_url",
         "Generate shareable interview link",
-        "Generate a signed link, stored as a one-time token; nothing is sent. "
-        "Whoever holds the link gets its access. `type` picks who it is for and the "
-        "ids it needs: interview-for-profile = one candidate's own interview link "
-        "(interview_profile_id + interview_id); results-for-profile = that "
-        "candidate's results (interview_profile_id); interview-result-candidate = "
-        "one result for the candidate, interview-result-talent-seeker = one result "
-        "for a reviewer (interview_result_id); interview-results-for-position = "
-        "every result of an active interview or position for a reviewer "
-        "(interview_id). interview_profile_id is the candidate's `id` from "
-        "list_candidates. There is no anonymous link to an interview: invitations "
-        "are sent by invite_candidates.",
+        "Generate a signed link that works for 30 days and can be opened more than "
+        "once; nothing is sent. Whoever holds the link gets its access. `type` picks "
+        "who it is for and the ids it needs: interview-for-profile = one candidate's "
+        "own interview link (interview_profile_id + interview_id); "
+        "results-for-profile = that candidate's results (interview_profile_id); "
+        "interview-result-candidate = one result for the candidate, "
+        "interview-result-talent-seeker = one result for a reviewer "
+        "(interview_result_id); interview-results-for-position = every result of an "
+        "active interview or position for a reviewer (interview_id). "
+        "interview_profile_id is the candidate's `id` from list_candidates. There is "
+        "no anonymous link to an interview: invitations are sent by "
+        "invite_candidates.",
         "readOnlyHint=false / destructiveHint=true: this mints a signed credential "
         "that grants anyone holding it access to the interview, so it should not "
         "run without user confirmation. " + _OPEN_WORLD,
@@ -792,7 +794,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "in the candidate's browser, 1.25 credits, no early stop); "
         "`interactive_heygen` = premium realtime interactive video avatar; "
         "`offline_heygen` = pre-recorded, non-interactive avatar. An item's `id` is "
-        "the `interview_template_id` of the create-interview tools, so the "
+        "the `interview_template_id` of create_interview and create_persona, so the "
         "template's type sets the experience. Note: `offline_elai` and "
         "`offline_synthesia` are legacy integrations that may still appear here but "
         "cannot be used to create new interviews. Rows are large, so this returns 15 "
@@ -1524,13 +1526,16 @@ _STATEMENT_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
         ("`merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link.",
          "`merchant_unlisted`: Reachable only via a direct link; owned by the merchant, not listed."),
     ),
+    "get_catalogue_directory": (
+        (" - how you verify a translation lists the right sessions.", "; it shows which sessions a translation lists."),
+    ),
     "manage_candidate_tag": (
         ("renaming, recolouring and deleting are for owners and admins", "renaming, recolouring and deleting are for owners"),
         ("cannot be undone: try it with dry_run first.", "cannot be undone; dry_run shows how many candidates carry it."),
     ),
     "save_report": (
         ("With report_id: published (default) or draft.",
-         "With report_id: published (default) or draft; through this server a private report always publishes and a shared one gets a draft."),
+         "With report_id: published (default) or draft; through this server it has no effect: a private report always publishes and a shared one gets a draft."),
     ),
     "set_interview_state": (
         ("Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated.",
@@ -1552,9 +1557,100 @@ TOOL_META = {
 _REFERENCE_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
     "*": (
         ("not listed anywhere; share the link manually.", "not listed anywhere; the link is shared directly."),
+        ("add them with manage_meeting_slot", "manage_meeting_slot adds them"),
+        ("Set the matching tags on the session with the create-interview / update_interview `tags` field.",
+         "A session's tags are the `tags` field of create_interview, create_persona and update_interview."),
+        ("(see the save_catalogue_directory / save_catalogue_directory endpoints)", "(save_catalogue_directory)"),
+        ("Unimo Enterprises is a leading logistics and supply chain solutions provider.",
+         "Example Logistics is a logistics and supply chain company."),
+        ("Unimo Enterprises", "Example Logistics"),
+    ),
+    "update_position_step": (
+        ("Things to tell the user before or after the change (who it reaches, settings that have no effect yet)",
+         "Notes on the change: who it reaches, and settings that have no effect yet"),
+        ("Use dry_run to see changed_keys, candidates_on_step, booked_meetings and warnings first, and expected_updated_at to refuse a stale change.",
+         "dry_run=true returns changed_keys, candidates_on_step, booked_meetings and warnings without saving; expected_updated_at refuses a stale change."),
+        ("Send it back as expected_updated_at to refuse a change made by someone else in the meantime.",
+         "As expected_updated_at, it refuses a change made by someone else in the meantime."),
+    ),
+    "get_portal_configuration": (
+        ("unchanged in shape (preview with `dry_run: true` first).",
+         "unchanged in shape; there `dry_run: true` previews an import without writing."),
+    ),
+    "preview_candidate_merge": (
+        ("Pass preview_token to merge_candidates.", "merge_candidates takes this preview_token."),
+        ("Send this value to merge_candidates.", "The value merge_candidates takes."),
+    ),
+    "list_segments": (
+        ("To list the members, use the candidate search (list_candidates).", "list_candidates with segment_id lists the members."),
+    ),
+    "set_candidate_tags": (
+        ("Create tags with manage_candidate_tag; list them with list_candidate_filters.",
+         "Tags are created with manage_candidate_tag and listed by list_candidate_filters."),
+    ),
+    "list_reports": (
+        ("Run either kind with run_report.", "run_report runs either kind."),
+        ("Run it with run_report (report_id).", "The report_id run_report takes."),
+    ),
+    "list_languages": (
+        ("Use the `code` as `mojito_language_code` when creating interviews or personas.",
+         "`code` is the mojito_language_code create_interview and create_persona take."),
+        ("Pass this as `mojito_language_code` when creating interviews / personas.",
+         "The mojito_language_code value of create_interview / create_persona."),
+    ),
+    "list_media_files": (
+        ("Use a file's `url` in page blocks, brand logos and font settings.", "A file's `url` is what page blocks, brand logos and font settings take."),
+    ),
+    "list_catalogue_directories": (
+        ("The custom Markdown page is not included — fetch it per directory with get_catalogue_directory.",
+         "The custom Markdown page is not included; get_catalogue_directory returns it."),
+        ("Use it to find a directory id before updating one, to pick a `parent_tag`, or to walk the tree with `parent_tag`.",
+         "It returns directory ids, for finding one, picking a `parent_tag`, or walking the tree with `parent_tag`."),
+        ("Read a version with get_catalogue_directory (`translations`).", "get_catalogue_directory returns each version in `translations`."),
+        ("Read the Markdown itself with get_catalogue_directory.", "get_catalogue_directory returns the Markdown."),
+    ),
+    "set_position_process": (
+        ("(409: delete them with manage_meeting_slot)", "(409; slots are deleted with manage_meeting_slot)"),
+        ("change those of an existing step with update_position_step.", "update_position_step changes those of an existing step."),
+        ("add questions with update_interview.", "update_interview adds questions."),
+        ("Use dry_run to see the resulting process and the diff first.", "dry_run shows the resulting process and the diff without saving."),
+    ),
+    "list_tasks": (
+        (" Narrow the filters.", ""),
+    ),
+    "save_component_style": (
+        ("Pass it in `files` to publish_portal_stylesheet to publish this file alone.",
+         "In publish_portal_stylesheet's `files`, it publishes this file alone."),
+        ("to apply it, set `styleName` on the block in page content with update_portal_configuration.",
+         "`styleName` on a block in page content (update_portal_configuration) applies it."),
+    ),
+    "get_interview_definition": (
+        ("Send it back as expected_updated_at to update_position_step so a concurrent change is refused instead of overwritten.",
+         "As update_position_step's expected_updated_at, it makes a concurrent change refused instead of overwritten."),
+        ("Set it with update_interview.", "update_interview changes it."),
+    ),
+    "list_interview_results": (
+        ("Use with get_interview_result_details.", "The id get_interview_result_details takes."),
+        ("Use position_def_step_id instead to filter by one step of a position.", "position_def_step_id filters by one step of a position."),
+    ),
+    "get_component_style_guide": (
+        ("use them with a fallback, var(--jm-color-text, currentColor).", "each with a fallback, var(--jm-color-text, currentColor)."),
+        ("Read it before save_component_style.", "save_component_style works from its selectors and variables."),
+    ),
+    "get_catalogue_directory": (
+        (" — narrow `tags_interview_set_filter` if you see this.", "."),
+        (" — compare the two to spot a broken link.", ", so the two differ by its broken links."),
+        ("Read a directory before updating it — `content_md`", "`content_md`"),
+        (", so you need the current value to extend rather than overwrite it.", "."),
     ),
     "create_persona": (
         ("FIRST DECIDE `portal`. This endpoint creates", "`portal` decides the product. This endpoint creates"),
+        ("is how the avatar starts the scene — set it to a concrete in-character line; if omitted it defaults to a generic \"Hello\".",
+         "is the concrete in-character line the avatar starts the scene with; omitted, it is a generic \"Hello\"."),
+        ("Also set `candidate_expectations`: it is the yardstick", "`candidate_expectations` is the yardstick"),
+        ("Prefer referring to persona_avatar_progress: wrap up when progress is complete",
+         "Usually it refers to persona_avatar_progress: the session ends when progress is complete"),
+        ("coaching credits", "coaching minutes"),
         ("Use this whenever the goal is to ASSESS or SCREEN candidates:", "It is the one for ASSESSING or SCREENING candidates:"),
         ("Omitting `portal` gives you this one, so pass `portal: \"interview\"` explicitly for any recruiting/assessment use case.",
          "Omitting `portal` gives this one; recruiting and assessment use `portal: \"interview\"`."),
@@ -1568,6 +1664,9 @@ _REFERENCE_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
     "update_interview": (
         ("send it back to update_interview so an unchanged question keeps its existing record",
          "given back to update_interview, it keeps an unchanged question's existing record"),
+        ("See the field description, and `questions_diff` in the response for what was decided.",
+         "`questions_diff` in the response reports what was decided."),
+        ("so create a new interview to change language.", "so another language takes a new interview."),
         ("on the offline (pre-rendered video) templates set the interview back to `draft` first.",
          "on the offline (pre-rendered video) templates they change only while the interview is `draft`."),
     ),
@@ -1575,27 +1674,48 @@ _REFERENCE_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
         ("Nothing is stored: show them, and save the one the person picks with save_component_style.",
          "Nothing is stored; save_component_style keeps a look."),
     ),
-    "generate_interview_url": (("Sends nothing: share the URL yourself.", "Sends nothing; the URL is shared outside this tool."),),
-    "get_catalogue_directory": (
-        ("Read a directory before updating it — `content_md`", "`content_md`"),
-        (", so you need the current value to extend rather than overwrite it.", "."),
-    ),
-    "get_component_style_guide": (("Read it before save_component_style.", "save_component_style works from its selectors and variables."),),
-    "list_interview_results": (
-        ("Use position_def_step_id instead to filter by one step of a position.", "position_def_step_id filters by one step of a position."),
+    "generate_interview_url": (
+        ("Sends nothing: share the URL yourself.", "Sends nothing; the URL is shared outside this tool."),
     ),
     "list_report_fields": (
         ("Read this before writing a report definition: ids not listed here are refused.",
          "A report definition may only use the ids listed here; others are refused."),
     ),
-    "manage_meeting_slot": (("Run dry_run first: it lists exactly", "dry_run lists exactly"),),
+    "manage_meeting_slot": (
+        ("Run dry_run first: it lists exactly", "dry_run lists exactly"),
+        ("Things the user should know (e.g.", "Side effects the e-mails do not cover (e.g."),
+    ),
     "merge_candidates": (
         ("Call preview_candidate_merge first and send its preview_token: a missing", "It takes the preview_token of preview_candidate_merge: a missing"),
     ),
+    "manage_media_file": (
+        ("To change the file itself, replace it: start_media_upload with `replace_media_id`.",
+         "The file itself is replaced through `replace_media_id` of upload_media_file or start_media_upload."),
+        ("(as manage_media_file with action delete: ", "("),
+    ),
+    "save_catalogue_directory": (
+        ("and cannot be changed afterwards.", "and save_catalogue_directory cannot change it later."),
+    ),
+    "update_portal_configuration": (
+        ("Use it to preview an import before applying it.", "It previews an import without applying it."),
+        ("Read the current configuration with get_portal_configuration first: it returns these same documents, so you can edit them and send them back.",
+         "get_portal_configuration returns these same documents, in the format this tool takes."),
+        ("Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply.",
+         "`dry_run: true` previews the summary, warnings and changes without writing anything."),
+    ),
+    "upload_knowledge_base_document": (
+        ("(create_interview / update_interview): link it first.", "(create_interview / update_interview); an interview not linked yet is refused."),
+    ),
+    "set_knowledge_base_document_interviews": (
+        ("(create_interview / update_interview): link it first.", "(create_interview / update_interview); an interview not linked yet is refused."),
+    ),
     "publish_portal_stylesheet": (
+        ("Worth telling the person, none of them stopped the publish:", "Non-blocking issues (none stopped the publish):"),
         ("Write the drafts first with update_portal_configuration.", "It publishes the drafts written by update_portal_configuration."),
     ),
-    "report_technical_issue": (("Do not include passwords or API keys.", "Passwords and API keys do not belong in it."),),
+    "report_technical_issue": (
+        ("Do not include passwords or API keys.", "Passwords and API keys do not belong in it."),
+    ),
     "request_another_interview_attempt": (
         ("Sends no e-mail: tell the candidate yourself.", "Sends no e-mail; this tool does not tell the candidate."),
     ),
@@ -1603,34 +1723,26 @@ _REFERENCE_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
         ("Use dry_run first to check the input and see who would be e-mailed.", "dry_run checks the input and shows who would be e-mailed."),
     ),
     "run_report": (
+        ("Use it to check a definition before saving it with save_report.", "With a definition it validates and runs it without saving; save_report saves it."),
+        ("(as run_report does)", ""),
         ("Read list_report_fields first for the dataset, field and measure ids", "The dataset, field and measure ids come from list_report_fields"),
     ),
     "save_report": (
         ("Read list_report_fields first for the dataset, field and measure ids", "The dataset, field and measure ids come from list_report_fields"),
         ("Check the definition with preview_report first.", "run_report with a `definition` validates it without saving."),
         ("share it from the JobMojito admin.", "it is shared from the JobMojito admin."),
+        ("Open the report in the JobMojito admin.", "The report's page in the JobMojito admin."),
+        ("Send it back with the next update.", "The version the next save_report with report_id needs."),
         (" A private report always publishes. Through the MCP server a shared report always gets a draft that its owner publishes in the admin.", ""),
     ),
-    "set_position_process": (
-        ("Use dry_run to see the resulting process and the diff first.", "dry_run shows the resulting process and the diff without saving."),
-    ),
     "start_media_upload": (
+        ("Send this to finish_media_upload after the upload.", "The id finish_media_upload takes after the upload."),
         ("Upload in three steps: call this, PUT the file to `upload_url`, then call finish_media_upload, which checks the file and makes it usable.",
          "An upload has three steps: this call, a PUT of the file to `upload_url`, and finish_media_upload, which checks the file and makes it usable."),
-    ),
-    "update_position_step": (
-        ("Things to tell the user before or after the change (who it reaches, settings that have no effect yet)",
-         "Notes on the change: who it reaches, and settings that have no effect yet"),
     ),
     "submit_feature_request": (
         ("The board is public: do not include candidate data, company names or other personal information.",
          "The board is public: anything in it, candidate data and company names included, is visible to anyone."),
-    ),
-    "update_portal_configuration": (
-        ("Read the current configuration with get_portal_configuration first: it returns these same documents, so you can edit them and send them back.",
-         "get_portal_configuration returns these same documents, in the format this tool takes."),
-        ("Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply.",
-         "`dry_run: true` previews the summary, warnings and changes without writing anything."),
     ),
 }
 
