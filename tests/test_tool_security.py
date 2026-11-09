@@ -233,7 +233,7 @@ def _assert_mapped_endpoint(request: httpx2.Request, method: str, path: str, whe
 
 
 def test_the_sweep_covers_every_generated_tool():
-    assert len(API_TOOLS) == 61
+    assert len(API_TOOLS) == 64
     assert {"merge_candidates", "get_candidate", "run_report", "manage_media_file"} <= {n for n, _, _ in API_TOOLS}
 
 

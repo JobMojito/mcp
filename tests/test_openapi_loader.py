@@ -272,3 +272,24 @@ def test_no_advertised_schema_carries_a_boolean_or_a_shifted_exclusive_bound():
 
     walk(spec, "")
     assert not found, found
+
+
+def test_no_endpoint_names_means_nothing_to_rewrite(monkeypatch):
+    monkeypatch.setattr(loader, "endpoint_tool_names", lambda: {})
+    spec = {"paths": {"/x": {"post": {"description": "job-interview-get"}}}}
+    assert loader.apply_tool_names(spec) == {"paths": {"/x": {"post": {"description": "job-interview-get"}}}}
+
+
+def test_component_walk_and_operation_split_skip_odd_entries():
+    spec = {
+        "paths": {
+            "/odd": "not a path item",
+            "/x": {"parameters": [{"name": "p"}], "get": {"responses": {"200": {}}, "requestBody": {"x": 1}, "tags": ["T"]}},
+        },
+        "components": {"schemas": {"A": {"properties": {"b": {"$ref": "#/components/schemas/B"}}}, "B": {}}},
+    }
+    responses, bodies, others = loader._operation_parts(spec)
+    assert responses == [{"200": {}}] and bodies == [{"x": 1}]
+    assert [{"name": "p"}] in others and ["T"] in others
+    seen = loader._reachable_components(spec, [{"$ref": "#/definitions/Old"}, {"$ref": "#/components/schemas/A"}])
+    assert seen == {("schemas", "A"), ("schemas", "B")}

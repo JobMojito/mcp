@@ -412,13 +412,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
                 "Omit/null keeps the template default pace.",
                 "Omit to keep the current pace; `normal` is the default speaking pace.",
             ),
-            # Null is the only off value and stays out: what a stray null loses
-            # cannot be regained. See null_body_args.py.
-            (
-                "Omit/null to disable.",
-                "Omit to keep the current setting. A null is ignored: turn it off in "
-                "the admin console.",
-            ),
+            # recording / recording_full_session: `none` is the explicit off value; a
+            # null stays out, so a stray one cannot turn proctoring off. See
+            # null_body_args.py.
+            (" `none` switches it off (null does too).", " `none` switches it off; a null is ignored."),
             (
                 "null clears the rubric.",
                 "A null is ignored: send a new rubric to replace it, or "
@@ -440,7 +437,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "on_hold, filled, cancelled, closed) with an optional reason_id and note, or its "
         "embed key (is_embedded). Closing a position e-mails the candidates whose "
         "applications are still open. on_hold and cancelled need a reason_id: one of the "
-        "company's position status reasons, which no tool lists, so ask the user for it. "
+        "company's position status reasons from list_reasons type=position_status, "
+        "whose applies_to has the lifecycle. "
         "It has no preview: confirm the change with the user first. Prefer `archived` "
         "to `deleted`: a deleted interview can no longer be read or updated. This is the "
         "tool for status changes.",
@@ -455,7 +453,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Re-open interview for another attempt",
         "Re-open a submitted interview result so the candidate can take it again: the "
         "attempt is marked failed, the same result goes back to draft and the recruiter's "
-        "decision on it is cleared. There is no preview and nothing is e-mailed: confirm "
+        "decision on it is cleared. Continuing this interview keeps the answers already "
+        "given; a new attempt starts from scratch. There is no preview and nothing is "
+        "e-mailed: confirm "
         "with the user first, then tell the candidate. To allow more attempts on the whole "
         "interview instead, raise interview_attempts with update_interview. Company "
         "owners, recruiters and platform admins only. " + _RESULT_ID,
@@ -1299,6 +1299,34 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "action cancel (the candidate can no longer upload) or reviewed (the uploads were "
         "checked). A request in the wrong state is refused with 409.",
         "readOnlyHint=false / destructiveHint=true: cancel cannot be undone. " + _OPEN_WORLD,
+    ),
+    # --- Reasons: decision and position status reasons (merchant_taxonomy) ---
+    ("GET", "/merchant-reason-list"): _read(
+        "list_reasons",
+        "List the company's reasons",
+        "The company's decision reasons (why a candidate was rejected or withdrew, kind "
+        "reject / withdraw) and position status reasons (the reason_id set_interview_state "
+        "needs for on_hold and cancelled, with the lifecycles each applies_to). type narrows "
+        "to one; include_archived=true adds the archived ones.",
+        _READ_WHY,
+    ),
+    ("GET", "/merchant-reason-get"): _read(
+        "get_reason",
+        "Get one of the company's reasons",
+        "One decision or position status reason by id, archived ones included.",
+        _READ_WHY,
+    ),
+    ("POST", "/merchant-reason-save"): _write(
+        "save_reason",
+        "Create, change or archive a reason",
+        "Without reason_id: a new reason (decision: kind and label; position_status: label "
+        "and applies_to). With reason_id: change it; fields left out keep their value; "
+        "status archived stops offering it, active offers it again (an archived position "
+        "status reason cannot be restored). Company-wide: a renamed reason is renamed on "
+        "every past decision too, so confirm with the user first. Owners only.",
+        "readOnlyHint=false / destructiveHint=true: it changes the company's reason list, "
+        "which every recruiter and past decision uses. idempotentHint=false: each create "
+        "makes another reason. " + _OPEN_WORLD,
     ),
     # --- Feedback ---
     ("POST", "/merchant-feature-request"): ToolMeta(

@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.2.3"
+SERVER_VERSION = "2.3.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -210,6 +210,8 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   segments: list_segments, manage_segment
 • Tasks and documents: list_tasks, save_task, list_document_requests,
   request_candidate_documents, update_document_request
+• Reasons: list_reasons, get_reason, save_reason (decision and position status
+  reasons; changing them is for owners)
 • Role-play (simulated persona or coaching persona — chosen with `portal`):
   create_persona
 • Coaching catalogue: list_catalogue_directories, get_catalogue_directory,

@@ -492,22 +492,14 @@
               "persuasive",
               "exact"
             ],
-            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
+            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
             "example": "professional"
           },
           "interview_length": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "nullable": true
-              }
-            ],
+            "type": "integer",
             "description": "Number of questions to generate (1-40). Also capped by max_duration, which allows one question per 2 minutes: 20 min -> 10 questions, 30 min -> 15, 45 min -> 22, 60 min -> 30, 80 min -> 40. Asking for more than the cap is not an error — you get the cap, and the response reports the real count in questions_generated. Omit this field to let the AI pick 5-8.",
+            "minimum": 1,
+            "maximum": 40,
             "example": 8
           },
           "interview_attempts": {
@@ -622,7 +614,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `merchant_public` (or the platform's own `public`) are listed.",
             "example": [
               "interview-practice",
               "sales"
@@ -642,7 +634,7 @@
           "description": {
             "type": "string",
             "nullable": true,
-            "description": "Short, two-sentence job description shown to the candidate. Provide it to use it as-is; leave it null/blank and it is AI-generated from the position name and any other context.",
+            "description": "Short, two-sentence job description shown to the candidate. Required with `questions`. Without `questions`, provide it to use it as-is, or leave it null/blank and it is AI-generated from the position name and any other context.",
             "example": "Backend role focused on Python, async APIs, and AWS."
           },
           "description_long": {
@@ -814,7 +806,7 @@
                 "description": "Adds every EU country (plus EEA and Switzerland) to countries_blocked."
               }
             },
-            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (register_users / invite links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
+            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (personal invitation links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
           },
           "candidate_notification_channel": {
             "type": "string",
@@ -1179,7 +1171,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
             "example": "professional"
           },
           "interview_attempts": {
@@ -1280,7 +1272,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `merchant_public` (or the platform's own `public`) are listed.",
             "example": [
               "interview-practice",
               "sales"
@@ -1539,7 +1531,7 @@
                 "description": "Adds every EU country (plus EEA and Switzerland) to countries_blocked."
               }
             },
-            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (register_users / invite links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
+            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (personal invitation links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
           },
           "candidate_notification_channel": {
             "type": "string",
@@ -2535,7 +2527,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the persona. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
+            "description": "Free-form tags stored on the persona. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `merchant_public` (or the platform's own `public`) are listed.",
             "example": [
               "interview-practice",
               "sales"
@@ -2685,7 +2677,7 @@
             },
             "minItems": 2,
             "maxItems": 8,
-            "description": "Availability mode, merchant switch meeting_panels: a panel of 2 to 8 users who all attend (profile.id); the first leads the meeting and cannot be a read-only user. Candidates are offered only times when everyone is free. null = one interviewer. null removes the setting (its default applies again); left out keeps it."
+            "description": "Availability mode, company feature meeting_panels: a panel of 2 to 8 users who all attend (profile.id); the first leads the meeting and cannot be a read-only user. Candidates are offered only times when everyone is free. null = one interviewer. null removes the setting (its default applies again); left out keeps it."
           },
           "slot_interval_minutes": {
             "type": "integer",
@@ -3212,7 +3204,7 @@
               "cancelled",
               "closed"
             ],
-            "description": "Vacancy lifecycle (type_position_lifecycle). Without a stored lifecycle it follows the publication status: draft/preparing = draft, active = open, archived/completed = closed."
+            "description": "Vacancy lifecycle. Without a stored lifecycle it follows the publication status: draft/preparing = draft, active = open, archived/completed = closed."
           },
           "reason": {
             "type": "string",
@@ -3367,7 +3359,7 @@
               "preparing",
               "completed"
             ],
-            "description": "Publication status of the interview/position (type_interview_status). The vacancy lifecycle of a position (open, on hold, filled...) is `lifecycle` (include=lifecycle)."
+            "description": "Publication status of the interview/position. The vacancy lifecycle of a position (open, on hold, filled...) is `lifecycle` (include=lifecycle)."
           },
           "visibility": {
             "type": "string",
@@ -3932,7 +3924,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status (type_interview_status). Applied through the same interview_set_status routine as job-interview-set-state (which is also where you manage the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position (visibility sub_item): its status follows the position.",
+            "description": "New publication status, applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position (visibility sub_item): its status follows the position.",
             "example": "active"
           },
           "visibility": {
@@ -3970,7 +3962,7 @@
           "location": {
             "type": "string",
             "nullable": true,
-            "description": "Interview location (column `interview_location`). Blank is stored as null.",
+            "description": "Interview location. Blank is stored as null.",
             "example": "remote"
           },
           "cover_image_url": {
@@ -3986,7 +3978,7 @@
           "description_long": {
             "type": "string",
             "nullable": true,
-            "description": "Long-form interview description (column `interview_description_long`). Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
+            "description": "Long-form interview description. Rendered as Markdown on the candidate-facing position page, including chips, callouts, cards, columns and buttons — formatting guide: https://developer.jobmojito.com/cookbooks/format-content-with-markdown"
           },
           "interview_department": {
             "type": "string",
@@ -4057,7 +4049,7 @@
                 "description": "Adds every EU country (plus EEA and Switzerland) to countries_blocked."
               }
             },
-            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (register_users / invite links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
+            "description": "Which countries the interview / position is open to on the candidate portal, judged by the IP address the candidate opens it from (an unknown location only passes when countries_allowed / countries_allowed_eu are empty). From a closed country it is left out of the portal listings, and a direct link shows \"not available in your region\". Invited candidates (personal invitation links) and candidates who already started keep access; API and MCP calls themselves are never restricted. Null = not used, every country."
           },
           "tags": {
             "type": "array",
@@ -4065,7 +4057,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `public` or `merchant_public` are listed.",
+            "description": "Free-form tags stored on the interview. Tags are also the coaching-catalogue mapping key: a catalogue directory (see the catalogue-tag-create / catalogue-tag-update endpoints) lists a coaching or persona session when the session's tags contain EVERY tag in that directory's `tags_interview_set_filter`. Only `active` sessions with visibility `merchant_public` (or the platform's own `public`) are listed.",
             "example": [
               "interview-practice",
               "sales"
@@ -4215,9 +4207,10 @@
               "audio_first_5_answers",
               "audio_all",
               "video_all",
-              "video_first_5_answers"
+              "video_first_5_answers",
+              "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit to keep the current mode; `none` switches it off (null does too). Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: Switch cheating detection off..",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -4225,9 +4218,10 @@
             "nullable": true,
             "enum": [
               "audio_all",
-              "video_all"
+              "video_all",
+              "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit to keep the current setting; `none` switches it off (null does too). Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: Switch the full-session recording off..",
             "example": "video_all"
           },
           "result_view": {
@@ -4464,7 +4458,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions (create_interview_from_questions) where the wording is a script..",
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
             "example": "professional"
           },
           "seniority_level": {
@@ -4552,7 +4546,7 @@
               "preparing",
               "completed"
             ],
-            "description": "The publication status now (type_interview_status)."
+            "description": "The publication status now."
           },
           "reason": {
             "type": "string",
@@ -4634,7 +4628,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status (type_interview_status): draft, active, archived, deleted, preparing, completed. For a position it cascades to its steps. Refused (422) for the AI interview step of a position (visibility sub_item), which follows its position. Activating a position whose required custom fields are empty is refused with 422 (name custom_fields). Archiving an active position sends the position-closed e-mail to candidates with open applications when the company has that notice switched on.",
+            "description": "New publication status: draft, active, archived, deleted, preparing, completed. For a position it cascades to its steps. Refused (422) for the AI interview step of a position (visibility sub_item), which follows its position. Activating a position whose required custom fields are empty is refused with 422 (name custom_fields). Archiving an active position sends the position-closed e-mail to candidates with open applications when the company has that notice switched on.",
             "x-mcp-description": "New publication status. Refused (422) for the AI interview step of a position, which follows its position, and for activating a position whose required custom fields are empty. Archiving an active position can e-mail its candidates with open applications (the position-closed notice, when switched on). Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated."
           },
           "lifecycle": {
@@ -4654,7 +4648,7 @@
           "reason_id": {
             "type": "string",
             "format": "uuid",
-            "description": "With lifecycle: a position status reason of the company (merchant_taxonomy.id, type position_status_reason) that applies to the target lifecycle."
+            "description": "With lifecycle: a position status reason of the company that applies to the target lifecycle (an id from merchant-reason-list with type position_status)."
           },
           "note": {
             "type": "string",
@@ -4715,7 +4709,7 @@
                 "type": "boolean"
               }
             ],
-            "description": "Pass the string 'false' to show the navigation menu; any other value hides it (default)."
+            "description": "false (or the string 'false') shows the navigation menu; anything else, or leaving it out, hides it."
           }
         },
         "required": [
@@ -4993,7 +4987,7 @@
                 "status": {
                   "type": "string",
                   "nullable": true,
-                  "description": "Publication status (type_interview_status)."
+                  "description": "Publication status."
                 },
                 "visibility": {
                   "type": "string",
@@ -5934,7 +5928,7 @@
             "type": "string",
             "nullable": true,
             "maxLength": 4000,
-            "description": "Agenda for the panel (merchant switch meeting_panels)."
+            "description": "Agenda for the panel (company feature meeting_panels)."
           },
           "panel_profile_ids": {
             "type": "array",
@@ -6121,7 +6115,7 @@
               "create",
               "update"
             ],
-            "description": "`create` (default) a new directory with this id. `update` the existing directory `id` instead, exactly as catalogue-tag-update: only the fields you send change (null clears a nullable field; in `translations` null removes a language); `parent_tag` and `merchant_id` are not taken.",
+            "description": "`create` (default) a new directory with this id. `update` changes the existing directory `id` instead: only the fields you send change (null clears a nullable field; in `translations` null removes a language); `parent_tag` and `merchant_id` are not taken.",
             "example": "create"
           },
           "id": {
@@ -9226,7 +9220,7 @@
           "report_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Optional: update this saved report instead of creating one (exactly as update_report). Needs version."
+            "description": "Optional: replace the definition of this saved report instead of creating one. Needs version."
           },
           "version": {
             "type": "integer",
@@ -9435,7 +9429,7 @@
                 },
                 "is_prospect": {
                   "type": "boolean",
-                  "description": "Sourced and never applied; with owner, kind, channel or mentioned_me while the switch prospects is on."
+                  "description": "Sourced and never applied; with owner, kind, channel or mentioned_me while the prospects feature is on."
                 },
                 "owner_profile_ids": {
                   "type": "array",
@@ -10153,7 +10147,7 @@
           },
           "is_prospect": {
             "type": "boolean",
-            "description": "Sourced and never applied (switch prospects; left out when it is off)."
+            "description": "Sourced and never applied (prospects feature; left out when it is off)."
           },
           "owner_profile_ids": {
             "type": "array",
@@ -10892,7 +10886,7 @@
               },
               "kind": {
                 "type": "boolean",
-                "description": "The list filter kind (prospect, applicant) is available (switch prospects)."
+                "description": "The list filter kind (prospect, applicant) is available (prospects feature)."
               },
               "owner": {
                 "type": "boolean",
@@ -12329,6 +12323,195 @@
         "required": [
           "request_id",
           "action"
+        ]
+      },
+      "Reason": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Reason id (merchant_taxonomy.id): reason_id of save_reason, of a decision and of job-interview-set-state."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "decision",
+              "position_status"
+            ],
+            "description": "decision: why a candidate was rejected or withdrew. position_status: why a position went on hold, was cancelled, closed or filled."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reject",
+              "withdraw"
+            ],
+            "description": "Decision reasons: reject (the company turned the candidate down) or withdraw (the candidate pulled out)."
+          },
+          "applies_to": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "on_hold",
+                "cancelled",
+                "closed",
+                "filled"
+              ]
+            },
+            "description": "Position status reasons: the lifecycles it can be given for."
+          },
+          "label": {
+            "type": "string",
+            "description": "The reason as the company wrote it."
+          },
+          "display_label": {
+            "type": "string",
+            "description": "Decision reasons: the label in the requested language (its translation, else the label)."
+          },
+          "translations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Decision reasons: the label per two-letter language code."
+          },
+          "default_key": {
+            "type": "string",
+            "description": "Position status reasons: set on the six defaults while their label is unchanged (budget_freeze, priorities_changed, internal_candidate, role_redefined, filled_outside, other)."
+          },
+          "sort_order": {
+            "type": "integer",
+            "description": "Position in the list (lower first)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "description": "active: offered when deciding or changing a lifecycle. archived: kept on past decisions, no longer offered."
+          },
+          "use_count": {
+            "type": "integer",
+            "description": "Decision reasons: how many decisions use it."
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label",
+          "sort_order",
+          "status"
+        ]
+      },
+      "ReasonList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "description": "Decision reasons by kind, then position status reasons, each in the company's order."
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReasonSaveResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Reason"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "boolean",
+                "description": "True when a new reason was created."
+              }
+            },
+            "required": [
+              "created"
+            ]
+          }
+        ]
+      },
+      "ReasonSave": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company to act on. Admins and sub-merchant operators only; other callers always use their token's company."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "decision",
+              "position_status"
+            ],
+            "description": "decision (why a candidate was rejected or withdrew) or position_status (why a position went on hold, was cancelled, closed or filled)."
+          },
+          "reason_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The reason to change (from merchant-reason-list). Left out: a new reason is created."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reject",
+              "withdraw"
+            ],
+            "description": "Decision reasons: reject or withdraw. Required for a new one; it cannot change later."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "The reason, 1 to 120 characters. Required for a new one; left out on a change, it stays."
+          },
+          "translations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Decision reasons: the label per two-letter language code, e.g. {\"de\": \"Zu wenig Erfahrung\"}. Replaces the stored translations; left out on a change, they stay."
+          },
+          "applies_to": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "on_hold",
+                "cancelled",
+                "closed",
+                "filled"
+              ]
+            },
+            "minItems": 1,
+            "description": "Position status reasons: the lifecycles it can be given for (on_hold, cancelled, closed, filled). Required for a new one; left out on a change, it stays."
+          },
+          "sort_order": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Position in the list (lower first). Left out: the end of the list for a new reason, unchanged otherwise."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "description": "archived: no longer offered; past decisions and lifecycle changes keep it. active: offered again (decision reasons only: an archived position status reason cannot be restored)."
+          }
+        },
+        "required": [
+          "type"
         ]
       },
       "KnowledgeBaseDocumentUploadResponse": {
@@ -15724,7 +15907,7 @@
               "update",
               "delete"
             ],
-            "description": "`update` (default) changes the fields you send. `delete` deletes the file exactly as media-delete does: send only media_id. It is refused with 409 while a page, brand, CSS file, style setting, company logo or branding, interview, position, blog post, avatar or coaching catalogue uses it (the answer lists what does); it cannot be undone.",
+            "description": "`update` (default) changes the fields you send. `delete` deletes the file: send only media_id. It is refused with 409 while a page, brand, CSS file, style setting, company logo or branding, interview, position, blog post, avatar or coaching catalogue uses it (the answer lists what does); it cannot be undone.",
             "example": "update"
           },
           "file_name": {
@@ -16761,7 +16944,7 @@
           "Interviews"
         ],
         "summary": "List interview definitions",
-        "description": "Paginated list of a merchant's interview definitions and multi-stage positions (the admin-portal interview list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page. Each item also carries its job category, tags and owning recruiter, and a position its vacancy lifecycle and step count. Filter by lifecycle, recruiter_profile_id or interview_category (these three need SQL 322). Row security applies: confidential positions you are not on are not listed.",
+        "description": "Paginated list of a merchant's interview definitions and multi-stage positions (the admin-portal interview list), scoped to your token's merchant (or a merchant_id override). Capped at 1000 records per page. Each item also carries its job category, tags and owning recruiter, and a position its vacancy lifecycle and step count. Filter by lifecycle, recruiter_profile_id or interview_category. Row security applies: confidential positions you are not on are not listed.",
         "security": [
           {
             "bearerAuth": []
@@ -16809,7 +16992,7 @@
                 "preparing",
                 "completed"
               ],
-              "description": "Filter by publication status (type_interview_status). Omit to include all statuses.",
+              "description": "Filter by publication status. Omit to include all statuses.",
               "example": "active"
             },
             "required": false,
@@ -17223,7 +17406,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), another company, or the merchant switch meeting_panels is off for a panel (the message names it).",
+            "description": "Not company staff, a hiring manager (read only), another company, or the company feature meeting_panels is off for a panel (the message names it).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17446,7 +17629,7 @@
           "Coaching catalogue"
         ],
         "summary": "Create a coaching catalogue directory",
-        "description": "Creates a directory (page) in the coaching portal catalogue. A directory nests other directories through `tags_sub`, lists coaching sessions through `tags_interview_set_filter`, and can replace the default grid with a custom Markdown page through `content_md`. The id you choose is the catalogue URL segment and cannot be changed afterwards. With `action: \"update\"` it updates the directory `id` instead, exactly as catalogue-tag-update (partial: only the fields you send).",
+        "description": "Creates a directory (page) in the coaching portal catalogue. A directory nests other directories through `tags_sub`, lists coaching sessions through `tags_interview_set_filter`, and can replace the default grid with a custom Markdown page through `content_md`. The id you choose is the catalogue URL segment and cannot be changed afterwards. With `action: \"update\"` it updates the directory `id` instead (partial: only the fields you send).",
         "security": [
           {
             "bearerAuth": []
@@ -18165,7 +18348,7 @@
           "Results"
         ],
         "summary": "Request another interview attempt",
-        "description": "Marks a submitted (active + completed) interview result as unsuccessful so the candidate can retake it. Resets the result to draft and clears the recruiter decision.",
+        "description": "Reopens a submitted (active + completed) interview result so the candidate can take it again: the attempt is marked failed (\"Marked as unsuccessful by the recruiter\"), the same result goes back to draft and its recruiter decision is cleared. A candidate who continues this interview keeps the answers already given; one who starts a new attempt starts from scratch. Sends no e-mail: tell the candidate yourself.",
         "security": [
           {
             "bearerAuth": []
@@ -19390,7 +19573,7 @@
           "Reports"
         ],
         "summary": "Check and run an unsaved report",
-        "description": "Validates a report definition against the catalogue and runs it, without storing anything. Use it to check a definition before create_report or update_report. With report_id instead of definition it runs a saved custom report (as report-run does) or a built-in report (builtin:<name> from list_reports: sections, period from / to, position_id or interview_id, include_candidates for the candidate lists, limit / offset). A 422 names the block and field that is wrong and lists the valid ids. Format: https://developer.jobmojito.com/api-reference/reports/check-and-run-an-unsaved-report.md",
+        "description": "Validates a report definition against the catalogue and runs it, without storing anything. Use it to check a definition before saving it with report-create. With report_id instead of definition it runs a saved custom report (as report-run does) or a built-in report (builtin:<name> from list_reports: sections, period from / to, position_id or interview_id, include_candidates for the candidate lists, limit / offset). A 422 names the block and field that is wrong and lists the valid ids. Format: https://developer.jobmojito.com/api-reference/reports/check-and-run-an-unsaved-report.md",
         "security": [
           {
             "bearerAuth": []
@@ -19487,7 +19670,7 @@
           "Reports"
         ],
         "summary": "Create a custom report",
-        "description": "Stores a new custom report. It is created as \"Only me\" (private to you); share it from the JobMojito admin. Returns its id, version and the admin link to open it. With report_id and version it updates that report instead, exactly as update_report (a shared report gets a draft through the MCP server). Check the definition with preview_report first. Format, rules and examples: https://developer.jobmojito.com/api-reference/reports/create-a-custom-report.md",
+        "description": "Stores a new custom report. It is created as \"Only me\" (private to you); share it from the JobMojito admin. Returns its id, version and the admin link to open it. With report_id and version it replaces that report's definition instead (on a report shared with others the change is saved as a draft for its owner to publish). Check the definition with preview_report first. Format, rules and examples: https://developer.jobmojito.com/api-reference/reports/create-a-custom-report.md",
         "security": [
           {
             "bearerAuth": []
@@ -19781,7 +19964,7 @@
                 "prospect",
                 "applicant"
               ],
-              "description": "prospect: sourced candidates who never applied; applicant: the others. Needs the switch prospects (403 otherwise)."
+              "description": "prospect: sourced candidates who never applied; applicant: the others. Needs the prospects feature (403 otherwise)."
             },
             "required": false,
             "name": "kind",
@@ -21855,6 +22038,349 @@
         "operationId": "update_document_request"
       }
     },
+    "/merchant-reason-list": {
+      "get": {
+        "tags": [
+          "Reasons"
+        ],
+        "summary": "List the company's reasons",
+        "description": "The company's decision reasons (why a candidate was rejected or withdrew; switch decision_reasons) and position status reasons (why a position went on hold, was cancelled, closed or filled: the reason_id job-interview-set-state takes; switch position_lifecycle). The first read of position status reasons gives the company the six defaults, as the admin's Taxonomy page does. Every staff role may read. Read only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "decision",
+                "position_status"
+              ],
+              "description": "Only one type: decision (reject / withdraw reasons) or position_status (the reason_id of a position lifecycle change). Left out: both, without a type the company has switched off."
+            },
+            "required": false,
+            "name": "type",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "reject",
+                "withdraw"
+              ],
+              "description": "Decision reasons only: reject or withdraw."
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false",
+              "description": "true: also the archived reasons, which past decisions keep but are no longer offered.",
+              "example": "false"
+            },
+            "required": false,
+            "name": "include_archived",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]{2}$",
+              "default": "en",
+              "description": "Language of a decision reason's display_label (default en).",
+              "example": "en"
+            },
+            "required": false,
+            "name": "language",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reasons.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReasonList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not company staff, another company, or the type asked for is switched off for the company (the message names the switch).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error; the message (and name, when given) says which field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_reasons"
+      }
+    },
+    "/merchant-reason-get": {
+      "get": {
+        "tags": [
+          "Reasons"
+        ],
+        "summary": "Get one of the company's reasons",
+        "description": "One decision or position status reason of the company by id, archived ones included. Every staff role may read. Read only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The reason (an id from merchant-reason-list, a decision or a position lifecycle change)."
+            },
+            "required": true,
+            "name": "reason_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "decision",
+                "position_status"
+              ],
+              "description": "Its type, when known (decision or position_status); left out, both are searched."
+            },
+            "required": false,
+            "name": "type",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reason"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not company staff, another company, or the type asked for is switched off for the company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No reason with this id in this company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error; the message (and name, when given) says which field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_reason"
+      }
+    },
+    "/merchant-reason-save": {
+      "post": {
+        "tags": [
+          "Reasons"
+        ],
+        "summary": "Create, change or archive a reason",
+        "description": "Creates a decision or position status reason of the company, or changes, archives or restores one (fields left out keep their value). A reason is company-wide: renaming one renames it on every past decision or lifecycle change that uses it. Owners only (and JobMojito admins), as on the admin's Taxonomy page. Sends nothing to candidates.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The reason after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReasonSaveResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an owner of the company, another company, or the type is switched off for the company (the message names the switch).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No reason with this id in this company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The company already has an active reason with this label (name label).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A field that does not fit: a field of the other type, a missing kind, label or applies_to on a new reason, a changed kind, or restoring a position status reason (name says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "save_reason"
+      }
+    },
     "/knowledge-base-document-upload": {
       "post": {
         "tags": [
@@ -21944,7 +22470,7 @@
             "schema": {
               "type": "string",
               "format": "uuid",
-              "description": "Read this one document. Answers 404 if your token cannot see it, including when it is another company's. `merchant_id` and `offset` are ignored.",
+              "description": "A document id (the knowledge_base_id of a listed document, not a store id): read this one document. Answers 404 if your token cannot see it, including when it is another company's. `merchant_id` and `offset` are ignored.",
               "example": "44444444-4444-4444-8444-444444444444"
             },
             "required": false,

@@ -33,3 +33,6 @@ mcp-publisher
 # Local agent settings — machine-specific paths and per-developer permissions.
 # Tracked settings.json leaked a local scratchpad path; keep the whole dir local.
 .claude/
+
+# coverage.py data
+.coverage

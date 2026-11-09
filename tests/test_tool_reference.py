@@ -358,3 +358,22 @@ async def test_score_max_1_is_allowed_and_references_carry_no_fastmcp_markers():
     assert score_max.get("exclusiveMinimum") == 0 and "minimum" not in score_max, score_max
     for name in tool_reference.FULL:
         assert "x-fastmcp" not in json.dumps(await _reference(name, "all")), name
+
+
+def test_the_trimmers_skip_what_is_not_a_schema():
+    """Odd specs: non-dict shared definitions, a root description, non-dict input."""
+    from tool_reference import _without_overrides
+
+    schema = {"description": "Root text. Kept.", "$defs": {"odd": "not a schema", "D": {"description": "deep"}}}
+    trim_input_schema(schema)
+    assert schema["description"] == "Root text. Kept." and schema["$defs"]["odd"] == "not a schema"
+    assert "description" not in schema["$defs"]["D"]
+    assert strip_annotations(schema)["$defs"]["odd"] == "not a schema"
+    assert _without_overrides({"$defs": {"odd": 1}}) == {"$defs": {"odd": 1}}
+    assert trim_input_schema("x") == "x" and strip_annotations(None) is None
+
+
+def test_option_text_that_is_not_an_option_list_stays_out():
+    # an entry without a `value`: and a bar that is not an option list
+    assert brief("Pick one. Options — plain words | more words.", options=True) == "Pick one."
+    assert brief("A | `b`:x", options=True) == "A | `b`:x"

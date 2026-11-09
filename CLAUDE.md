@@ -12,7 +12,7 @@ bases, merchants/analytics, custom reports, portal configuration, the media libr
 at startup; end-user Supabase JWTs are forwarded to the API so every call runs
 with that user's own permissions.
 
-Current surface: **61 API tools** (76 spec operations minus the 15 excluded by
+Current surface: **64 API tools** (79 spec operations minus the 15 excluded by
 `IGNORED_PATHS` / `IGNORED_OPERATIONS`) + `search_documentation`, `get_documentation`,
 `jobmojito_configuration`, `list_my_merchants`, `invite_candidates`, `upload_media_file`,
 `get_tool_reference`. `naming.py` is the inventory —
