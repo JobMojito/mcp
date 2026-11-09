@@ -41,7 +41,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The commit main pointed to before the push is needed to tell a version
           # bump from an unrelated edit; it can be several commits back.
