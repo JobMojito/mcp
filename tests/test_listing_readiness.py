@@ -243,8 +243,11 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
         r"|(?i:\btell the user\b|\bask the user\b|\bcall (?:this|it) (?:first|before)\b"
         r"|\bread it before\b|\bnever give\b|\byou do not need to\b|\bbefore calling\b"
         r"|\bconfirm with the user\b|\bconfirm the wording\b|\bpoint the user\b|\bshow the user\b|\bshow them\b"
-        r"|\b(?:use|run|try|check|read|write)\b[^.;:]{0,60}\bfirst\b|\bread before\b|\bstart here\b"
-        r"|\bprefer `|\bpick deliberately\b|\buse [a-z_]+(?: or [a-z_]+)? instead\b|\byou may also\b)",
+        r"|(?:^|[.:;]\s+)(?:use|run|try|check|read|write|call)\b[^.;:]{0,60}\bfirst\b|\bread before\b|\bstart here\b"
+        r"|\bprefer `|\bpick deliberately\b|\buse [a-z_]+(?: or [a-z_]+)? instead\b|\byou may also\b"
+        r"|\bfirst decide\b|\btell the candidate yourself\b|\byourself\.|\bshare the (?:url|link) (?:yourself|manually)\b"
+        r"|\bwhen the user ask|\bonce the user has confirmed\b|\bthe user confirmed\b|\bthe person picks\b"
+        r"|\bonly ask for\b|\bthen repeat\b|\bso you can\b|\byou need\b|\bdo not include\b|\bcall this, )",
     )
     def texts(node):
         if isinstance(node, dict):
@@ -257,11 +260,23 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
             for item in node:
                 yield from texts(item)
 
+    import tool_reference
+
     tools = asyncio.run(server.mcp.list_tools())
     offenders = {}
     for tool in tools:
-        for text in [tool.description or "", *texts(tool.parameters)]:
+        full = tool_reference.FULL.get(tool.name, {})
+        served = [
+            tool.description or "",
+            *texts(tool.parameters),
+            # what get_tool_reference returns is tool text too
+            full.get("description") or "",
+            *texts(full.get("input_schema")),
+            *texts(full.get("output_schema")),
+        ]
+        for text in served:
             found = [m.group(0) for m in pattern.finditer(text)]
+            found += re.findall(r"https://developer\.jobmojito\.com/\S*", text)
             if found:
                 offenders.setdefault(tool.name, []).extend(found)
     assert not offenders, f"model-directing phrasing in tool descriptions: {offenders}"

@@ -88,7 +88,7 @@ async def test_descriptions_carry_the_category_and_the_flow_without_links():
     # what a dry run does and when publish applies, said as facts (no orders to the model)
     assert "get_portal_configuration" in update.description
     assert "With `dry_run: true` nothing is written" in update.description
-    assert "`publish: true` is for when the user asked" in update.description
+    assert "`publish: true` puts the pages and theme live at once" in update.description
 
     # the cookbook links read as an external instruction source to a directory
     # reviewer; search_documentation reaches those pages

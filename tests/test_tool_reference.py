@@ -417,3 +417,45 @@ def test_a_long_option_meaning_is_cut_at_its_first_clause():
     assert _first_clause(long) == "Audio + video cheating detection on every answer"
     assert _first_clause("a b c d e f g h i j k l m n") == "a b c d e f g h i j k l m n"  # no break: kept whole
     assert _first_clause("x; then a long tail of words that goes on and on and on") == "x; then a long tail of words that goes on and on and on"
+
+
+
+# ---- what get_tool_reference serves: statements, no guide links ---------------------------
+
+
+def test_every_reference_fix_finds_its_text():
+    """A fix whose sentence the API reworded would leave the old order in place."""
+    import asyncio
+
+    import server
+    import tool_reference
+    from naming import _REFERENCE_FIXES, reference_fixes
+
+    asyncio.run(server.mcp.list_tools())
+    for name, fixes in _REFERENCE_FIXES.items():
+        if name == "*":
+            continue
+        own = reference_fixes(name)
+        missing = [own[i][0] for i in range(len(own)) if own[i] in fixes and i not in tool_reference.FIX_HITS.get(name, set())]
+        assert not missing, f"{name}: {missing}"
+    shared = len(_REFERENCE_FIXES["*"])
+    assert all(any(i in hits for hits in tool_reference.FIX_HITS.values()) for i in range(shared))
+
+
+def test_a_guide_link_and_its_sentence_are_dropped():
+    from tool_reference import restate
+
+    link = "https://developer.jobmojito.com/cookbooks/x"
+    assert restate("none", f"Markdown — formatting guide: {link}") == "Markdown"
+    assert restate("none", f"First. Field reference: {link}, {link}.") == "First."
+    assert restate("none", f"Formats: {link}. Then this.") == "Then this."
+    assert restate("none", f"One.\n\nFormat: {link}.md\n\nTwo.") == "One.\n\nTwo."
+    assert restate("none", "No link here.") == "No link here."
+    assert restate("none", "https://example.com/other stays.") == "https://example.com/other stays."
+
+
+def test_a_reference_fix_restates_without_recording_when_asked_not_to():
+    from tool_reference import restate
+
+    text = "A thing. not listed anywhere; share the link manually."
+    assert restate("none", text) == "A thing. not listed anywhere; the link is shared directly."

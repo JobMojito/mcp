@@ -265,7 +265,7 @@ def register(mcp) -> None:
         tags={"documentation"},
     )
     async def search_documentation(query: str, source: str = "all", limit: int = 8) -> dict:
-        """Search ALL JobMojito documentation. This is the single entry point.
+        """Search ALL JobMojito documentation.
 
         One call searches both documentation sources in parallel and returns a
         merged, source-labeled list:

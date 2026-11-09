@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.6.4"
+SERVER_VERSION = "2.6.5"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -193,7 +193,7 @@ list_interview_results row, take the row's `id` on a single-stage row (its
 interview_result_id is null) and its `interview_result_id` on a multi-stage row.
 Enum values are exact strings, sent as listed even when they look misspelt
 (`name_accending`).
-There is no link-building tool.
+No tool builds admin console links.
 For the full id-to-field map, where each id comes from, and admin link patterns:
 get_documentation("https://developer.jobmojito.com/mcp/identifiers").
 

@@ -37,6 +37,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
+from naming import reference_fixes
+
 TOOL_NAME = "get_tool_reference"
 
 #: The full definitions, by tool name, captured before trimming.
@@ -62,12 +64,57 @@ _ANNOTATIONS = ("description", "example", "examples", "title", OVERRIDE)
 
 
 def capture(name: str, *, title: str | None, description: str, input_schema: dict | None, output_schema: dict | None) -> None:
+    hits: set[int] = set()
     FULL[name] = {
         "title": title,
-        "description": description,
-        "input_schema": _without_overrides(copy.deepcopy(input_schema or {})),
-        "output_schema": _without_overrides(copy.deepcopy(output_schema)) if output_schema else None,
+        "description": restate(name, description, hits),
+        "input_schema": _restated(name, _without_overrides(copy.deepcopy(input_schema or {})), hits),
+        "output_schema": _restated(name, _without_overrides(copy.deepcopy(output_schema)), hits) if output_schema else None,
     }
+    FIX_HITS[name] = hits
+
+
+#: tool -> indexes of naming.reference_fixes(tool) that found their text, so a test
+#: notices a fix the API's rewording left behind.
+FIX_HITS: dict[str, set[int]] = {}
+#: A developer-docs link, and a "— label: link" clause carrying one. The full texts are
+#: the API reference; through this tool they are tool text, and a guide link there reads
+#: as an external instruction source. search_documentation reaches those pages.
+_GUIDE = re.compile(r"https://developer\.jobmojito\.com/\S*")
+_GUIDE_CLAUSE = re.compile(r"\s*[—–]\s*[^—–:.\n]{1,40}:\s*https://developer\.jobmojito\.com/\S*?(?=\.?(?:\s|$))")
+_SENTENCES = re.compile(r"((?<=[.!?])\s+|\n+)")
+
+
+def restate(name: str, text: str, hits: set[int] | None = None) -> str:
+    """One full text said as statements (naming.reference_fixes), without guide links."""
+    for index, (old, new) in enumerate(reference_fixes(name)):
+        if old in text:
+            text = text.replace(old, new)
+            if hits is not None:
+                hits.add(index)
+    text = _GUIDE_CLAUSE.sub("", text)
+    if not _GUIDE.search(text):
+        return text
+    parts = _SENTENCES.split(text)
+    kept = [
+        parts[i] + (parts[i + 1] if i + 1 < len(parts) else "")
+        for i in range(0, len(parts), 2)
+        if not _GUIDE.search(parts[i])
+    ]
+    return "".join(kept).rstrip()
+
+
+def _restated(name: str, node: Any, hits: set[int]) -> Any:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "description" and isinstance(value, str):
+                node[key] = restate(name, value, hits)
+            else:
+                _restated(name, value, hits)
+    elif isinstance(node, list):
+        for item in node:
+            _restated(name, item, hits)
+    return node
 
 
 def _without_overrides(schema: dict) -> dict:

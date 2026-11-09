@@ -118,15 +118,15 @@ def test_every_tool_has_a_written_justification():
 
 
 @pytest.mark.asyncio
-async def test_the_descriptions_steer_the_model():
+async def test_the_descriptions_name_the_related_tools_and_side_effects():
     tools = await _tools()
     assert "upload_media_file" in tools["start_media_upload"].description
     assert "finish_media_upload" in tools["start_media_upload"].description
     assert "start_media_upload" in tools["upload_media_file"].description
     assert "read_only" in tools["list_media_files"].description
-    assert "only when the user asked" in tools["publish_portal_stylesheet"].description.lower()
+    assert "publishing is immediate" in tools["publish_portal_stylesheet"].description.lower()
     assert "update_portal_configuration" in tools["publish_portal_stylesheet"].description
-    assert "confirmed" in tools["manage_media_file"].description
+    assert "cannot be undone" in tools["manage_media_file"].description
     # SQL 313: every company has the library, folders are storage directories, and more things use a file
     for name in ("list_media_files", "start_media_upload", "manage_media_file", "manage_media_folder"):
         assert "switched" not in tools[name].description, name

@@ -198,7 +198,7 @@ def register(mcp) -> None:
             Field(
                 description=(
                     "true (default): e-mail each candidate their invitation. false: send NOTHING; "
-                    "register them and return each one's personal interview_url to share yourself."
+                    "register them and return each one's personal interview_url, shared outside this tool."
                 )
             ),
         ] = True,

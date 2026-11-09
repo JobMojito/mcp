@@ -234,8 +234,8 @@ _INTERVIEW_RESULT_VIEWS = (
         "pronunciation and sentiment scores per recognised segment with the "
         "lowest-scoring words, reading/gaze statistics, STT reliability, proctor "
         "status and seconds per detected speaker. Word-, character- and "
-        "frame-level arrays are left out (listed in `_omitted`). Only ask for "
-        "this if you need those assessment details.",
+        "frame-level arrays are left out (listed in `_omitted`). The largest view, "
+        "for when those assessment details matter.",
         drop=(),
         # Verbatim, this view failed on every real interview it was asked for
         # (30 Sep / 2 Oct 2026: 477k-806k characters against a 150k limit, ~96%
@@ -321,7 +321,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Generate interview report",
         "Generate an interview result report (HTML/PDF/JSON) for a completed "
         "interview. The report is decision-support material for a human reviewer, "
-        "not an automated hiring decision. " + _RESULT_ID,
+        "not an automated hiring decision. A report in a language other than the "
+        "result's is translated, at 0.1 credit per result. "
+        + _RESULT_ID,
         "readOnlyHint=false / destructiveHint=true: rendering a report is a POST "
         "that produces a stored, shareable artifact and consumes account credits, "
         "so the client should confirm before running it. idempotentHint=true: "
@@ -358,18 +360,21 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "get_interview_definition returns. OMIT `questions` and the existing "
         "questions are left completely alone; there is no way to change one question "
         "on its own: the array get_interview_definition returns is edited and sent "
-        "back whole. Resending an unchanged array does nothing. Not updated by this "
-        "tool at all: the welcome and thank-you messages and the instructional-video "
-        "screen (stored as steps, not questions), and the language, which the "
-        "existing questions are already written in (no tool changes these; they are "
-        "changed in the admin). `tags` places a coaching session into a catalogue "
-        "directory. MULTI-STAGE POSITIONS: the interview-only settings (recording, "
-        "knowledge_base_store_id, candidate_expectations_json and the like) do not "
-        "exist at position level and are refused with a 422 naming the field. They "
-        "live on the AI interview step's own interview (the step's interview_set_id, "
-        "from get_interview_definition include=process). A null argument counts as "
-        "not sent and changes nothing, except on three fields where null is the only "
-        "way to switch something off: `candidate_notification_channel` (no SMS / "
+        "back whole. Resending an unchanged array does nothing. Questions of an "
+        "`active` interview on an offline (pre-rendered video) template change only "
+        "while it is `draft`. Not updated by this tool at all: the welcome and "
+        "thank-you messages and the instructional-video screen (stored as steps, not "
+        "questions), and the language, which the existing questions are already "
+        "written in (no tool changes these: the messages and the video screen are "
+        "changed in the admin, and another language takes a new interview). `tags` "
+        "places a coaching session into a catalogue directory. MULTI-STAGE "
+        "POSITIONS: the interview-only settings (recording, knowledge_base_store_id, "
+        "candidate_expectations_json and the like) do not exist at position level "
+        "and are refused with a 422 naming the field. They live on the AI interview "
+        "step's own interview (the step's interview_set_id, from "
+        "get_interview_definition include=process). A null argument counts as not "
+        "sent and changes nothing, except on three fields where null is the only way "
+        "to switch something off: `candidate_notification_channel` (no SMS / "
         "WhatsApp), `questions_random_subset` (ask all questions) and "
         "`pdf_export_auto_config` (no automatic report).",
         "readOnlyHint=false / destructiveHint=true: this overwrites the "
@@ -436,7 +441,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "the lifecycle. dry_run=true answers the status change and whether the "
         "position-closed e-mail would go out, to how many candidates, without "
         "changing anything. A deleted interview can no longer be read or updated; an "
-        "archived one can. This is the tool for status changes.",
+        "archived one can. is_embedded=false removes the embed keys, so existing "
+        "embeds stop working.",
         "readOnlyHint=false / destructiveHint=true: this mutates a live interview. "
         "Closing a position stops candidates from being able to complete it, which "
         "is user-visible and disruptive if done by mistake. idempotentHint=true: "
@@ -473,17 +479,17 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-token"): _write(
         "generate_interview_url",
         "Generate shareable interview link",
-        "Generate a signed link, stored as a one-time token; nothing is sent. `type` "
-        "picks who it is for and the ids it needs: interview-for-profile = one "
-        "candidate's own interview link (interview_profile_id + interview_id); "
-        "results-for-profile = that candidate's results (interview_profile_id); "
-        "interview-result-candidate = one result for the candidate, "
-        "interview-result-talent-seeker = one result for a reviewer "
-        "(interview_result_id); interview-results-for-position = every result of an "
-        "active interview or position for a reviewer (interview_id). "
-        "interview_profile_id is the candidate's `id` from list_candidates. There is "
-        "no anonymous link to an interview: invitations are sent by "
-        "invite_candidates.",
+        "Generate a signed link, stored as a one-time token; nothing is sent. "
+        "Whoever holds the link gets its access. `type` picks who it is for and the "
+        "ids it needs: interview-for-profile = one candidate's own interview link "
+        "(interview_profile_id + interview_id); results-for-profile = that "
+        "candidate's results (interview_profile_id); interview-result-candidate = "
+        "one result for the candidate, interview-result-talent-seeker = one result "
+        "for a reviewer (interview_result_id); interview-results-for-position = "
+        "every result of an active interview or position for a reviewer "
+        "(interview_id). interview_profile_id is the candidate's `id` from "
+        "list_candidates. There is no anonymous link to an interview: invitations "
+        "are sent by invite_candidates.",
         "readOnlyHint=false / destructiveHint=true: this mints a signed credential "
         "that grants anyone holding it access to the interview, so it should not "
         "run without user confirmation. " + _OPEN_WORLD,
@@ -531,7 +537,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "form) is something else: added with set_position_process, configured with "
         "update_position_step. The `interview_template_id` also sets the modality "
         "(voice-only vs realtime/pre-recorded avatar); `list_avatars` lists the "
-        "templates.",
+        "templates. Full-session recording (recording_full_session) and a longer "
+        "max_duration raise the credit cost.",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "interview definition on the account and consumes credits. " + _OPEN_WORLD,
     ),
@@ -567,7 +574,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "visible to recruiters. Hiring, screening and assessment use "
         "`portal=\"interview\"`. `persona_role_avatar`/`persona_role_user` set the "
         "roles and `opening_line` the avatar's first spoken line (default: a generic "
-        "'Hello').",
+        "'Hello'). Full-session recording (recording_full_session) and a longer "
+        "max_duration raise the credit cost.",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
         "persona on the account. " + _OPEN_WORLD,
     ),
@@ -597,9 +605,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "page (`content_md`), its resolved sub-directories, and the coaching "
         "sessions its tag filter currently matches — which shows whether a session's "
         "`tags` place it in this directory. `content_md`, `tags_sub` and "
-        "`tags_interview_set_filter` are replaced wholesale on update, so extending "
-        "one starts from the value returned here. Other language versions of the "
-        "page are in `translations` (`languages` lists them, default first).",
+        "`tags_interview_set_filter` are replaced wholesale on update. Other "
+        "language versions of the page are in `translations` (`languages` lists "
+        "them, default first).",
         _READ_WHY,
     ),
     # One save tool: POST /catalogue-tag-create takes action create (default) or
@@ -609,16 +617,17 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Create or update a coaching catalogue directory",
         "With action create (the default): create a directory (page) in the coaching "
         "portal catalogue. A directory nests other directories (`tags_sub`), lists "
-        "coaching sessions whose own `tags` match its `tags_interview_set_filter`, and "
-        "can carry a fully custom Markdown page (`content_md`) with `[sessions]`, "
-        "`[directory:…]`, `[session:…]` and `[plan-progress]` directives; the top-level "
-        "fields are the default language, `translations` adds the others. With action "
-        "update and `id`: rename it, change which sessions it lists, re-order its "
-        "sub-directories, author its page, or add, replace or remove a language version "
-        "(`translations`, per language; null removes one). On update only the fields you "
-        "send change; a top-level null counts as not sent, except `content_md: null`, the "
-        "only way to remove the custom page and restore the default grid. "
-        "Coaching-platform feature.",
+        "coaching sessions whose own `tags` match its `tags_interview_set_filter`, "
+        "and can carry a fully custom Markdown page (`content_md`) with "
+        "`[sessions]`, `[directory:…]`, `[session:…]` and `[plan-progress]` "
+        "directives; the top-level fields are the default language, `translations` "
+        "adds the others. With action update and `id`: rename it, change which "
+        "sessions it lists, re-order its sub-directories, author its page, or add, "
+        "replace or remove a language version (`translations`, per language; null "
+        "removes one). On update only the fields you send change; a top-level null "
+        "counts as not sent, except `content_md: null`, the only way to remove the "
+        "custom page and restore the default grid. Coaching-platform feature. "
+        "`public` visibility is for platform admins only.",
         "readOnlyHint=false / destructiveHint=true: creates a publicly reachable "
         "catalogue page, or overwrites a live one in place. idempotentHint=false: each "
         "create makes another directory. " + _OPEN_WORLD,
@@ -896,12 +905,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "it. Fields a document omits keep their value, and languages are only ever "
         "added. Validation is all-or-nothing: a 422 lists every error and nothing is "
         "written. Pages land as drafts the company reviews in the admin; `publish: "
-        "true` is for when the user asked to publish the pages or theme: it puts "
-        "them live at once, and it also builds and publishes the stylesheet of any "
-        "brand whose settings or CSS files the documents carry. Brands, style "
-        "settings and CSS files are switched on per company by JobMojito; while off, "
-        "those parts are refused with 422. A CSS file's `version`, sent back, makes "
-        "the call refuse a file someone else changed.",
+        "true` puts the pages and theme live at once, and it also builds and "
+        "publishes the stylesheet of any brand whose settings or CSS files the "
+        "documents carry. Brands, style settings and CSS files are switched on per "
+        "company by JobMojito; while off, those parts are refused with 422. A CSS "
+        "file's `version`, sent back, makes the call refuse a file someone else "
+        "changed.",
         "readOnlyHint=false / destructiveHint=true: overwrites the company's live "
         "branding and portal settings in place and, with `publish`, puts pages and theme "
         "CSS live for candidates and learners; the tool cannot undo it (only "
@@ -917,9 +926,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Publish a brand stylesheet",
         "Build one brand's stylesheet from its style settings and CSS files and put "
         "it live at once. Without brand_id it is the main brand. It publishes the "
-        "drafts update_portal_configuration and save_component_style wrote. Only "
-        "when the user asked to publish. Returns warnings for the user, notably "
-        "rules outside .jm-site.",
+        "drafts update_portal_configuration and save_component_style wrote. "
+        "Publishing is immediate and changes the live site. Returns warnings, "
+        "notably rules outside .jm-site.",
         "readOnlyHint=false / destructiveHint=true: changes the live look of the company's "
         "portal for every visitor. An earlier build stays in storage, but this tool cannot "
         "return to it. idempotentHint=false: each call records a new build. " + _OPEN_WORLD,
@@ -945,9 +954,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "never changed. The page editor then offers it on every block of that type. "
         "Every selector starts from the guide's root plus the style class. styleName "
         "on blocks (update_portal_configuration) applies it; it goes live only with "
-        "publish_portal_stylesheet (files: [file_id]), when the user asks. remove: "
-        "true deletes a style's file; the guide lists which pages use it, and their "
-        "blocks go back to the standard look once the stylesheet is published.",
+        "publish_portal_stylesheet (files: [file_id]). remove: true deletes a "
+        "style's file; the guide lists which pages use it, and their blocks go back "
+        "to the standard look once the stylesheet is published.",
         "readOnlyHint=false / destructiveHint=true: replaces or deletes a style's draft file, "
         "which the editor offers at once. Nothing goes live until the stylesheet is published. "
         "idempotentHint=true: the same call again leaves the file as it is. " + _OPEN_WORLD,
@@ -964,7 +973,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
             "variables. Returns name, description and CSS ready for "
             "save_component_style. Nothing is stored; a look is kept only once "
             "save_component_style saves it. get_component_style_guide gives the "
-            "selectors and variables for writing a style by hand.",
+            "selectors and variables for writing a style by hand. At most 30 "
+            "requests an hour per person.",
             "readOnlyHint=true: returns proposals and stores nothing. idempotentHint=false: "
             "each call asks the model again and the looks differ. " + _OPEN_WORLD,
         ),
@@ -975,12 +985,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List media library files",
         "List the company's media library: images, MP4 video, audio and WOFF2 fonts, "
         "newest first. A file's `url` is what page blocks, brand logos and font "
-        "settings take. Logos and images the company stored before are included. "
-        "Filter by `folder` (\"\" is the top). include_folders=true adds every folder "
-        "(empty ones included) with how many files each holds; a folder name is the "
-        "`folder` value here, in start_media_upload and in manage_media_file. A "
-        "sub-company also sees its parent's files, marked read_only: usable, not "
-        "changeable.",
+        "settings take. Images, video, audio and fonts the company stored before are "
+        "added to the library on the first list. Filter by `folder` (\"\" is the top). "
+        "include_folders=true adds every folder (empty ones included) with how many "
+        "files each holds; a folder name is the `folder` value here, in "
+        "start_media_upload and in manage_media_file. A sub-company also sees its "
+        "parent's files, marked read_only: usable, not changeable.",
         _READ_WHY,
     ),
     # Kept for the record only: GET /media-folders is hidden (IGNORED_OPERATIONS);
@@ -995,12 +1005,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/media-folders"): _write(
         "manage_media_folder",
         "Create, rename or delete a media folder",
-        "Create an empty folder, rename one, or delete an empty one, when the user "
-        "asked. Renaming moves every file in it to a new address: live pages keep "
-        "the old one and page drafts move at once. A folder is deleted only once its "
-        "files are moved or deleted. Names: 1 to 60 letters, digits, spaces, \"-\", "
-        "\"_\", \".\", \"(\" and \")\"; not starting with \".\", \"_\" or a space, and never "
-        "\"profile\".",
+        "Create an empty folder, rename one, or delete an empty one. Renaming moves "
+        "every file in it to a new address: live pages keep the old one and page "
+        "drafts move at once. A folder is deleted only once its files are moved or "
+        "deleted. Names: 1 to 60 letters, digits, spaces, \"-\", \"_\", \".\", \"(\" and "
+        "\")\"; not starting with \".\", \"_\" or a space, and never \"profile\".",
         "readOnlyHint=false / destructiveHint=true: creates or removes a folder of the "
         "company's storage, and a rename gives every file in it a new address and rewrites "
         "page drafts; the tool cannot undo a rename except by renaming back. "
@@ -1040,10 +1049,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "focal_x, focal_y or poster_url clears it. A move gives the file a new "
         "`url`: live pages keep the old one and page drafts move at once "
         "(drafts_updated). With action delete and only media_id: delete the file for "
-        "good, once the user has confirmed it. Refused while a page, brand, CSS "
-        "file, style setting, company logo or branding, interview, position, blog "
-        "post, avatar or coaching catalogue uses it: the error lists what does, and "
-        "those uses are changed separately.",
+        "good; this cannot be undone. Refused while a page, brand, CSS file, style "
+        "setting, company logo or branding, interview, position, blog post, avatar "
+        "or coaching catalogue uses it: the error lists what does, and those uses "
+        "are changed separately.",
         "readOnlyHint=false / destructiveHint=true: overwrites the file's description in "
         "place, a folder change gives the file a new address and rewrites page drafts, and "
         "delete removes the file and its resized copies for good. idempotentHint=false: a "
@@ -1069,11 +1078,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List what a custom report can use on this account: datasets (interview "
         "results, invitations, position pipeline, ATS pipeline, credits, coaching "
         "sessions - only those the account and your role include), their dimensions "
-        "(group by / conditions, with allowed values) and measures. A report definition "
-        "may only use ids listed here. Custom reports are "
-        "switched on per account by JobMojito; while they are off, every report "
-        "tool is refused with 403 'Custom reports are not enabled for this account.' "
-        "Retrying does not change that; JobMojito switches them on.",
+        "(group by / conditions, with allowed values) and measures. A report "
+        "definition may only use ids listed here. Custom reports are switched on per "
+        "account by JobMojito; while they are off, every custom report tool is "
+        "refused with 403 (built-in reports keep working) 'Custom reports are not "
+        "enabled for this account.' Retrying does not change that; JobMojito "
+        "switches them on.",
         _READ_WHY,
     ),
     ("GET", "/report-list"): _read(
@@ -1215,12 +1225,13 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/merchant-position-duplicate"): _write(
         "duplicate_position",
         "Copy a position",
-        "Copy a position with its steps and settings as a new draft, optionally with a new "
-        "name, country, location, openings or availability date, or into another company you "
-        "manage (target_merchant_id; admins and sub-merchant operators only). Candidates and "
-        "results are not copied. Left out, interview_available_till and openings_total keep the "
-        "original's; null makes the copy open (interview_available_till) or without a number of "
-        "openings (openings_total).",
+        "Copy a position with its steps and settings as a new draft, optionally with "
+        "a new name, country, location, openings or availability date, or into "
+        "another company you manage (target_merchant_id; admins and sub-merchant "
+        "operators only). Candidates and results are not copied. Needs the company's "
+        "bulk position feature. Left out, interview_available_till and "
+        "openings_total keep the original's; null makes the copy open "
+        "(interview_available_till) or without a number of openings (openings_total).",
         "readOnlyHint=false / destructiveHint=true: creates a new position. "
         "idempotentHint=false: each call makes another copy. " + _OPEN_WORLD,
         # The original's closing date is often past: null is the only way to an open copy, and
@@ -1230,8 +1241,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/merchant-interview-duplicate"): _write(
         "duplicate_interview",
         "Copy an interview",
-        "Copy a stand-alone interview (not a position's step) as a new draft, optionally "
-        "renamed or into another company you manage. Results are not copied.",
+        "Copy a stand-alone interview (not a position's step) as a new draft, "
+        "optionally renamed or into another company you manage. Results are not "
+        "copied. Into another company the avatar must be shared with it.",
         "readOnlyHint=false / destructiveHint=true: creates a new interview. "
         "idempotentHint=false: each call makes another copy. " + _OPEN_WORLD,
     ),
@@ -1300,7 +1312,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Merge merge_id into keep_id after preview_candidate_merge (send its "
         "preview_token; field_choices picks keep or merge per field). Owners and "
         "admins only. IRREVERSIBLE: there is no unmerge. The candidate is not told. "
-        "For a pair the user has confirmed.",
+        "It is for two records of the same person.",
         "readOnlyHint=false / destructiveHint=true: permanently merges two candidate records "
         "and cannot be undone. " + _OPEN_WORLD,
     ),
@@ -1330,7 +1342,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "JSON string), delete, or add_members / remove_members of a static segment "
         "(candidate ids). Fields left out keep their value. list_candidates takes "
         "the same rules and returns the candidates they match, without saving "
-        "anything. Sends nothing to candidates.",
+        "anything. Sends nothing to candidates. Deleting cannot be undone.",
         "readOnlyHint=false / destructiveHint=true: delete removes the segment for good. "
         + _OPEN_WORLD,
     ),
@@ -1385,10 +1397,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("GET", "/merchant-reason-list"): _read(
         "list_reasons",
         "List the company's reasons",
-        "The company's decision reasons (why a candidate was rejected or withdrew, kind "
-        "reject / withdraw) and position status reasons (the reason_id set_interview_state "
-        "needs for on_hold and cancelled, with the lifecycles each applies_to). type narrows "
-        "to one; include_archived=true adds the archived ones.",
+        "The company's decision reasons (why a candidate was rejected or withdrew, "
+        "kind reject / withdraw) and position status reasons (the reason_id "
+        "set_interview_state needs for on_hold and cancelled, with the lifecycles "
+        "each applies_to). type narrows to one; include_archived=true adds the "
+        "archived ones. The first read of position status reasons gives the company "
+        "the six default ones.",
         _READ_WHY,
     ),
     ("GET", "/merchant-reason-get"): _read(
@@ -1417,9 +1431,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
             "Send a feature request to the JobMojito product team. It is posted on "
             "the public feature request board under the signed-in user's name, where "
             "they get status updates; the company is not named. It takes a short "
-            "title and a description of the need and why; candidate data and company "
-            "names do not belong there (the board is public). It posts the wording "
-            "the user confirmed; at most 5 a day."
+            "title and a description of the need and why; everything sent is public. "
+            "It posts the title and description exactly as given; at most 5 a day."
         ),
         justification=(
             "readOnlyHint=false / destructiveHint=true: publishes a post on the "
@@ -1441,8 +1454,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
             "conversation from the signed-in user's account (their e-mail), with "
             "their company and the interview or result ids given; support answers "
             "there. The description covers what was done, what was expected and what "
-            "happened (error text as shown). It sends the wording the user "
-            "confirmed; at most 5 a day."
+            "happened (error text as shown). It sends the description exactly as "
+            "given; at most 5 a day."
         ),
         justification=(
             "readOnlyHint=false / destructiveHint=true: opens a conversation with the "
@@ -1490,6 +1503,7 @@ _STATEMENT_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "manage_segment": (
         ("takes the same rules: try them there first)", "takes the same rules and shows their matches without saving)"),
+        ("save: the rules of a dynamic segment (", "save: the rules of a dynamic segment, or the first members of a new static one ("),
     ),
     "update_interview": (
         ("When you do send it, send the COMPLETE list", "When sent, it is the COMPLETE list"),
@@ -1504,6 +1518,20 @@ _STATEMENT_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
     "update_position_step": (
         ("the answer is 409; read it again and retry.", "the answer is 409; a new read gives the current value."),
     ),
+    "save_catalogue_directory": (
+        ("`merchant_invite`: Owned by the merchant but not listed; reachable only for invited users.",
+         "`merchant_invite`: Reachable only for invited users; owned by the merchant, not listed."),
+        ("`merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link.",
+         "`merchant_unlisted`: Reachable only via a direct link; owned by the merchant, not listed."),
+    ),
+    "manage_candidate_tag": (
+        ("renaming, recolouring and deleting are for owners and admins", "renaming, recolouring and deleting are for owners"),
+        ("cannot be undone: try it with dry_run first.", "cannot be undone; dry_run shows how many candidates carry it."),
+    ),
+    "save_report": (
+        ("With report_id: published (default) or draft.",
+         "With report_id: published (default) or draft; through this server a private report always publishes and a shared one gets a draft."),
+    ),
     "set_interview_state": (
         ("Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated.",
          "A deleted interview can no longer be read or updated; an archived one can."),
@@ -1514,6 +1542,103 @@ TOOL_META = {
     key: replace(meta, description_fixes=meta.description_fixes + _STATEMENT_FIXES.get(meta.name, ()))
     for key, meta in TOOL_META.items()
 }
+
+
+#: The same restatement for what get_tool_reference serves: the full API texts, where
+#: several sentences sit in nested schemas the spec pass does not reach. Applied by
+#: ``tool_reference.capture`` to every description of a tool's full definition, which
+#: also drops the developer-guide links (an external instruction source to a directory
+#: reviewer; search_documentation reaches those pages). Key "*" applies to every tool.
+_REFERENCE_FIXES: dict[str, tuple[tuple[str, str], ...]] = {
+    "*": (
+        ("not listed anywhere; share the link manually.", "not listed anywhere; the link is shared directly."),
+    ),
+    "create_persona": (
+        ("FIRST DECIDE `portal`. This endpoint creates", "`portal` decides the product. This endpoint creates"),
+        ("Use this whenever the goal is to ASSESS or SCREEN candidates:", "It is the one for ASSESSING or SCREENING candidates:"),
+        ("Omitting `portal` gives you this one, so pass `portal: \"interview\"` explicitly for any recruiting/assessment use case.",
+         "Omitting `portal` gives this one; recruiting and assessment use `portal: \"interview\"`."),
+        ("Set `welcome_message` and `thank_you_message` too — omitting them leaves the generic platform defaults.",
+         "Omitting `welcome_message` and `thank_you_message` leaves the generic platform defaults."),
+    ),
+    "create_interview": (
+        ("send it back to update_interview so an unchanged question keeps its existing record",
+         "given back to update_interview, it keeps an unchanged question's existing record"),
+    ),
+    "update_interview": (
+        ("send it back to update_interview so an unchanged question keeps its existing record",
+         "given back to update_interview, it keeps an unchanged question's existing record"),
+        ("on the offline (pre-rendered video) templates set the interview back to `draft` first.",
+         "on the offline (pre-rendered video) templates they change only while the interview is `draft`."),
+    ),
+    "generate_component_styles": (
+        ("Nothing is stored: show them, and save the one the person picks with save_component_style.",
+         "Nothing is stored; save_component_style keeps a look."),
+    ),
+    "generate_interview_url": (("Sends nothing: share the URL yourself.", "Sends nothing; the URL is shared outside this tool."),),
+    "get_catalogue_directory": (
+        ("Read a directory before updating it — `content_md`", "`content_md`"),
+        (", so you need the current value to extend rather than overwrite it.", "."),
+    ),
+    "get_component_style_guide": (("Read it before save_component_style.", "save_component_style works from its selectors and variables."),),
+    "list_interview_results": (
+        ("Use position_def_step_id instead to filter by one step of a position.", "position_def_step_id filters by one step of a position."),
+    ),
+    "list_report_fields": (
+        ("Read this before writing a report definition: ids not listed here are refused.",
+         "A report definition may only use the ids listed here; others are refused."),
+    ),
+    "manage_meeting_slot": (("Run dry_run first: it lists exactly", "dry_run lists exactly"),),
+    "merge_candidates": (
+        ("Call preview_candidate_merge first and send its preview_token: a missing", "It takes the preview_token of preview_candidate_merge: a missing"),
+    ),
+    "publish_portal_stylesheet": (
+        ("Write the drafts first with update_portal_configuration.", "It publishes the drafts written by update_portal_configuration."),
+    ),
+    "report_technical_issue": (("Do not include passwords or API keys.", "Passwords and API keys do not belong in it."),),
+    "request_another_interview_attempt": (
+        ("Sends no e-mail: tell the candidate yourself.", "Sends no e-mail; this tool does not tell the candidate."),
+    ),
+    "request_candidate_documents": (
+        ("Use dry_run first to check the input and see who would be e-mailed.", "dry_run checks the input and shows who would be e-mailed."),
+    ),
+    "run_report": (
+        ("Read list_report_fields first for the dataset, field and measure ids", "The dataset, field and measure ids come from list_report_fields"),
+    ),
+    "save_report": (
+        ("Read list_report_fields first for the dataset, field and measure ids", "The dataset, field and measure ids come from list_report_fields"),
+        ("Check the definition with preview_report first.", "run_report with a `definition` validates it without saving."),
+        ("share it from the JobMojito admin.", "it is shared from the JobMojito admin."),
+        (" A private report always publishes. Through the MCP server a shared report always gets a draft that its owner publishes in the admin.", ""),
+    ),
+    "set_position_process": (
+        ("Use dry_run to see the resulting process and the diff first.", "dry_run shows the resulting process and the diff without saving."),
+    ),
+    "start_media_upload": (
+        ("Upload in three steps: call this, PUT the file to `upload_url`, then call finish_media_upload, which checks the file and makes it usable.",
+         "An upload has three steps: this call, a PUT of the file to `upload_url`, and finish_media_upload, which checks the file and makes it usable."),
+    ),
+    "update_position_step": (
+        ("Things to tell the user before or after the change (who it reaches, settings that have no effect yet)",
+         "Notes on the change: who it reaches, and settings that have no effect yet"),
+    ),
+    "submit_feature_request": (
+        ("The board is public: do not include candidate data, company names or other personal information.",
+         "The board is public: anything in it, candidate data and company names included, is visible to anyone."),
+    ),
+    "update_portal_configuration": (
+        ("Read the current configuration with get_portal_configuration first: it returns these same documents, so you can edit them and send them back.",
+         "get_portal_configuration returns these same documents, in the format this tool takes."),
+        ("Run with `dry_run: true` to preview the summary, warnings and changes, then repeat without it to apply.",
+         "`dry_run: true` previews the summary, warnings and changes without writing anything."),
+    ),
+}
+
+
+def reference_fixes(tool: str) -> tuple[tuple[str, str], ...]:
+    """The restatements tool_reference.capture applies to one tool's full definition."""
+    return _REFERENCE_FIXES["*"] + _REFERENCE_FIXES.get(tool, ())
+
 
 IGNORED_PATHS: set[str] = {
     "/invite-users",  # also creates staff accounts: candidates go through invitations.invite_candidates

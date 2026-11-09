@@ -185,6 +185,19 @@ More detail: `docs/ARCHITECTURE.md`.
   serves it. FastMCP shares `$defs` objects between tools: trim copies, never in
   place. `get_tool_reference` is the one tool `lazy_auth` serves without a token
   (`PUBLIC_TOOL_CALLS`): it reads only the captured spec, never the API.
+- **Tool text states facts; it never orders the model.** The Anthropic directory's
+  compliance step attests that tool descriptions carry no instructions about model
+  behaviour or other tools, and a reviewer reads argument texts and what
+  `get_tool_reference` serves as tool text too. So "dry_run=true shows …", not "Use
+  dry_run first"; "it takes the preview_token of preview_candidate_merge", not "Call
+  preview_candidate_merge first"; no "tell/ask the user", "confirm with the user",
+  "when the user asked", "use X instead", no developer-guide URLs. Hints are written that
+  way; the API spec keeps its developer-docs voice and the MCP restates it:
+  `naming._STATEMENT_FIXES` (spec pass, both `description` and `x-mcp-description`) and
+  `naming._REFERENCE_FIXES` (applied by `tool_reference.capture` to the full texts, which
+  also drops `developer.jobmojito.com` link sentences). Tests fail on a fix whose text the
+  API reworded and on the phrasings above (`test_tool_descriptions_state_facts_...`).
+  The server instructions may guide the model; they are not tool descriptions.
 - **The tool error rate is a floor, not a total.** Streamable HTTP answers a stale
   `Mcp-Session-Id` with a 400, a terminated session with a 404 and a protocol
   version it does not support with a 400, all *before* dispatch, so those failures appear in no tool-call metric and the PostHog MCP
