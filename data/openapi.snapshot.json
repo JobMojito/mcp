@@ -361,7 +361,7 @@
               "draft",
               "active"
             ],
-            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it..",
+            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it.",
             "example": "active"
           },
           "type": {
@@ -371,7 +371,7 @@
               "coaching",
               "assessment"
             ],
-            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview..",
+            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
             "example": "interview"
           },
           "visibility": {
@@ -381,7 +381,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually.",
             "example": "merchant_public"
           },
           "recording": {
@@ -394,7 +394,7 @@
               "video_first_5_answers",
               "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection.",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -405,7 +405,7 @@
               "video_all",
               "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording.",
             "example": "video_all"
           },
           "environment": {
@@ -416,7 +416,7 @@
               "development",
               "demo"
             ],
-            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials.",
             "example": "production"
           },
           "interview_type": {
@@ -431,7 +431,7 @@
               "process-verification-from-knowledge-base",
               "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and shapes both the AI-generated questions and the follow-up questions asked during the interview. Defaults to pre-screening when omitted. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
+            "description": "Interview style — configures the AI avatar and shapes both the AI-generated questions and the follow-up questions asked during the interview. Defaults to pre-screening when omitted. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them.",
             "example": "pre-screening-with-test-questions"
           },
           "seniority_level": {
@@ -445,7 +445,7 @@
               "director",
               "executive"
             ],
-            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role..",
+            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role.",
             "example": "senior"
           },
           "result_view": {
@@ -459,7 +459,7 @@
               "full",
               "full_expand_scores"
             ],
-            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded.",
             "example": "full"
           },
           "interview_conversation_speed": {
@@ -471,7 +471,7 @@
               "faster",
               "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn.",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -494,7 +494,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
+            "description": "Interview tone — configures the AI avatar's speaking style and the tone of the AI-generated questions and follow-ups. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script.",
             "example": "professional"
           },
           "interview_length": {
@@ -731,7 +731,7 @@
               "$ref": "#/components/schemas/JobInterviewCreateFromArrayQuestion"
             },
             "minItems": 1,
-            "description": "OPTIONAL: your own ordered list of questions, in the format job-interview-get returns. When given, nothing is generated by AI except the candidate expectations (type interview, unless candidate_expectations_json is given): description becomes required; interview_length, include_closing_prompt and use_enhanced_expectations are ignored; include_rapport_question defaults to true; max_duration keeps its meaning here (stored, 1200 when omitted). Omit to have the AI generate the description and questions."
+            "description": "OPTIONAL: your own ordered list of questions, in the format job-interview-get returns. When given, they are stored as written and nothing is generated by AI except the candidate expectations (type interview, unless candidate_expectations_json is given); in the session the avatar still says each question in the interview tone unless interview_tone is exact: description becomes required; interview_length, include_closing_prompt and use_enhanced_expectations are ignored; include_rapport_question defaults to true; max_duration keeps its meaning here (stored, 1200 when omitted). Omit to have the AI generate the description and questions."
           },
           "candidate_expectations_json": {
             "type": "object",
@@ -1034,7 +1034,7 @@
               "draft",
               "active"
             ],
-            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it..",
+            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it.",
             "example": "active"
           },
           "type": {
@@ -1044,7 +1044,7 @@
               "coaching",
               "assessment"
             ],
-            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview..",
+            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
             "example": "interview"
           },
           "visibility": {
@@ -1054,7 +1054,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually.",
             "example": "merchant_public"
           },
           "questions": {
@@ -1075,7 +1075,7 @@
               "video_first_5_answers",
               "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection.",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -1086,7 +1086,7 @@
               "video_all",
               "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording.",
             "example": "video_all"
           },
           "environment": {
@@ -1097,7 +1097,7 @@
               "development",
               "demo"
             ],
-            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials.",
             "example": "production"
           },
           "interview_type": {
@@ -1113,7 +1113,7 @@
               "process-verification-from-knowledge-base",
               "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. The base `questions` you supply are used as-is and are NOT affected by this setting. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
+            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. The base `questions` you supply are used as-is and are NOT affected by this setting. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them.",
             "example": "pre-screening-with-test-questions"
           },
           "seniority_level": {
@@ -1127,7 +1127,7 @@
               "director",
               "executive"
             ],
-            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role..",
+            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role.",
             "example": "senior"
           },
           "result_view": {
@@ -1141,7 +1141,7 @@
               "full",
               "full_expand_scores"
             ],
-            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded.",
             "example": "full"
           },
           "interview_conversation_speed": {
@@ -1153,7 +1153,7 @@
               "faster",
               "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn.",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -1175,7 +1175,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates; the base `questions` you supply are not affected. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script.",
             "example": "professional"
           },
           "interview_attempts": {
@@ -2060,7 +2060,7 @@
               "faster",
               "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn.",
             "example": "normal"
           },
           "environment": {
@@ -2071,7 +2071,7 @@
               "development",
               "demo"
             ],
-            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials.",
             "example": "production"
           },
           "max_followups": {
@@ -2345,7 +2345,7 @@
               "draft",
               "active"
             ],
-            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it..",
+            "description": "Lifecycle status of the interview. Options — `draft`: Created but not published — not visible to candidates and cannot be run yet. Use to stage an interview before going live. | `active`: Published and live — candidates can run it.",
             "example": "active"
           },
           "visibility": {
@@ -2355,7 +2355,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Who can discover and access the interview. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually.",
             "example": "merchant_public"
           },
           "description": {
@@ -2419,7 +2419,7 @@
               "video_first_5_answers",
               "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection.",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -2430,7 +2430,7 @@
               "video_all",
               "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording.",
             "example": "video_all"
           },
           "environment": {
@@ -2441,7 +2441,7 @@
               "development",
               "demo"
             ],
-            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials.",
             "example": "production"
           },
           "result_view": {
@@ -2455,7 +2455,7 @@
               "full",
               "full_expand_scores"
             ],
-            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded.",
             "example": "full"
           },
           "interview_conversation_speed": {
@@ -2467,7 +2467,7 @@
               "faster",
               "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn.",
             "example": "normal"
           },
           "candidate_video_introduction": {
@@ -3940,7 +3940,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can discover and access the interview. Refused (422) for the AI interview step of a multi-stage position: it follows the position. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Who can discover and access the interview. Refused (422) for the AI interview step of a multi-stage position: it follows the position. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually.",
             "example": "merchant_public"
           },
           "environment": {
@@ -3951,7 +3951,7 @@
               "development",
               "demo"
             ],
-            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials..",
+            "description": "Which of your webhook environments results from this interview are delivered to. Defaults to production. Options — `production`: Live hiring. Results reach the webhooks configured as production. This is the default when the field is omitted. | `uat`: User-acceptance testing - an isolated environment for pre-release verification. | `development`: Development/testing. Use for interviews created by a test or preview app so their results never reach the production webhook. | `demo`: Demonstrations and sales trials.",
             "example": "production"
           },
           "name": {
@@ -4177,7 +4177,7 @@
               "interview_coach_manager",
               "cover_letter"
             ],
-            "description": "Credit bucket the session draws from. Only meaningful for candidate-paid coaching/persona sessions; hiring interviews and assessments are merchant-billed and carry null. Options — `resume_check`: Resume-check credits. | `interview_coach_starter`: Coaching credits — starter tier. | `interview_coach_contributor`: Coaching credits — contributor tier. | `interview_coach_manager`: Coaching credits — manager tier. | `cover_letter`: Cover-letter credits..",
+            "description": "Credit bucket the session draws from. Only meaningful for candidate-paid coaching/persona sessions; hiring interviews and assessments are merchant-billed and carry null. Options — `resume_check`: Resume-check credits. | `interview_coach_starter`: Coaching credits — starter tier. | `interview_coach_contributor`: Coaching credits — contributor tier. | `interview_coach_manager`: Coaching credits — manager tier. | `cover_letter`: Cover-letter credits.",
             "example": "interview_coach_manager"
           },
           "coach_plan": {
@@ -4192,7 +4192,7 @@
               "job-specific",
               "other"
             ],
-            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets.",
             "example": "screening"
           },
           "interview_template_id": {
@@ -4216,7 +4216,7 @@
               "video_first_5_answers",
               "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit to keep the current mode; `none` switches it off (null does too). Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: Switch cheating detection off..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit to keep the current mode; `none` switches it off (null does too). Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: Switch cheating detection off.",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -4227,7 +4227,7 @@
               "video_all",
               "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit to keep the current setting; `none` switches it off (null does too). Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: Switch the full-session recording off..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit to keep the current setting; `none` switches it off (null does too). Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: Switch the full-session recording off.",
             "example": "video_all"
           },
           "result_view": {
@@ -4240,7 +4240,7 @@
               "full",
               "full_expand_scores"
             ],
-            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded..",
+            "description": "Result screen shown to the candidate after finishing. With any value other than `none`, the candidate sees a results screen where they can provide feedback, record an intro video and edit the transcript, and must then submit the result; the value sets how much score/result detail is shown. Options — `none`: No results screen at all — the interview is submitted immediately when the candidate finishes (no feedback, intro video, transcript edit or manual submit step). | `minimal`: Minimal results layout, no score shown. | `minimal_with_score`: Minimal results layout including the overall score. | `advanced`: Advanced results layout with more detail. | `full`: Full results layout with all sections. | `full_expand_scores`: Full results with every score breakdown expanded.",
             "example": "full"
           },
           "candidate_video_introduction": {
@@ -4262,7 +4262,7 @@
               "faster",
               "fluent"
             ],
-            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn..",
+            "description": "Conversation pace of the AI avatar. Omit/null keeps the template default pace. Options — `slower`: The avatar speaks more slowly — easier to follow for non-native speakers. | `normal`: Default speaking pace. | `faster`: The avatar speaks more quickly for a snappier conversation. | `fluent`: Talking pace: the avatar answers 300 ms after the candidate stops speaking. A pause mid-sentence also ends their turn.",
             "example": "normal"
           },
           "max_followups": {
@@ -4451,7 +4451,7 @@
               "process-verification-from-knowledge-base",
               "knockout-screening"
             ],
-            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. Stored in creation_parameters; existing questions are NOT regenerated. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them..",
+            "description": "Interview style — configures the AI avatar and the follow-up questions it generates during the interview. Stored in creation_parameters; existing questions are NOT regenerated. Options — `pre-screening`: Pre-screening — quick qualification check focusing on basic requirements and availability. | `pre-screening-with-test-questions`: Pre-screening with test questions — pre-screening plus practical questions to test relevant skills. | `second-interview`: Second round interview — deeper dive for candidates who passed initial screening. | `remote-freelancer-verification`: Remote worker verification — verify remote work capabilities and communication skills. | `strength-based-interview`: Strength-based interview — focus on what candidates enjoy and excel at to predict job satisfaction. | `potential-based-interview`: Potential-based interview — assess learning ability and growth potential rather than past experience. | `process-verification-from-knowledge-base`: Knowledge Base interview — generate questions from your knowledge base documents. | `knockout-screening`: Knock-out screening — a short (about 5 minute) check of the role's must-haves with closed questions; ends early, politely, when a must-have is clearly not met. On creation it defaults custom_scoring.early_stop to true (where the avatar supports early stop) and max_followups to 1 unless you send them.",
             "example": "pre-screening-with-test-questions"
           },
           "interview_tone": {
@@ -4464,7 +4464,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script..",
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script.",
             "example": "professional"
           },
           "seniority_level": {
@@ -4478,7 +4478,7 @@
               "director",
               "executive"
             ],
-            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role..",
+            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role.",
             "example": "senior"
           },
           "hiring_for_company": {
@@ -6194,7 +6194,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link..",
+            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link.",
             "example": "merchant_public"
           },
           "status": {
@@ -6205,7 +6205,7 @@
               "active",
               "archived"
             ],
-            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served..",
+            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served.",
             "example": "active"
           },
           "cover_image_url": {
@@ -6225,7 +6225,7 @@
               "job-specific",
               "other"
             ],
-            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets.",
             "example": "screening"
           },
           "tags_sub": {
@@ -6448,7 +6448,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link..",
+            "description": "Who can see the catalogue directory. Options — `public`: Shared across every merchant. Platform admins only — a merchant caller is rejected by row-level security. | `merchant_public`: Listed in the merchant's own catalogue — the normal choice. | `merchant_invite`: Owned by the merchant but not listed; reachable only for invited users. | `merchant_unlisted`: Owned by the merchant but not listed; reachable only via a direct link.",
             "example": "merchant_public"
           },
           "status": {
@@ -6458,7 +6458,7 @@
               "active",
               "archived"
             ],
-            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served..",
+            "description": "Lifecycle status of the catalogue directory. Options — `draft`: Not published — the directory exists but is not served to visitors. | `active`: Published and served in the catalogue. | `archived`: Retired — kept for reference but no longer served.",
             "example": "active"
           },
           "cover_image_url": {
@@ -6478,7 +6478,7 @@
               "job-specific",
               "other"
             ],
-            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets..",
+            "description": "Coaching-plan stage this item belongs to, used by the coaching-plan progress view. Omit/null to leave it out of any plan. Options — `demo`: Demo session. | `screening`: Screening-interview practice. | `2nd`: Second-interview practice. | `3rd`: Third-interview practice. | `closing`: Closing / salary-negotiation practice. | `job-specific`: Job-specific coaching. | `other`: Anything that does not fit the other buckets.",
             "example": "screening"
           },
           "tags_sub": {
@@ -13157,7 +13157,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Position visibility. Defaults to `merchant_invite` on create. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Position visibility. Defaults to `merchant_invite` on create. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually.",
             "example": "merchant_public"
           },
           "kombo_parameters": {

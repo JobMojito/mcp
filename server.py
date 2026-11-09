@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.3.1"
+SERVER_VERSION = "2.3.2"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -135,7 +135,7 @@ positions, steps, status, dates, countries, skills...): call `list_candidate_fil
 first for the fields and ids. Changes that reach candidates or cannot be undone
 (`merge_candidates`, slot changes, document requests, step settings) take
 `dry_run` or a preview first: show the user what would happen, then run it. A
-change with neither (`set_interview_state`, `invite_candidates`,
+change with neither (`set_interview_state`, `invite_candidates`, `update_interview`,
 `request_another_interview_attempt`) needs the user's go-ahead first.
 Some tools and fields belong to company features that JobMojito switches on per
 company (prospects, meeting_panels...): a 403 naming one means it is off for this
@@ -177,8 +177,10 @@ HOW TO USE THIS SERVER:
    `jobmojito_configuration` renders an interactive searchable picker, which is a
    better experience than asking the user to type a name. `list_my_merchants`
    returns the same options as text for clients that cannot render UI. After a
-   merchant is chosen, pass `merchant_id=<chosen id>` on subsequent calls; omit it
-   for the user's own account.
+   merchant is chosen, pass `merchant_id=<chosen id>` on subsequent calls that take
+   it; omit it for the user's own account. A tool without `merchant_id` acts on an
+   object you name by id (an interview, a step, a slot, a result) and works in that
+   object's company.
 
 IDENTIFIERS & ADMIN LINKS:
 Ids are easy to mix up. The same interview is `interview_def_set_id` (returned by
@@ -189,7 +191,7 @@ list_candidates row. To get a result's `interview_result_id` from a
 list_interview_results row, take the row's `id` on a single-stage row (its
 interview_result_id is null) and its `interview_result_id` on a multi-stage row.
 Enum values are exact strings, sent as listed even when they look misspelt
-(`name_accending`); some flags are the strings "true"/"false", not booleans.
+(`name_accending`).
 There is no link-building tool.
 For the full id-to-field map, where each id comes from, and admin link patterns:
 get_documentation("https://developer.jobmojito.com/mcp/identifiers").
@@ -221,10 +223,14 @@ TOOLS BY TASK (a description's [label] is the API section it comes from, which c
   same as the admin console; send_email=false returns personal interview links
   only, NO e-mail), generate_interview_url (a signed link to share)
 • Results & reports: get_interview_result_details, generate_interview_report,
-  list_reports, run_report, get_report, list_report_fields, save_report
+  list_reports, run_report, get_report, list_report_fields, save_report;
+  set_assessment_result (records an external assessment step's result)
 • Knowledge base: upload_knowledge_base_document, list_knowledge_base_documents, set_knowledge_base_document_interviews
 • Merchant lists (read-only): list_interviews, list_candidates,
-  list_interview_results, list_avatars, list_sub_merchants, get_merchant_status
+  list_interview_results, list_avatars, list_sub_merchants, get_merchant_status,
+  list_languages
+• Feedback to JobMojito: submit_feature_request, report_technical_issue (only when
+  the user asks)
 • Portal configuration: get_portal_configuration, update_portal_configuration
 • Career page styles: publish_portal_stylesheet (settings and CSS files are written
   with update_portal_configuration)

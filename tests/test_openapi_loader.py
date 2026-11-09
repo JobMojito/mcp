@@ -293,3 +293,36 @@ def test_component_walk_and_operation_split_skip_odd_entries():
     assert [{"name": "p"}] in others and ["T"] in others
     seen = loader._reachable_components(spec, [{"$ref": "#/definitions/Old"}, {"$ref": "#/components/schemas/A"}])
     assert seen == {("schemas", "A"), ("schemas", "B")}
+
+
+def test_table_name_ids_become_where_to_get_them():
+    spec = {"paths": {"/x": {"post": {"description": "Candidate id (profile_interview.id); its tag (profile_interview_tag.id); a user (profile.id); the company (merchant.id); a task (merchant_task.id)."}}}}
+    loader.apply_tool_names(spec)
+    assert spec["paths"]["/x"]["post"]["description"] == (
+        "Candidate id (the `id` of a list_candidates row); its tag (a tag `id` from list_candidate_filters); "
+        "a user (profile.id); the company (a company `id` from list_my_merchants); a task (a task `id` from list_tasks)."
+    )
+
+
+def test_string_flags_in_the_query_become_booleans():
+    flag = {"type": "string", "enum": ["true", "false"], "default": "false", "example": "true", "description": "d"}
+    spec = {
+        "paths": {
+            "/odd": "not a path item",
+            "/x": {
+                "parameters": [{"name": "path_level"}],
+                "get": {"parameters": [
+                    {"name": "extended", "in": "query", "schema": dict(flag)},
+                    {"name": "kind", "in": "query", "schema": {"type": "string", "enum": ["a", "b"]}},
+                    {"name": "header_flag", "in": "header", "schema": dict(flag)},
+                    {"name": "no_schema", "in": "query"},
+                    "not a parameter",
+                ]},
+                "post": {"requestBody": {}},
+            },
+        }
+    }
+    loader.boolean_query_flags(spec)
+    params = spec["paths"]["/x"]["get"]["parameters"]
+    assert params[0]["schema"] == {"type": "boolean", "default": False, "example": True, "description": "d"}
+    assert params[1]["schema"]["enum"] == ["a", "b"] and params[2]["schema"]["type"] == "string"

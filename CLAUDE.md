@@ -174,7 +174,10 @@ More detail: `docs/ARCHITECTURE.md`.
   hook is swallowed by FastMCP and leaves tools untrimmed, so a new rule needs a test on
   a nullable schema. Separately, `openapi_loader.apply_tool_names` rewrites
   endpoint names in every description to tool names (`naming.MERGED_ENDPOINTS` for
-  hidden endpoints), so write the spec in endpoint names and the model still reads tools. The structure (types,
+  hidden endpoints), so write the spec in endpoint names and the model still reads tools.
+  The same pass turns table-name ids (`profile_interview.id`) into where a model gets
+  them (`naming.TABLE_IDS`), and `openapi_loader.boolean_query_flags` makes the
+  'true'/'false' query enums plain booleans (httpx sends True as "true"). The structure (types,
   enums, required, nesting) is never touched — `tests/test_tool_reference.py`
   compares it. So a rule a model must follow belongs in the hint or in a sentence
   the rule regex keeps; detail belongs in the spec, where `get_tool_reference`

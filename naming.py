@@ -520,12 +520,16 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "create_interview",
         "Create interview",
         "Create a new interview. Without `questions` its question sequence is "
-        "generated from the position data. With `questions` (an explicit list) those "
-        "are used: the AI rephrases your wording unless you pass "
-        "`interview_tone=\"exact\"`, which asks each question verbatim (compliance, "
-        "translated or legally reviewed text). With `questions`, a rapport question is "
-        "added first unless include_rapport_question=false, and the candidate expectations "
-        "are generated from them. The `interview_template_id` you pass "
+        "generated from the position data. With `questions` (an explicit list) they are "
+        "stored as you wrote them, and in the session the avatar says each one in its "
+        "tone, rephrased, unless you pass `interview_tone=\"exact\"`, which reads them "
+        "verbatim (compliance, translated or legally reviewed text). With `questions`, a "
+        "rapport question is added first unless include_rapport_question=false (3 sent "
+        "are 4 asked), and the candidate expectations are generated from them. `type` is "
+        "the product (interview, assessment, coaching); `interview_type` is the style of "
+        "an interview (pre-screening, second-interview...): a position's pre-screening "
+        "STEP (resume and form) is something else, set with set_position_process. The "
+        "`interview_template_id` you pass "
         "also sets the modality (voice-only vs realtime/pre-recorded avatar): see "
         "`list_avatars`.",
         "readOnlyHint=false / destructiveHint=true: creates a new persistent "
@@ -1122,7 +1126,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "include=process and send its `updated_at` back as expected_updated_at: a newer "
         "change is refused with 409. Settings are live: candidates already on the step get "
         "them at once. Use dry_run=true first: it shows the changed keys, the candidates on "
-        "the step, booked meetings and warnings, and saves nothing.",
+        "the step, booked meetings and warnings, and saves nothing. Nobody is e-mailed. "
+        "A new meeting duration applies to slots created afterwards; existing slots keep "
+        "theirs (change them with manage_meeting_slot).",
         "readOnlyHint=false / destructiveHint=true: changes live settings that candidates "
         "already on the step get immediately. idempotentHint=true: the same values give the "
         "same settings. " + _OPEN_WORLD,
@@ -1418,6 +1424,25 @@ MERGED_ENDPOINTS: dict[str, str] = {
     "/report-update": "save_report with report_id",
     "/merchant-analytics": "run_report builtin:usage",
     "/merchant-analytics-credits-used": "run_report builtin:usage",
+}
+
+
+#: Table-name ids in the spec's prose ("Candidate id (profile_interview.id)") as where a
+#: model gets that id. Rewritten by ``openapi_loader.apply_tool_names``; ids of other
+#: tables (a user's profile.id, a taxonomy row) keep their table name.
+TABLE_IDS: dict[str, str] = {
+    "profile_interview": "the `id` of a list_candidates row",
+    "position_def_set": "a position `id` from list_interviews",
+    "interview_def_set": "an interview `id` from list_interviews",
+    "position_def_step": "a step `id` from get_interview_definition include=process",
+    "position_result": "an application `id` from get_candidate",
+    "interview_result": "a result id from list_interview_results",
+    "profile_interview_tag": "a tag `id` from list_candidate_filters",
+    "profile_interview_segment": "a segment `id` from list_segments",
+    "profile_interview_document_request": "a request `id` from list_document_requests",
+    "merchant_task": "a task `id` from list_tasks",
+    "position_meeting_slot": "a slot `id` from get_interview_definition include=slots",
+    "merchant": "a company `id` from list_my_merchants",
 }
 
 

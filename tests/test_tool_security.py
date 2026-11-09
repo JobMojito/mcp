@@ -481,3 +481,13 @@ async def test_the_documentation_tools_never_send_the_callers_token(upstream):
         assert not upstream.requests, url
         assert "not allowed" in result.structured_content["error"]
     assert docs_tools  # imported for the registry side effects only
+
+
+@pytest.mark.parametrize("value", [True, False])
+@pytest.mark.asyncio
+async def test_a_boolean_query_flag_reaches_the_api_as_the_string_it_reads(upstream, value):
+    """extended / include_archived / ... were 'true'/'false' string enums; a model sends a boolean."""
+    tool = (await _listed())["list_interview_results"]
+    assert tool.parameters["properties"]["extended"]["type"] == "boolean"
+    await _call("list_interview_results", {"extended": value})
+    assert upstream.requests[0].url.params["extended"] == ("true" if value else "false")

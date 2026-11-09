@@ -28,6 +28,7 @@ import httpx2
 from config import settings
 from naming import (
     VIEW_PARAM_MARKER,
+    TABLE_IDS,
     VIEW_PARAM_NAME,
     endpoint_tool_names,
     meta_for,
@@ -270,6 +271,35 @@ def fix_exclusive_bounds(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def boolean_query_flags(spec: dict[str, Any]) -> dict[str, Any]:
+    """Query flags typed as the strings 'true' / 'false' become booleans.
+
+    The API reads them from the query string, where a boolean is written the same
+    way (httpx writes True as "true"), but a model sends a boolean, as it does for
+    every body flag (dry_run, send_email): the string enum refused it.
+    """
+    for path_item in spec.get("paths", {}).values():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            for parameter in operation.get("parameters") or []:
+                if not isinstance(parameter, dict) or parameter.get("in") != "query":
+                    continue
+                schema = parameter.get("schema")
+                if not isinstance(schema, dict):
+                    continue
+                if sorted(schema.get("enum") or []) != ["false", "true"]:
+                    continue
+                schema.pop("enum")
+                schema["type"] = "boolean"
+                for key in ("default", "example"):
+                    if key in schema:
+                        schema[key] = schema[key] == "true"
+    return spec
+
+
 def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
     """Name tools, not endpoints, in every description a model reads.
 
@@ -285,12 +315,18 @@ def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
     pattern = re.compile(
         r"(?<![\w/.-])(" + "|".join(re.escape(s) for s in sorted(names, key=len, reverse=True)) + r")(?![\w-])"
     )
+    tables = re.compile(
+        r"(?<![\w.])(" + "|".join(re.escape(s) for s in sorted(TABLE_IDS, key=len, reverse=True)) + r")\.id\b"
+    )
+
+    def rewrite(text: str) -> str:
+        return tables.sub(lambda m: TABLE_IDS[m.group(1)], pattern.sub(lambda m: names[m.group(1)], text))
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
                 if key in ("description", "summary", "x-mcp-description") and isinstance(value, str):
-                    node[key] = pattern.sub(lambda m: names[m.group(1)], value)
+                    node[key] = rewrite(value)
                 else:
                     walk(value)
         elif isinstance(node, list):
@@ -512,7 +548,7 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
         apply_tool_names(
             apply_description_fixes(
                 prefer_json_request_bodies(
-                    inject_view_params(apply_param_defaults(inject_operation_ids(fix_exclusive_bounds(spec))))
+                    inject_view_params(apply_param_defaults(inject_operation_ids(boolean_query_flags(fix_exclusive_bounds(spec)))))
                 )
             )
         )
