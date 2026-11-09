@@ -391,9 +391,10 @@
               "audio_first_5_answers",
               "audio_all",
               "video_all",
-              "video_first_5_answers"
+              "video_first_5_answers",
+              "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -401,9 +402,10 @@
             "nullable": true,
             "enum": [
               "audio_all",
-              "video_all"
+              "video_all",
+              "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
             "example": "video_all"
           },
           "environment": {
@@ -823,7 +825,7 @@
             "additionalProperties": {
               "nullable": true
             },
-            "description": "Company-defined position fields, as job-interview-update takes them. They belong to multi-stage positions only: while the company has custom fields switched on, sending a non-empty object here is refused with 422 (create the position instead); while they are off, the field is ignored."
+            "description": "Company-defined position fields, as job-interview-update takes them. They belong to multi-stage positions only: while the company has custom fields switched on, sending a non-empty object here is refused with 422 (copy a position with merchant-position-duplicate, or create one in the admin); while they are off, the field is ignored."
           },
           "custom_scoring": {
             "type": "object",
@@ -976,7 +978,7 @@
           "interview_template_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Id of the interview template to use. Must reference an existing interview_templates row.",
+            "description": "Id of the interview template to use. An id from merchant-avatar-list.",
             "example": "46b98d37-1557-4391-beca-03037ead19f2"
           },
           "mojito_language_code": {
@@ -1070,9 +1072,10 @@
               "audio_first_5_answers",
               "audio_all",
               "video_all",
-              "video_first_5_answers"
+              "video_first_5_answers",
+              "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -1080,9 +1083,10 @@
             "nullable": true,
             "enum": [
               "audio_all",
-              "video_all"
+              "video_all",
+              "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
             "example": "video_all"
           },
           "environment": {
@@ -1548,7 +1552,7 @@
             "additionalProperties": {
               "nullable": true
             },
-            "description": "Company-defined position fields, as job-interview-update takes them. They belong to multi-stage positions only: while the company has custom fields switched on, sending a non-empty object here is refused with 422 (create the position instead); while they are off, the field is ignored."
+            "description": "Company-defined position fields, as job-interview-update takes them. They belong to multi-stage positions only: while the company has custom fields switched on, sending a non-empty object here is refused with 422 (copy a position with merchant-position-duplicate, or create one in the admin); while they are off, the field is ignored."
           }
         },
         "required": [
@@ -2412,9 +2416,10 @@
               "audio_first_5_answers",
               "audio_all",
               "video_all",
-              "video_first_5_answers"
+              "video_first_5_answers",
+              "none"
             ],
-            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit/null to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only..",
+            "description": "Cheating/proctoring detection mode for candidate answers — this is NOT a full session recording. Video options also record the candidate. Omit, null or `none` to disable. Options — `audio_first_5_answers`: Audio-only cheating detection, first 5 answers only. | `audio_all`: Audio-only cheating detection on every answer. | `video_all`: Audio + video cheating detection on every answer (candidate is recorded for all answers). | `video_first_5_answers`: Audio + video cheating detection, first 5 answers only. | `none`: No cheating detection..",
             "example": "video_all"
           },
           "recording_full_session": {
@@ -2422,9 +2427,10 @@
             "nullable": true,
             "enum": [
               "audio_all",
-              "video_all"
+              "video_all",
+              "none"
             ],
-            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit/null to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits..",
+            "description": "Full interview-session recording (includes the avatar and voice) produced as a single file. Independent of `recording`. Omit, null or `none` to disable. Options — `audio_all`: Record the whole session audio (avatar + candidate voice) into a single file. Adds +0.2 credits. | `video_all`: Record the whole session video + audio (avatar + candidate) into a single file. Adds +0.4 credits. | `none`: No full-session recording..",
             "example": "video_all"
           },
           "environment": {
@@ -2730,7 +2736,7 @@
             "type": "string",
             "nullable": true,
             "maxLength": 100,
-            "description": "Merchant switch meeting_email_variants: the name of the e-mail version used for this step's meeting e-mails. null removes the setting (its default applies again); left out keeps it."
+            "description": "Needs the meeting_email_variants feature: the name of the e-mail version used for this step's meeting e-mails. null removes the setting (its default applies again); left out keeps it."
           }
         },
         "additionalProperties": false,
@@ -2763,7 +2769,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "Settings of an external assessment step (merchant switch external_assessment)."
+        "description": "Settings of an external assessment step (the external_assessment feature)."
       },
       "PositionStepInterview": {
         "type": "object",
@@ -3087,7 +3093,7 @@
         "properties": {
           "enabled": {
             "type": "boolean",
-            "description": "Whether the company has the hiring team switched on (switch hiring_team); members is empty while it is off."
+            "description": "Whether the company has the hiring team switched on (the hiring_team feature); members is empty while it is off."
           },
           "owner": {
             "type": "object",
@@ -3228,7 +3234,7 @@
           "note",
           "changed_at"
         ],
-        "description": "include=lifecycle (multi-stage positions, switch position_lifecycle): the vacancy lifecycle."
+        "description": "include=lifecycle (multi-stage positions, the position_lifecycle feature): the vacancy lifecycle."
       },
       "PositionOpenings": {
         "type": "object",
@@ -3258,7 +3264,7 @@
           "remaining",
           "auto_close"
         ],
-        "description": "include=lifecycle (multi-stage positions, switch position_bulk_create): openings and how many are filled."
+        "description": "include=lifecycle (multi-stage positions, the position_bulk_create feature): openings and how many are filled."
       },
       "PositionPublishing": {
         "type": "object",
@@ -3313,7 +3319,7 @@
           "internal_days",
           "state"
         ],
-        "description": "include=publishing (multi-stage positions, switch position_audience): the publishing window."
+        "description": "include=publishing (multi-stage positions, the position_audience feature): the publishing window."
       },
       "JobInterviewGetResponse": {
         "type": "object",
@@ -3924,7 +3930,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status, applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position (visibility sub_item): its status follows the position.",
+            "description": "New publication status, applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position: its status follows the position.",
             "example": "active"
           },
           "visibility": {
@@ -3934,7 +3940,7 @@
               "merchant_invite",
               "merchant_unlisted"
             ],
-            "description": "Who can discover and access the interview. Refused (422) for the AI interview step of a multi-stage position (visibility sub_item): it follows the position. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
+            "description": "Who can discover and access the interview. Refused (422) for the AI interview step of a multi-stage position: it follows the position. Options — `merchant_public`: Listed on the merchant's public interview list — anyone with the merchant link can find and start it. | `merchant_invite`: Invite-only — only candidates explicitly invited (by email/link) can access it; not listed anywhere. | `merchant_unlisted`: Reachable only via a direct link — not listed anywhere; share the link manually..",
             "example": "merchant_public"
           },
           "environment": {
@@ -4192,7 +4198,7 @@
           "interview_template_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Id of the interview template (avatar/voice) to use. Must reference an existing interview_templates row. Also decides the modality — see list_avatars / merchant-avatar-list.",
+            "description": "Id of the interview template (avatar/voice) to use. An id from merchant-avatar-list. Also decides the modality — see list_avatars / merchant-avatar-list.",
             "example": "46b98d37-1557-4391-beca-03037ead19f2"
           },
           "knowledge_base_store_id": {
@@ -4628,7 +4634,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status: draft, active, archived, deleted, preparing, completed. For a position it cascades to its steps. Refused (422) for the AI interview step of a position (visibility sub_item), which follows its position. Activating a position whose required custom fields are empty is refused with 422 (name custom_fields). Archiving an active position sends the position-closed e-mail to candidates with open applications when the company has that notice switched on.",
+            "description": "New publication status: draft, active, archived, deleted, preparing, completed. For a position it cascades to its steps. Refused (422) for the AI interview step of a position, which follows its position. Activating a position whose required custom fields are empty is refused with 422 (name custom_fields). Archiving an active position sends the position-closed e-mail to candidates with open applications when the company has that notice switched on.",
             "x-mcp-description": "New publication status. Refused (422) for the AI interview step of a position, which follows its position, and for activating a position whose required custom fields are empty. Archiving an active position can e-mail its candidates with open applications (the position-closed notice, when switched on). Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated."
           },
           "lifecycle": {
@@ -4641,7 +4647,7 @@
               "cancelled",
               "closed"
             ],
-            "description": "Multi-stage positions only (422 for an interview): the vacancy lifecycle to move to (needs the position lifecycle switch of the company, else 403). Allowed moves: draft to open or cancelled; open, applications_closed and on_hold to each other and to filled, cancelled or closed; filled, cancelled and closed back to open (else 422). on_hold and cancelled need a reason_id. The publication status follows (open, applications_closed, on_hold = active; filled, cancelled, closed = archived). Moving an open position to filled, cancelled or closed archives it: when the company has the position-closed notice switched on, every candidate with an open application then gets the position-closed e-mail (at once or on the company's e-mail schedule). Send either status or lifecycle, not both.",
+            "description": "Multi-stage positions only (422 for an interview): the vacancy lifecycle to move to (needs the position_lifecycle feature, else 403). Allowed moves: draft to open or cancelled; open, applications_closed and on_hold to each other and to filled, cancelled or closed; filled, cancelled and closed back to open (else 422). on_hold and cancelled need a reason_id. The publication status follows (open, applications_closed, on_hold = active; filled, cancelled, closed = archived). Moving an open position to filled, cancelled or closed archives it: when the company has the position-closed notice switched on, every candidate with an open application then gets the position-closed e-mail (at once or on the company's e-mail schedule). Send either status or lifecycle, not both.",
             "x-mcp-description": "Multi-stage positions only: the vacancy lifecycle to move to. draft goes to open or cancelled; open, applications_closed and on_hold go to each other or to filled, cancelled or closed; those three go back to open. on_hold and cancelled need reason_id. filled, cancelled and closed archive the position and can e-mail every candidate with an open application (the position-closed notice, when switched on).",
             "example": "on_hold"
           },
@@ -5383,7 +5389,7 @@
               "external_assessment",
               "certo_verification"
             ],
-            "description": "pre-screening (at most one, first), interview (AI interview), meeting, external_assessment (merchant switch external_assessment) or certo_verification (company connected to certo.bio). An existing step keeps its type."
+            "description": "pre-screening (at most one, first), interview (AI interview), meeting, external_assessment (the external_assessment feature) or certo_verification (company connected to certo.bio). An existing step keeps its type."
           },
           "name": {
             "type": "string",
@@ -5938,7 +5944,7 @@
               "format": "uuid"
             },
             "maxItems": 8,
-            "description": "Merchant switch meeting_panels, hand-made slots only: up to 8 users (profile.id) who attend besides the interviewer, who leads. Empty or null removes the panel; left out keeps it."
+            "description": "Needs the meeting_panels feature; hand-made slots only: up to 8 users (profile.id) who attend besides the interviewer, who leads. Empty or null removes the panel; left out keeps it."
           },
           "dry_run": {
             "type": "boolean",
@@ -9436,7 +9442,7 @@
                   "items": {
                     "type": "string"
                   },
-                  "description": "Recruiters owning the candidate's applications and interviews (profile.id); with owner, kind, channel or mentioned_me while the switch candidate_assignment is on."
+                  "description": "Recruiters owning the candidate's applications and interviews (profile.id); with owner, kind, channel or mentioned_me while the candidate_assignment feature is on."
                 },
                 "tag_ids": {
                   "type": "array",
@@ -10154,14 +10160,14 @@
             "items": {
               "type": "string"
             },
-            "description": "Recruiters owning the candidate's visible applications (profile.id; switch candidate_assignment)."
+            "description": "Recruiters owning the candidate's visible applications (profile.id; the candidate_assignment feature)."
           },
           "custom_fields": {
             "type": "object",
             "additionalProperties": {
               "nullable": true
             },
-            "description": "Company-defined candidate fields (key: value; switch custom_fields)."
+            "description": "Company-defined candidate fields (key: value; the custom_fields feature)."
           },
           "applications": {
             "type": "array",
@@ -10200,11 +10206,11 @@
               },
               "open_tasks": {
                 "type": "integer",
-                "description": "Open tasks you can see (switch tasks)."
+                "description": "Open tasks you can see (the tasks feature)."
               },
               "open_document_requests": {
                 "type": "integer",
-                "description": "Open document requests (switch document_requests)."
+                "description": "Open document requests (the document_requests feature)."
               },
               "segments": {
                 "type": "integer",
@@ -10232,7 +10238,7 @@
             "required": [
               "open_count"
             ],
-            "description": "Open possible duplicates (switch duplicate_detection; left out when none)."
+            "description": "Open possible duplicates (the duplicate_detection feature; left out when none)."
           },
           "notes": {
             "type": "array",
@@ -10538,7 +10544,7 @@
                 },
                 "switch": {
                   "type": "string",
-                  "description": "The company switch it needs (rules with it are refused while it is off)."
+                  "description": "The company feature it needs (rules with it are refused while it is off)."
                 }
               },
               "required": [
@@ -10749,7 +10755,7 @@
                 "label"
               ]
             },
-            "description": "Decision reasons (rule reason; switch decision_reasons)."
+            "description": "Decision reasons (rule reason; the decision_reasons feature)."
           },
           "job_categories": {
             "type": "array",
@@ -10854,7 +10860,7 @@
                 "operators"
               ]
             },
-            "description": "Candidate custom fields (switch custom_fields)."
+            "description": "Candidate custom fields (the custom_fields feature)."
           },
           "list_filters": {
             "type": "object",
@@ -10890,11 +10896,11 @@
               },
               "owner": {
                 "type": "boolean",
-                "description": "The list filter owner is available (switch candidate_assignment)."
+                "description": "The list filter owner is available (the candidate_assignment feature)."
               },
               "mentioned_me": {
                 "type": "boolean",
-                "description": "The list filter mentioned_me is available (switch mentions)."
+                "description": "The list filter mentioned_me is available (the mentions feature)."
               }
             },
             "required": [
@@ -16596,7 +16602,7 @@
           "Interviews"
         ],
         "summary": "Update an interview or position",
-        "description": "Updates the configuration of an existing interview (single-stage) or position (multi-stage). Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. The question list is only touched when you send `questions`; omit that field and the questions are left exactly as they are. When sent, it must be the complete list and is applied as a diff against what is stored (matched on external_id, then id, then identical content), so unchanged questions keep their existing records, edited ones are unlinked and re-created, and dropped ones are unlinked — and re-sending the array job-interview-get returned changes nothing. See the field description, and `questions_diff` in the response for what was decided. Questions of an interview that is already `active` can only be changed on interactive avatar templates, where re-publishing is instant; on the offline (pre-rendered video) templates set the interview back to `draft` first. The welcome / thank-you messages and the instructional-video screen are stored as steps rather than questions and are never changed here. `mojito_language_code` cannot be changed — the existing questions and rendered videos are in the original language — so create a new interview to change language. A multi-stage position only carries the shared identity fields (name, code, location, description, description_long, cover_image_url, department, salary, available_till, recruiter, status, visibility, hiring_for_company, tags, interview_category, emoji, custom_fields) and its hiring `team`; sending an interview-only field for a position is a 422. The AI interview step of a position (visibility sub_item) can be edited here (questions, settings), but its status and visibility follow the position (422).",
+        "description": "Updates the configuration of an existing interview (single-stage) or position (multi-stage). Only the fields present in the request body are written — everything else keeps its current value, and sending null clears a nullable field. The question list is only touched when you send `questions`; omit that field and the questions are left exactly as they are. When sent, it must be the complete list and is applied as a diff against what is stored (matched on external_id, then id, then identical content), so unchanged questions keep their existing records, edited ones are unlinked and re-created, and dropped ones are unlinked — and re-sending the array job-interview-get returned changes nothing. See the field description, and `questions_diff` in the response for what was decided. Questions of an interview that is already `active` can only be changed on interactive avatar templates, where re-publishing is instant; on the offline (pre-rendered video) templates set the interview back to `draft` first. The welcome / thank-you messages and the instructional-video screen are stored as steps rather than questions and are never changed here. `mojito_language_code` cannot be changed — the existing questions and rendered videos are in the original language — so create a new interview to change language. A multi-stage position only carries the shared identity fields (name, code, location, description, description_long, cover_image_url, department, salary, available_till, recruiter, status, visibility, hiring_for_company, tags, interview_category, emoji, custom_fields) and its hiring `team`; sending an interview-only field for a position is a 422. The AI interview step of a position can be edited here (questions, settings), but its status and visibility follow the position (422).",
         "security": [
           {
             "bearerAuth": []
@@ -16974,7 +16980,7 @@
                 "persona_interview"
               ],
               "default": "interview",
-              "description": "Product type of interviews to list.",
+              "description": "Which kind to list. Options — `interview` (default): interviews, assessments, interview role-plays (persona-create with portal interview) and multi-stage positions. | `coaching`: coaching sessions and coaching personas. | `assessment`: assessments only. | `persona`: coaching personas only. | `persona_interview`: interview role-plays only. | `public_avatar`: public avatars.",
               "example": "interview"
             },
             "required": false,
@@ -17212,7 +17218,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), another company, or the merchant switch external_assessment is off for such a step.",
+            "description": "Not company staff, a hiring manager (read only), another company, or the external_assessment feature is off for such a step.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17455,7 +17461,7 @@
           "Positions"
         ],
         "summary": "Copy a position",
-        "description": "Copies a position as a new draft: its settings, its process (steps with their settings; AI interviews with their questions; the pre-screening), not its candidates. Optionally with another name, location, openings, country or closing date. Sends no e-mail and publishes nothing. Merchant switch position_bulk_create. Owners and recruiters on the position's access list; hiring managers read only.",
+        "description": "Copies a position as a new draft: its settings, its process (steps with their settings; AI interviews with their questions; the pre-screening), not its candidates. Optionally with another name, location, openings, country or closing date. Sends no e-mail and publishes nothing. Needs the position_bulk_create feature. Owners and recruiters on the position's access list; hiring managers read only.",
         "security": [
           {
             "bearerAuth": []
@@ -17493,7 +17499,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), no access to the target company, or the merchant switch position_bulk_create is off (the message names it).",
+            "description": "Not company staff, a hiring manager (read only), no access to the target company, or the position_bulk_create feature is off (the message names it).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19951,7 +19957,7 @@
           {
             "schema": {
               "type": "string",
-              "description": "Candidates with an application or interview owned by this recruiter (profile.id), or 'unassigned' for those without an owner. Needs the switch candidate_assignment (403 otherwise)."
+              "description": "Candidates with an application or interview owned by this recruiter (profile.id), or 'unassigned' for those without an owner. Needs the candidate_assignment feature (403 otherwise)."
             },
             "required": false,
             "name": "owner",
@@ -20004,7 +20010,7 @@
                 "true",
                 "false"
               ],
-              "description": "true: only candidates you were mentioned about in a note. Needs the switch mentions (403 otherwise)."
+              "description": "true: only candidates you were mentioned about in a note. Needs the mentions feature (403 otherwise)."
             },
             "required": false,
             "name": "mentioned_me",
@@ -20228,7 +20234,7 @@
           "Candidates"
         ],
         "summary": "Add a note to a candidate",
-        "description": "Adds a note on a candidate or on one of its interview results, as the admin's feedback box does: kind comment, no score adjustment. Owners, recruiters, admins and hiring managers, on candidates and results visible to them. A private note (switch private_notes) is seen by you alone. Each colleague in mention_profile_ids (switch mentions) gets one e-mail with the candidate's name and the first 500 characters of the note; colleagues who cannot open the candidate are skipped. Nothing is sent to the candidate. Notes cannot be changed or deleted through the API.",
+        "description": "Adds a note on a candidate or on one of its interview results, as the admin's feedback box does: kind comment, no score adjustment. Owners, recruiters, admins and hiring managers, on candidates and results visible to them. A private note (the private_notes feature) is seen by you alone. Each colleague in mention_profile_ids (the mentions feature) gets one e-mail with the candidate's name and the first 500 characters of the note; colleagues who cannot open the candidate are skipped. Nothing is sent to the candidate. Notes cannot be changed or deleted through the API.",
         "security": [
           {
             "bearerAuth": []
@@ -20263,7 +20269,7 @@
                       "private"
                     ],
                     "default": "team",
-                    "description": "team (default): the company sees it; private: only you (switch private_notes)."
+                    "description": "team (default): the company sees it; private: only you (the private_notes feature)."
                   },
                   "mention_profile_ids": {
                     "type": "array",
@@ -20272,7 +20278,7 @@
                       "format": "uuid"
                     },
                     "maxItems": 20,
-                    "description": "Colleagues to mention (profile.id), at most 20; each gets an e-mail with the note (switch mentions). Not on a private note."
+                    "description": "Colleagues to mention (profile.id), at most 20; each gets an e-mail with the note (the mentions feature). Not on a private note."
                   }
                 },
                 "required": [
@@ -20304,7 +20310,7 @@
             }
           },
           "403": {
-            "description": "Not staff of the candidate's company, or switch private_notes / mentions off.",
+            "description": "Not staff of the candidate's company, or the private_notes or mentions feature off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21446,7 +21452,7 @@
           "Tasks"
         ],
         "summary": "List tasks",
-        "description": "Tasks of the company (merchant switch tasks): to-dos of recruiters and hiring managers about a candidate, an application or a position. By default your own open tasks. candidate_id lists the tasks about one candidate, position_id the tasks about one position, assignee_profile_id the tasks of one user (owners only); when one of them is given, scope is ignored. Filters combine. Position access applies: tasks about candidates or positions you may not see are never listed, and hiring managers see only tasks assigned to them. counts are your own open tasks. Read only.",
+        "description": "Tasks of the company (the tasks feature): to-dos of recruiters and hiring managers about a candidate, an application or a position. By default your own open tasks. candidate_id lists the tasks about one candidate, position_id the tasks about one position, assignee_profile_id the tasks of one user (owners only); when one of them is given, scope is ignored. Filters combine. Position access applies: tasks about candidates or positions you may not see are never listed, and hiring managers see only tasks assigned to them. counts are your own open tasks. Read only.",
         "security": [
           {
             "bearerAuth": []
@@ -21589,7 +21595,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, another company, the merchant switch tasks is off, or scope all / assignee_profile_id alone without being an owner.",
+            "description": "Not company staff, another company, the tasks feature is off, or scope all / assignee_profile_id alone without being an owner.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21628,7 +21634,7 @@
           "Tasks"
         ],
         "summary": "Create or change a task",
-        "description": "Creates a task (no task_id: title, assignee_profile_id and one of candidate_id, application_id, position_id), or changes one: title, notes, assignee, due date, and status (open, done, cancelled; cancelled is final). Fields left out keep their value. Owners change any task; recruiters the tasks they created or are assigned; hiring managers are read only here. E-mail: giving the task to someone other than you (a new task, or a new assignee) sends that person one \"task assigned\" e-mail with the title, the start of the notes, the due date, the candidate or position and your name. Assigning yourself, editing and status changes send nothing. Merchant switch tasks; position access applies (a candidate or position you may not see answers 404).",
+        "description": "Creates a task (no task_id: title, assignee_profile_id and one of candidate_id, application_id, position_id), or changes one: title, notes, assignee, due date, and status (open, done, cancelled; cancelled is final). Fields left out keep their value. Owners change any task; recruiters the tasks they created or are assigned; hiring managers are read only here. E-mail: giving the task to someone other than you (a new task, or a new assignee) sends that person one \"task assigned\" e-mail with the title, the start of the notes, the due date, the candidate or position and your name. Assigning yourself, editing and status changes send nothing. Needs the tasks feature; position access applies (a candidate or position you may not see answers 404).",
         "security": [
           {
             "bearerAuth": []
@@ -21666,7 +21672,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), not the creator, assignee or an owner of this task, another company, or the merchant switch tasks is off.",
+            "description": "Not company staff, a hiring manager (read only), not the creator, assignee or an owner of this task, another company, or the tasks feature is off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21715,7 +21721,7 @@
           "Document requests"
         ],
         "summary": "List document requests",
-        "description": "Documents the company asked candidates for after they applied (merchant switch document_requests): company-wide, or of one candidate (candidate_id), optionally of one status, with each requested document and whether it was uploaded. attention=true lists instead the requests you made that need you: received (completed, not yet reviewed) and overdue (open past the due date), at most 50. Position access applies: requests of candidates you may not see, or made for an application on a position you may not see, are never listed. An audited read of candidate data. Read only.",
+        "description": "Documents the company asked candidates for after they applied (the document_requests feature): company-wide, or of one candidate (candidate_id), optionally of one status, with each requested document and whether it was uploaded. attention=true lists instead the requests you made that need you: received (completed, not yet reviewed) and overdue (open past the due date), at most 50. Position access applies: requests of candidates you may not see, or made for an application on a position you may not see, are never listed. An audited read of candidate data. Read only.",
         "security": [
           {
             "bearerAuth": []
@@ -21821,7 +21827,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, another company, or the merchant switch document_requests is off.",
+            "description": "Not company staff, another company, or the document_requests feature is off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21860,7 +21866,7 @@
           "Document requests"
         ],
         "summary": "Ask a candidate for documents",
-        "description": "Asks a candidate to upload documents after applying (merchant switch document_requests): 1 to 10 documents, an optional message and due date, optionally for one of their applications. The candidate uploads them on their application page; you see them in list_document_requests. E-mail: with notify true (the default) the candidate gets \"Documents requested\" (the documents, your message, the due date, the position), and once more \"Some documents are still missing\" after the due date; nothing else is sent. Use dry_run first to check the input and see who would be e-mailed. Recorded on the candidate history. Position access applies (a candidate you may not see answers 404). Hiring managers are read only.",
+        "description": "Asks a candidate to upload documents after applying (the document_requests feature): 1 to 10 documents, an optional message and due date, optionally for one of their applications. The candidate uploads them on their application page; you see them in list_document_requests. E-mail: with notify true (the default) the candidate gets \"Documents requested\" (the documents, your message, the due date, the position), and once more \"Some documents are still missing\" after the due date; nothing else is sent. Use dry_run first to check the input and see who would be e-mailed. Recorded on the candidate history. Position access applies (a candidate you may not see answers 404). Hiring managers are read only.",
         "security": [
           {
             "bearerAuth": []
@@ -21898,7 +21904,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), another company, or the merchant switch document_requests is off.",
+            "description": "Not company staff, a hiring manager (read only), another company, or the document_requests feature is off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21947,7 +21953,7 @@
           "Document requests"
         ],
         "summary": "Cancel a document request or mark it reviewed",
-        "description": "cancel withdraws an open request; reviewed marks a completed one reviewed (merchant switch document_requests). Neither sends an e-mail; a cancel is recorded on the candidate history. Position access applies (a request of a candidate or position you may not see answers 404). Hiring managers are read only.",
+        "description": "cancel withdraws an open request; reviewed marks a completed one reviewed (the document_requests feature). Neither sends an e-mail; a cancel is recorded on the candidate history. Position access applies (a request of a candidate or position you may not see answers 404). Hiring managers are read only.",
         "security": [
           {
             "bearerAuth": []
@@ -21985,7 +21991,7 @@
             }
           },
           "403": {
-            "description": "Not company staff, a hiring manager (read only), another company, or the merchant switch document_requests is off.",
+            "description": "Not company staff, a hiring manager (read only), another company, or the document_requests feature is off.",
             "content": {
               "application/json": {
                 "schema": {
@@ -22044,7 +22050,7 @@
           "Reasons"
         ],
         "summary": "List the company's reasons",
-        "description": "The company's decision reasons (why a candidate was rejected or withdrew; switch decision_reasons) and position status reasons (why a position went on hold, was cancelled, closed or filled: the reason_id job-interview-set-state takes; switch position_lifecycle). The first read of position status reasons gives the company the six defaults, as the admin's Taxonomy page does. Every staff role may read. Read only.",
+        "description": "The company's decision reasons (why a candidate was rejected or withdrew; the decision_reasons feature) and position status reasons (why a position went on hold, was cancelled, closed or filled: the reason_id job-interview-set-state takes; the position_lifecycle feature). The first read of position status reasons gives the company the six defaults, as the admin's Taxonomy page does. Every staff role may read. Read only.",
         "security": [
           {
             "bearerAuth": []

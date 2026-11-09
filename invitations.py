@@ -204,7 +204,7 @@ def register(mcp) -> None:
         ] = True,
         is_test: Annotated[
             bool,
-            Field(description="Only with send_email=false: test links for trying the interview yourself, also a draft; never for real candidates, whose results would be marked as tests."),
+            Field(description="Only with send_email=false: test links for trying the interview yourself; they also work on a draft. Never for real candidates, whose results would be marked as tests."),
         ] = False,
     ) -> dict:
         """[Interviews] Invite candidates to an interview or position: e-mails each one their invitation.
@@ -215,14 +215,15 @@ def register(mcp) -> None:
         back with its outcome; only 'Invited' means an e-mail was queued.
 
         With send_email=false NOTHING is e-mailed: each candidate is registered and
-        their personal interview_url comes back for you to share (also for a test
-        with is_test=true). The result's email_sent says which happened.
-        send_email=false does not use the invitation budget.
+        their personal interview_url comes back for you to share. The result's
+        email_sent says which happened. send_email=false does not use the invitation
+        budget.
 
-        Candidates cannot take a draft interview. For real candidates it must be active:
-        ask the user before activating it with set_interview_state. is_test=true links
-        are only for trying the interview yourself; never give them to candidates, their
-        results are marked as tests.
+        A draft interview is not refused, but candidates can use their links only once
+        it is active: ask the user before activating it with set_interview_state.
+        is_test=true (with send_email=false) gives test links that also work on a draft,
+        for trying the interview yourself; never give them to candidates, whose results
+        would be marked as tests.
         """
         if send_email:
             path = "/invite-users"

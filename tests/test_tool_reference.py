@@ -377,3 +377,33 @@ def test_option_text_that_is_not_an_option_list_stays_out():
     # an entry without a `value`: and a bar that is not an option list
     assert brief("Pick one. Options — plain words | more words.", options=True) == "Pick one."
     assert brief("A | `b`:x", options=True) == "A | `b`:x"
+
+
+def test_an_argument_without_text_borrows_it_from_its_part_or_its_definition():
+    """zod puts a field's description in an allOf part or on the shared component."""
+    from tool_reference import OVERRIDE
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "inline": {"allOf": [{"type": "object"}, {"description": "From the part. More."}]},
+            "ref": {"$ref": "#/$defs/Features"},
+            "nullable": {"anyOf": [{"$ref": "#/$defs/Short"}, {"type": "null"}]},
+            "unknown": {"$ref": "#/$defs/Missing"},
+            "own": {"$ref": "#/$defs/Features", "description": "Its own. Kept first."},
+        },
+        "$defs": {
+            "Features": {"type": "object", "description": "Which sections. Detail."},
+            "Short": {"type": "object", "description": "Long text.", OVERRIDE: "Short text."},
+            "Bare": {"type": "object"},
+        },
+    }
+    trim_input_schema(schema)
+    p = schema["properties"]
+    assert p["inline"] == {"allOf": [{"type": "object"}, {}], "description": "From the part."}
+    assert p["ref"]["description"] == "Which sections."
+    assert p["nullable"]["description"] == "Short text."
+    assert "description" not in p["unknown"]
+    assert p["own"]["description"] == "Its own."
+    # the definitions themselves are nested: trimmed as before
+    assert "description" not in schema["$defs"]["Features"]

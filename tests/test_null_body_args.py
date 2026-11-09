@@ -302,9 +302,9 @@ async def test_each_field_says_what_really_happens(tool, field, says):
 
 @pytest.mark.asyncio
 async def test_the_create_tools_keep_their_text():
-    """On a create, null and omit are the same thing, so "Omit/null to disable" is true."""
+    """On a create, null, omit and `none` are the same thing, so the text stays true."""
     tools = await _tools()
-    assert "Omit/null to disable." in tools["create_interview"].parameters["properties"]["recording"]["description"]
+    assert "Omit, null or `none` to disable." in tools["create_interview"].parameters["properties"]["recording"]["description"]
     # the explicit-questions create is create_interview with `questions` now
     assert "create_interview_from_questions" not in tools
     assert "questions" in tools["create_interview"].parameters["properties"]

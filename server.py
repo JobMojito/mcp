@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.3.0"
+SERVER_VERSION = "2.3.1"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -166,9 +166,10 @@ HOW TO USE THIS SERVER:
    `get_documentation(url)` reads a page in full.
 2. For a multi-step workflow (create an interview → invite candidates → review
    results), the documentation has step-by-step cookbooks worth following.
-   Tool definitions here are kept short: when you need an argument's options, its
-   exact format or an example, `get_tool_reference(tool)` returns that tool in full
-   (part=result: the fields it returns).
+   Most tool definitions here are kept short (they end with "Every argument in
+   full, with examples: get_tool_reference"): when you need an argument's options,
+   its exact format or an example, `get_tool_reference(tool)` returns that tool in
+   full (part=result: the fields it returns). The others are complete as listed.
 3. The read-only tools (`list_*`, `get_*`) are the safe way to look things up
    before creating or changing anything.
 4. Merchant selection: many tools accept a `merchant_id`. When one is needed and
@@ -193,7 +194,7 @@ There is no link-building tool.
 For the full id-to-field map, where each id comes from, and admin link patterns:
 get_documentation("https://developer.jobmojito.com/mcp/identifiers").
 
-TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
+TOOLS BY TASK (a description's [label] is the API section it comes from, which can differ):
 • Documentation: search_documentation, get_documentation
 • Configuration / merchants: jobmojito_configuration (searchable picker),
   list_my_merchants (text equivalent, supports a `search` filter)

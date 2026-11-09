@@ -189,8 +189,30 @@ def _children(node: dict) -> list[tuple[dict, bool]]:
     return out
 
 
+def _borrowed_text(node: dict, shared: dict[str, str]) -> str | None:
+    """The text of an argument that has none of its own, taken (and removed) from an
+    allOf/anyOf/oneOf part, else from the shared definition it references: zod puts a
+    field's description there, where the trimmer would drop it as nested."""
+    parts = [p for key in ("allOf", "anyOf", "oneOf") for p in (node.get(key) or []) if isinstance(p, dict)]
+    for part in parts:
+        if isinstance(part.get("description"), str):
+            return part.pop("description")
+    for candidate in (node, *parts):
+        ref = candidate.get("$ref")
+        if isinstance(ref, str) and ref.rsplit("/", 1)[-1] in shared:
+            return shared[ref.rsplit("/", 1)[-1]]
+    return None
+
+
 def trim_input_schema(schema: dict) -> dict:
     """Top-level arguments brief, nested descriptions and every example gone. In place."""
+    # Read before the walk below trims them: an argument that only references one borrows its text.
+    shared = {
+        name: (d.get(OVERRIDE) or d.get("description"))
+        for key in ("$defs", "definitions")
+        for name, d in ((schema.get(key) or {}).items() if isinstance(schema, dict) else ())
+        if isinstance(d, dict) and isinstance(d.get(OVERRIDE) or d.get("description"), str)
+    }
 
     def walk(node: dict, depth: int) -> None:
         # Shared definitions are always nested: FastMCP inlines them where they are used.
@@ -202,6 +224,10 @@ def trim_input_schema(schema: dict) -> dict:
         node.pop("examples", None)
         short = node.pop(OVERRIDE, None)
         text = node.get("description")
+        if depth == 1 and not isinstance(text, str) and not isinstance(short, str):
+            text = _borrowed_text(node, shared)
+            if text is not None:
+                node["description"] = text
         if depth == 1 and isinstance(short, str) and short.strip():
             node["description"] = short.strip()
         elif isinstance(text, str):
