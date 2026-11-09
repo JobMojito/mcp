@@ -22,7 +22,7 @@
 # a commit whose manifest disagrees with the code.
 #
 # Publishing the same version twice is rejected by the registry (versions are
-# immutable), so the job compares server.json against the previous commit and
+# immutable), so the job compares SERVER_VERSION with main before the push and
 # exits early when it is unchanged — a no-op run rather than a red build.
 #
 # NOTE: this publishes the REGISTRY LISTING only. It does not deploy the running
@@ -43,16 +43,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # HEAD^ is needed to tell a version bump from an unrelated edit.
-          fetch-depth: 2
+          # The commit main pointed to before the push is needed to tell a version
+          # bump from an unrelated edit; it can be several commits back.
+          fetch-depth: 0
 
       - name: Skip when the version is unchanged
         id: changed
         run: |
           read_version() { python3 -c "import re,sys;print(re.search(r'^SERVER_VERSION = \"([^\"]+)\"', sys.stdin.read(), re.M).group(1))"; }
           current="$(read_version < server.py)"
-          previous="$(git show HEAD^:server.py 2>/dev/null | read_version 2>/dev/null || echo "")"
-          echo "previous=$previous current=$current"
+          # Compare with main before this push, not HEAD^: a push of several commits
+          # whose first one bumps the version would otherwise read as unchanged
+          # (it did for 2.6.1). A new branch or a manual run has no usable `before`.
+          base="${{ github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="HEAD^"
+          fi
+          previous="$(git show "$base:server.py" 2>/dev/null | read_version 2>/dev/null || echo "")"
+          echo "base=$base previous=$previous current=$current"
           echo "version=$current" >> "$GITHUB_OUTPUT"
           if [ "$previous" = "$current" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Version unchanged — nothing to publish."
