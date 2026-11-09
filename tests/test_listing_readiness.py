@@ -227,8 +227,11 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
     """Anthropic's compliance step attests no tool description instructs the model.
 
     The merchant tools read "ALWAYS call this", "Do NOT use this", "STOP and wait"
-    until 2.6.1, and eleven hints "Call this first", "tell the user", "ask the user"
-    until 2.6.3. Saying when a tool applies is fine; ordering the model is not.
+    until 2.6.1, eleven hints "Call this first", "tell the user", "ask the user" until
+    2.6.3, and forty more "use dry_run=true first", "confirm with the user first", "Read
+    before updating" until 2.6.4. Saying when a tool applies is fine; ordering the model
+    is not. Argument texts are tool text too: the spec's are restated through
+    naming._STATEMENT_FIXES.
     """
     import asyncio
 
@@ -238,14 +241,29 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
         r"\bALWAYS\b|\bDo NOT\b|\bSTOP\b|\bMUST call\b|\bcall .{0,30} FIRST\b"
         r"|\bdo not call it\b"
         r"|(?i:\btell the user\b|\bask the user\b|\bcall (?:this|it) (?:first|before)\b"
-        r"|\bread it before\b|\bnever give\b|\byou do not need to\b|\bbefore calling\b)",
+        r"|\bread it before\b|\bnever give\b|\byou do not need to\b|\bbefore calling\b"
+        r"|\bconfirm with the user\b|\bconfirm the wording\b|\bpoint the user\b|\bshow the user\b|\bshow them\b"
+        r"|\b(?:use|run|try|check|read|write)\b[^.;:]{0,60}\bfirst\b|\bread before\b|\bstart here\b"
+        r"|\bprefer `|\bpick deliberately\b|\buse [a-z_]+(?: or [a-z_]+)? instead\b|\byou may also\b)",
     )
+    def texts(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "description" and isinstance(value, str):
+                    yield value
+                else:
+                    yield from texts(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from texts(item)
+
     tools = asyncio.run(server.mcp.list_tools())
-    offenders = {
-        tool.name: pattern.findall(tool.description or "")
-        for tool in tools
-        if pattern.search(tool.description or "")
-    }
+    offenders = {}
+    for tool in tools:
+        for text in [tool.description or "", *texts(tool.parameters)]:
+            found = [m.group(0) for m in pattern.finditer(text)]
+            if found:
+                offenders.setdefault(tool.name, []).extend(found)
     assert not offenders, f"model-directing phrasing in tool descriptions: {offenders}"
 
 

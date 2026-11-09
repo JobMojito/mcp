@@ -3,7 +3,7 @@
   "name": "com.jobmojito/jobmojito",
   "title": "JobMojito",
   "description": "Run AI interviews, simulated personas and coaching sessions on JobMojito.",
-  "version": "2.6.3",
+  "version": "2.6.4",
   "websiteUrl": "https://jobmojito.com",
   "repository": {
     "url": "https://github.com/JobMojito/mcp",

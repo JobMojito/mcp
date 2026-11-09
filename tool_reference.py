@@ -304,8 +304,8 @@ def register(mcp) -> None:
     ) -> dict:
         """The full definition of one JobMojito tool: its complete description, and
         every argument with all its options and examples (part=result: every field it
-        returns). tools/list carries short versions; call this when you need the
-        options of an argument, its exact format or an example."""
+        returns). tools/list carries short versions; this one has the options of an
+        argument, its exact format and examples."""
         full = FULL[tool]
         out: dict[str, Any] = {"tool": tool, "title": full["title"], "description": full["description"]}
         if part in ("arguments", "all"):

@@ -76,7 +76,7 @@ async def test_update_portal_configuration_is_destructive_and_not_idempotent():
 
 
 @pytest.mark.asyncio
-async def test_descriptions_carry_the_category_the_flow_and_the_field_reference():
+async def test_descriptions_carry_the_category_and_the_flow_without_links():
     get = await _tool("get_portal_configuration")
     update = await _tool("update_portal_configuration")
 
@@ -85,16 +85,16 @@ async def test_descriptions_carry_the_category_the_flow_and_the_field_reference(
     assert "update_portal_configuration" in get.description
 
     assert update.description.startswith("[Admin] Import portal configuration documents")
-    # read first, preview with dry_run, then apply; publish only when asked
+    # what a dry run does and when publish applies, said as facts (no orders to the model)
     assert "get_portal_configuration" in update.description
-    assert "`dry_run: true`" in update.description
-    assert "repeat without `dry_run` to apply" in update.description
-    assert "`publish: true` only when the user asked" in update.description
-    assert "nothing is written" in update.description
+    assert "With `dry_run: true` nothing is written" in update.description
+    assert "`publish: true` is for when the user asked" in update.description
 
+    # the cookbook links read as an external instruction source to a directory
+    # reviewer; search_documentation reaches those pages
     for description in (get.description, update.description):
         for url in COOKBOOKS:
-            assert url in description
+            assert url not in description
 
 
 @pytest.mark.asyncio

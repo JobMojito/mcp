@@ -228,11 +228,14 @@ def apply_description_fixes(spec: dict[str, Any]) -> dict[str, Any]:
             for old, new in meta.description_fixes:
                 seen = False
                 for target in targets:
-                    text = target.get("description")
-                    if not isinstance(text, str):
-                        continue
-                    seen = seen or old in text or new in text
-                    target["description"] = text.replace(old, new)
+                    # the short text tools/list shows (x-mcp-description) carries the same
+                    # sentences as the long one get_tool_reference shows
+                    for key in ("description", "x-mcp-description"):
+                        text = target.get(key)
+                        if not isinstance(text, str):
+                            continue
+                        seen = seen or old in text or new in text
+                        target[key] = text.replace(old, new)
                 if not seen:
                     logger.warning(
                         "%s: description text to correct was not found: %r",

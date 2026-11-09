@@ -20,8 +20,10 @@ the JWT).
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastmcp import Context
+from pydantic import Field as ArgField
 from fastmcp.apps.config import UI_EXTENSION_ID
 
 from upstream import build_api_client
@@ -141,10 +143,16 @@ if _APPS_AVAILABLE:
             super().__init__("JobMojito configuration")
 
             @self.tool()
-            async def search_merchants(query: str = "") -> list[dict]:
-                """The search behind the jobmojito_configuration picker's Search button,
-                which calls it with the typed text. The text list of merchants is
-                list_my_merchants (its `search`)."""
+            async def search_merchants(
+                query: Annotated[
+                    str, ArgField(description="Part of a sub-merchant's name, case ignored; empty lists the first 50.")
+                ] = "",
+            ) -> list[dict]:
+                """Search, by name, the sub-merchants the signed-in user can act as.
+
+                Returns up to 50 matches, each with its merchant_id and name. It is the
+                search behind the jobmojito_configuration picker's Search button;
+                list_my_merchants (its `search`) returns the same accounts as text."""
                 subs = await _fetch_sub_merchants(search=query)
                 return [
                     {"merchant_id": m["merchant_id"], "name": m["name"]}

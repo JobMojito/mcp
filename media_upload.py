@@ -165,12 +165,12 @@ def register(mcp) -> None:
 
         Sends the file (base64) and has it checked: its real type, the codec of a
         video, and anything active in an SVG, which is refused rather than cleaned.
-        Use the returned `file.url` in page blocks, brand logos and font settings.
+        The returned `file.url` is what page blocks, brand logos and font settings take.
         The library is public: a file can be reached by anyone with its address.
         Switched on per company by JobMojito; while it is off this is refused with 403.
 
-        For a file too large to pass as an argument, use start_media_upload and
-        finish_media_upload if you can send the file yourself.
+        A file too large to pass as an argument goes through start_media_upload and
+        finish_media_upload, for a client that can send a file to an address.
         """
         return await upload_to_library(
             decode_file(file),

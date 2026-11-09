@@ -204,7 +204,7 @@ def register(mcp) -> None:
         ] = True,
         is_test: Annotated[
             bool,
-            Field(description="Only with send_email=false: test links for trying the interview yourself; they also work on a draft. Never for real candidates, whose results would be marked as tests."),
+            Field(description="Only with send_email=false: test links for trying the interview yourself; they also work on a draft. Not for real candidates: their results are marked as tests."),
         ] = False,
     ) -> dict:
         """[Interviews] Invite candidates to an interview or position: e-mails each one their invitation.
@@ -221,7 +221,7 @@ def register(mcp) -> None:
         budget.
 
         A draft interview is not refused, but candidates can use their links only once
-        it is active, and activating it (set_interview_state) is the user's decision.
+        it is active; activating it is a separate step (set_interview_state).
         is_test=true (with send_email=false) gives test links that also work on a draft,
         for trying the interview yourself; they are not for candidates, whose results
         would be marked as tests.

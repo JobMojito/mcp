@@ -229,4 +229,4 @@ def test_the_hint_explains_all_three_meanings():
     from naming import TOOL_META
 
     hint = TOOL_META[("POST", "/knowledge-base-document-upload")].hint
-    assert "interview_ids" in hint and "every interview" in hint and "[] for none" in hint
+    assert "interview_ids" in hint and "every interview" in hint and "[] is none" in hint

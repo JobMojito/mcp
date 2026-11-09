@@ -321,7 +321,10 @@ def test_a_correction_never_contains_what_it_replaces():
 def test_every_correction_finds_its_text_in_the_snapshot(key, meta):
     """Fails when the API rewords a sentence, which would bring the promise back."""
     operation = SNAPSHOT["paths"][key[1]]["post"]
-    texts = [operation["description"], *(p.get("description", "") for p in _body_properties(key[1]).values())]
+    texts = [
+        operation.get(field, "")
+        for field in ("description", "x-mcp-description")
+    ] + [p.get(field, "") for p in _body_properties(key[1]).values() for field in ("description", "x-mcp-description")]
     for old, _new in meta.description_fixes:
         assert any(old in text for text in texts), f"{meta.name}: {old!r}"
 
@@ -413,3 +416,26 @@ def test_a_spec_without_a_description_on_a_target_is_skipped():
     spec["paths"][FIX_PATH]["post"].pop("description")
     apply_description_fixes(spec)
     assert "description" not in spec["paths"][FIX_PATH]["post"]
+
+
+def test_a_correction_reaches_the_short_text_tools_list_shows():
+    """x-mcp-description is what tools/list shows, so it gets the same correction."""
+    schema = {"properties": {"cover_image_url": {"description": COVER, "x-mcp-description": f"Short. {COVER}"}}}
+    apply_description_fixes(_spec(schema))
+    field = schema["properties"]["cover_image_url"]
+    assert field["description"].endswith("An empty string clears it.")
+    assert field["x-mcp-description"] == "Short. Cover image URL for the directory card. An empty string clears it."
+
+
+def test_every_statement_fix_lands_in_the_built_tools():
+    """The argument texts tools/list shows carry the restated sentence, not the order."""
+    import asyncio
+
+    import server
+    from naming import _STATEMENT_FIXES
+
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+    for name, fixes in _STATEMENT_FIXES.items():
+        text = json.dumps(tools[name].parameters)
+        for old, _new in fixes:
+            assert json.dumps(old)[1:-1] not in text, f"{name}: {old!r}"
