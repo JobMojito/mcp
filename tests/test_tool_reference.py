@@ -154,6 +154,19 @@ async def test_the_reference_returns_the_full_definition():
 
 
 @pytest.mark.asyncio
+async def test_part_null_and_a_client_marker_read_as_the_default():
+    """Seen 9 Nov 2026: clients sent `part: null` and `_as_extra: true`; both calls were refused."""
+    from fastmcp import Client
+
+    import server
+
+    async with Client(server.mcp) as client:
+        out = (await client.call_tool(TOOL_NAME, {"tool": "update_interview", "part": None, "_as_extra": True})).structured_content
+    assert out["arguments"] == tool_reference.FULL["update_interview"]["input_schema"]
+    assert "result" not in out
+
+
+@pytest.mark.asyncio
 async def test_the_reference_returns_what_a_tool_answers():
     out = await _reference("get_interview_result_details", "result")
     assert "arguments" not in out

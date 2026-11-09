@@ -546,6 +546,34 @@ async def test_argument_shape_leaves_what_it_does_not_own():
 
 
 @pytest.mark.asyncio
+async def test_argument_shape_drops_client_markers_that_no_tool_declares():
+    """`_as_extra: true` reached get_tool_reference on 9 Nov 2026 and the call was refused."""
+    from middleware import ArgumentShapeMiddleware
+
+    seen = {}
+
+    async def call_next(context):
+        seen.clear()
+        seen.update(context.message.arguments or {})
+        return "ok"
+
+    class Message:
+        def __init__(self, name, arguments):
+            self.name, self.arguments = name, arguments
+
+    class Context:
+        def __init__(self, message):
+            self.message = message
+
+    shape = ArgumentShapeMiddleware({"t": {"status", "_declared"}}, {})
+    await shape.on_call_tool(Context(Message("t", {"status": "a", "_as_extra": True, "_declared": 1})), call_next)
+    assert seen == {"status": "a", "_declared": 1}
+    # a local tool (no spec entry) loses the marker too
+    await shape.on_call_tool(Context(Message("get_tool_reference", {"tool": "x", "_as_extra": True})), call_next)
+    assert seen == {"tool": "x"}
+
+
+@pytest.mark.asyncio
 async def test_location_reaches_a_tool_that_calls_it_interview_location(upstream):
     tool = (await _listed())["create_persona"]
     assert "interview_location" in tool.parameters["properties"] and "location" not in tool.parameters["properties"]

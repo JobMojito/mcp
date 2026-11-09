@@ -345,7 +345,9 @@ def register(mcp) -> None:
     async def get_tool_reference(
         tool: Annotated[ToolName, Field(description="The tool to describe.")],  # type: ignore[valid-type]
         part: Annotated[
-            Literal["arguments", "result", "all"],
+            # null is the default too: clients send `part: null` for an argument they leave
+            # out (seen 9 Nov 2026), which a plain Literal refused with a validation error
+            Literal["arguments", "result", "all"] | None,
             Field(description="arguments (default): every argument in full; result: what the tool returns; all: both."),
         ] = "arguments",
     ) -> dict:
@@ -354,6 +356,7 @@ def register(mcp) -> None:
         returns). tools/list carries short versions; this one has the options of an
         argument, its exact format and examples."""
         full = FULL[tool]
+        part = part or "arguments"
         out: dict[str, Any] = {"tool": tool, "title": full["title"], "description": full["description"]}
         if part in ("arguments", "all"):
             out["arguments"] = full["input_schema"]

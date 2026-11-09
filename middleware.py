@@ -361,6 +361,12 @@ class ArgumentShapeMiddleware(Middleware):
         arguments = getattr(message, "arguments", None)
         if isinstance(arguments, dict):
             known = self.argument_names.get(name, set())
+            # A client-side marker such as `_as_extra: true` (seen 9 Nov 2026 on
+            # get_tool_reference) is not an argument of any tool - none starts with
+            # "_" - and strict argument validation refused the whole call for it.
+            for key in [k for k in arguments if isinstance(k, str) and k.startswith("_") and k not in known]:
+                arguments.pop(key)
+                logger.debug("%s: dropped client marker %s", name, key)
             for sent, wanted in self.ALIASES:
                 if sent in arguments and wanted in known and sent not in known and wanted not in arguments:
                     arguments[wanted] = arguments.pop(sent)
