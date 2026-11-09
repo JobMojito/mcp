@@ -543,3 +543,12 @@ async def test_argument_shape_leaves_what_it_does_not_own():
     await shape.on_call_tool(Context(Message("t", {"rules": [1]})), call_next)
     assert seen == {"rules": "[1]"}
     assert await shape.on_call_tool(Context(Message("t", None)), call_next) == "ok"
+
+
+@pytest.mark.asyncio
+async def test_location_reaches_a_tool_that_calls_it_interview_location(upstream):
+    tool = (await _listed())["create_persona"]
+    assert "interview_location" in tool.parameters["properties"] and "location" not in tool.parameters["properties"]
+    await _call("create_persona", {**_minimal_arguments(tool.parameters), "location": "Vienna"})
+    sent = json.loads(upstream.requests[0].content)
+    assert sent["interview_location"] == "Vienna" and "location" not in sent

@@ -338,13 +338,18 @@ class ArgumentShapeMiddleware(Middleware):
     """Accept the two id names and the object form a model naturally sends.
 
     The API calls the same interview or position `position_id` on some endpoints and
-    `interview_id` on others. A tool that takes only one of them gets the other
-    renamed, so a model that reused the name it saw last still reaches the right
+    `interview_id` on others, and a location `location` or `interview_location`. A
+    tool that takes only one of a pair gets the other renamed, so a model that reused the name it saw last still reaches the right
     record. And a JSON-string argument (naming.JSON_STRING_ARGS) sent as an object
     is sent as its JSON text, which is what the API reads.
     """
 
-    ALIASES = (("interview_id", "position_id"), ("position_id", "interview_id"))
+    ALIASES = (
+        ("interview_id", "position_id"),
+        ("position_id", "interview_id"),
+        ("location", "interview_location"),
+        ("interview_location", "location"),
+    )
 
     def __init__(self, argument_names: dict[str, set[str]], json_args: dict[str, set[str]]) -> None:
         self.argument_names = argument_names

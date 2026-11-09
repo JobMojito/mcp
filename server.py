@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.5.0"
+SERVER_VERSION = "2.5.1"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -226,7 +226,9 @@ TOOLS BY TASK (a description's [label] is the API section it comes from, which c
 • Results & reports: get_interview_result_details, generate_interview_report,
   list_reports, run_report, get_report, list_report_fields, save_report;
   set_assessment_result (records an external assessment step's result)
-• Knowledge base: upload_knowledge_base_document, list_knowledge_base_documents, set_knowledge_base_document_interviews
+• Knowledge base: list_knowledge_base_stores, save_knowledge_base_store (a store an
+  interview draws on), upload_knowledge_base_document, list_knowledge_base_documents,
+  set_knowledge_base_document_interviews
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_status,
   list_languages, list_users (the company's users: the profile_id of an assignee,

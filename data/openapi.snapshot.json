@@ -632,6 +632,7 @@
           "knowledge_base_store_id": {
             "type": "string",
             "nullable": true,
+            "format": "uuid",
             "description": "Knowledge base store id to source additional context from. Documents limited to chosen interviews are left out, because a new interview is on no list yet."
           },
           "description": {
@@ -1391,6 +1392,7 @@
           "knowledge_base_store_id": {
             "type": "string",
             "nullable": true,
+            "format": "uuid",
             "description": "Optional knowledge base store id; validated for existence."
           },
           "merchant_id": {
@@ -2847,7 +2849,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "Settings of the pre-screening step (interview_def_pre_screening)."
+        "description": "Settings of the pre-screening step."
       },
       "PositionMeetingSlot": {
         "type": "object",
@@ -3932,7 +3934,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status (preparing and completed are normally set by the platform), applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position: its status follows the position.",
+            "description": "New publication status (preparing and completed are normally set by the platform), applied exactly as job-interview-set-state applies it: archiving an active position e-mails its candidates with open applications when the position-closed notice is on (job-interview-set-state previews that with dry_run, and also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position: its status follows the position.",
             "example": "active"
           },
           "visibility": {
@@ -4179,7 +4181,7 @@
               "interview_coach_manager",
               "cover_letter"
             ],
-            "description": "Credit bucket the session draws from. Only meaningful for candidate-paid coaching/persona sessions; hiring interviews and assessments are merchant-billed and carry null. Options — `resume_check`: Resume-check credits. | `interview_coach_starter`: Coaching credits — starter tier. | `interview_coach_contributor`: Coaching credits — contributor tier. | `interview_coach_manager`: Coaching credits — manager tier. | `cover_letter`: Cover-letter credits.",
+            "description": "Credit bucket the session draws from. Only meaningful for candidate-paid coaching/persona sessions; hiring interviews and assessments are merchant-billed and carry null. Options — `resume_check`: Resume Builder credits. | `interview_coach_starter`: Coaching credits — starter tier. | `interview_coach_contributor`: Coaching credits — contributor tier. | `interview_coach_manager`: Coaching credits — manager tier. | `cover_letter`: Cover-letter credits.",
             "example": "interview_coach_manager"
           },
           "coach_plan": {
@@ -4714,7 +4716,7 @@
               "closed"
             ],
             "description": "Multi-stage positions only (422 for an interview): the vacancy lifecycle to move to (needs the position_lifecycle feature, else 403). Allowed moves: draft to open or cancelled; open, applications_closed and on_hold to each other and to filled, cancelled or closed; filled, cancelled and closed back to open (else 422). on_hold and cancelled need a reason_id. The publication status follows (open, applications_closed, on_hold = active; filled, cancelled, closed = archived). Moving an open position to filled, cancelled or closed archives it: when the company has the position-closed notice switched on, every candidate with an open application then gets the position-closed e-mail (at once or on the company's e-mail schedule). Send either status or lifecycle, not both.",
-            "x-mcp-description": "Multi-stage positions only: the vacancy lifecycle to move to. draft goes to open or cancelled; open, applications_closed and on_hold go to each other or to filled, cancelled or closed; those three go back to open. on_hold and cancelled need reason_id. filled, cancelled and closed archive the position and can e-mail every candidate with an open application (the position-closed notice, when switched on). Needs the position_lifecycle feature (403 otherwise). Send either status or lifecycle, not both.",
+            "x-mcp-description": "Multi-stage positions only: the vacancy lifecycle to move to. draft goes to open or cancelled; open, applications_closed and on_hold go to each other or to filled, cancelled or closed; those three go back to open. on_hold and cancelled need reason_id. filled, cancelled and closed archive the position and can e-mail every candidate with an open application (the position-closed notice, when switched on). Needs the position_lifecycle feature (403 otherwise). Send either status or lifecycle, not both. A stand-alone interview has no lifecycle: close it with status archived.",
             "example": "on_hold"
           },
           "reason_id": {
@@ -5735,25 +5737,76 @@
             "$ref": "#/components/schemas/PositionStepInterview"
           },
           "pre_screening": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PositionStepPreScreening"
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "resume",
+                  "form",
+                  "resume_with_form"
+                ],
+                "description": "What the candidate sends: resume, form, or resume_with_form."
               },
-              {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "description": "Read only (interview_def_pre_screening.id, as job-interview-get answers it); ignored."
+              "form_fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
-                  "status": {
-                    "type": "string",
-                    "description": "Read only (as job-interview-get answers it); ignored."
-                  }
+                  "required": [
+                    "id"
+                  ]
                 },
-                "additionalProperties": false
+                "maxItems": 100,
+                "description": "The whole list of form fields (replaced, not merged), each with its own id: standard fields reuse the rule id (e.g. form_education, with mandatory), custom fields use custom_<timestamp> with title, field_type (text, file, radio), type (required, optional) and options."
+              },
+              "assessment_rules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "maxItems": 100,
+                "description": "The whole list of rules (replaced, not merged), each with its own id: resume_match (resume_score_accept / resume_score_reject, whole numbers 0 to 10), resume_technical_experience, form_* rules with type screening, required or optional and action reject or mark_for_review."
+              },
+              "position_country": {
+                "type": "string",
+                "pattern": "^[A-Za-z]{2}$",
+                "description": "ISO country code of the position; stored upper case."
+              },
+              "candidate_expectations": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 4000,
+                "description": "What the AI expects of a candidate, in words. null or empty removes it."
+              },
+              "all_rules_fulfilled_auto_approve": {
+                "type": "boolean",
+                "description": "Move a candidate on without review when every rule is fulfilled."
+              },
+              "id": {
+                "type": "string",
+                "description": "Read only (as job-interview-get answers it); ignored."
+              },
+              "status": {
+                "type": "string",
+                "description": "Read only (as job-interview-get answers it); ignored."
               }
-            ],
+            },
+            "additionalProperties": false,
             "description": "Pre-screening steps: the settings to change, as include=process returns them; that object can be sent back as it is."
           }
         },
@@ -12607,6 +12660,7 @@
           "knowledge_base_store_id": {
             "type": "string",
             "minLength": 1,
+            "format": "uuid",
             "description": "The knowledge base store to add the document to.",
             "example": "d9d6f121-1230-48fd-b3a7-8b5a1e8db052"
           },
@@ -12647,6 +12701,7 @@
           "knowledge_base_store_id": {
             "type": "string",
             "minLength": 1,
+            "format": "uuid",
             "description": "The knowledge base store to add the document to.",
             "example": "d9d6f121-1230-48fd-b3a7-8b5a1e8db052"
           },
@@ -17592,7 +17647,7 @@
           "Positions"
         ],
         "summary": "Create, change or delete a meeting slot",
-        "description": "One bookable slot of a meeting step, as the admin calendar writes it. create needs step_id and start_at; update and delete need slot_id; fields left out keep their value. E-mails: delete cancels every booking on the slot and e-mails each booked candidate a cancellation (and the interviewers); an update of start_at, duration_minutes, location or meeting_url e-mails each booked candidate the booking again with the new details and moves the calendar events; other changes and create send nothing. Run dry_run first: it lists exactly the candidates who would be e-mailed (affected_bookings). Owners and recruiters on the position's access list; hiring managers read only.",
+        "description": "One bookable slot of a meeting step, as the admin calendar writes it. create needs step_id and start_at; update and delete need slot_id; fields left out keep their value. A slot is offered in both meeting modes: in availability mode candidates see it next to the times taken from the interviewers' calendars. E-mails: delete cancels every booking on the slot and e-mails each booked candidate a cancellation (and the interviewers); an update of start_at, duration_minutes, location or meeting_url e-mails each booked candidate the booking again with the new details and moves the calendar events; other changes and create send nothing. Run dry_run first: it lists exactly the candidates who would be e-mailed (affected_bookings). Owners and recruiters on the position's access list; hiring managers read only.",
         "security": [
           {
             "bearerAuth": []
@@ -20239,7 +20294,7 @@
               "type": "string",
               "maxLength": 20000,
               "description": "Search with the segment builder's rules: a JSON object {\"match\": \"all\" | \"any\", \"rules\": [...]} with at most 20 rules, for example {\"match\":\"all\",\"rules\":[{\"field\":\"tag\",\"op\":\"any\",\"values\":[\"<tag id>\"]},{\"field\":\"applied\",\"op\":\"within_days\",\"value\":30}]}. The fields, operators and accepted ids are listed by merchant-candidate-filter-options. With rules the list is ordered by last activity: tab, order_by, owner, kind, channel and mentioned_me are refused (422), limit is at most 200, filter_text is the search rule, filter_emoji and source become rules (with match all only).",
-              "x-mcp-description": "Segment-builder search, as a JSON STRING such as '{\"match\":\"all\",\"rules\":[{\"field\":\"tag\",\"op\":\"any\",\"values\":[\"<tag id>\"]}]}', at most 20 rules; the fields, operators and ids come from list_candidate_filters. With rules, tab, order_by, owner, kind, channel and mentioned_me are refused (422) and limit is at most 200."
+              "x-mcp-description": "Segment-builder search: a JSON object (or the same as a string) such as {\"match\":\"all\",\"rules\":[{\"field\":\"tag\",\"op\":\"any\",\"values\":[\"<tag id>\"]}]}, at most 20 rules; the fields, operators and ids come from list_candidate_filters. With rules, tab, order_by, owner, kind, channel and mentioned_me are refused (422) and limit is at most 200."
             },
             "required": false,
             "name": "rules",
