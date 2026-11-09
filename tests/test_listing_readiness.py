@@ -110,6 +110,29 @@ async def test_every_tool_has_annotations_and_a_title():
 
 
 @pytest.mark.asyncio
+async def test_every_tool_states_the_three_hints_openai_requires():
+    """OpenAI: readOnlyHint, destructiveHint and openWorldHint are explicit booleans.
+
+    An absent hint is read with the spec default (destructiveHint defaults to
+    true), and the plugin scan flags it. get_tool_reference had no
+    destructiveHint until 2.6.1.
+    """
+    import server
+
+    missing = {}
+    for tool in await server.mcp.list_tools():
+        ann = _annotations(tool)
+        absent = [
+            hint
+            for hint in ("readOnlyHint", "destructiveHint", "openWorldHint")
+            if not isinstance(ann.get(hint), bool)
+        ]
+        if absent:
+            missing[tool.name] = absent
+    assert not missing, f"tools without an explicit hint: {missing}"
+
+
+@pytest.mark.asyncio
 async def test_read_only_tools_are_marked_read_only():
     """A read tool wrongly marked destructive (or vice versa) is a rejection reason."""
     import server

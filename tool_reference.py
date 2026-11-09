@@ -287,7 +287,13 @@ def register(mcp) -> None:
 
     @mcp.tool(
         name=TOOL_NAME,
-        annotations={"title": "Get a tool's full reference", "readOnlyHint": True, "openWorldHint": False},
+        annotations={
+            "title": "Get a tool's full reference",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
     )
     async def get_tool_reference(
         tool: Annotated[ToolName, Field(description="The tool to describe.")],  # type: ignore[valid-type]
