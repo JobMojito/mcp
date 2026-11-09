@@ -47,6 +47,7 @@ from naming import (
     curated_defaults,
     fallback_meta,
     json_string_tool_args,
+    withheld_tool_values,
     meta_for,
     read_only_tool_names,
     response_view_rules,
@@ -60,7 +61,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.6.7"
+SERVER_VERSION = "2.6.8"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -559,6 +560,7 @@ def build_server() -> FastMCP:
     # logger wraps everything and records failures the guards raise. ---
     from middleware import (
         ArgumentShapeMiddleware,
+        WithheldValuesMiddleware,
         CuratedDefaultsMiddleware,
         OutputValidationErrorMiddleware,
         ResponseViewMiddleware,
@@ -582,6 +584,8 @@ def build_server() -> FastMCP:
     # interview_id / position_id on a tool that takes only the other, and a JSON-string
     # argument sent as an object (naming.JSON_STRING_ARGS)
     mcp.add_middleware(ArgumentShapeMiddleware(tool_argument_names(spec), json_string_tool_args()))
+    # values a tool does not offer though the API takes them (naming.WITHHELD_VALUES)
+    mcp.add_middleware(WithheldValuesMiddleware(withheld_tool_values()))
     # Turns raw "HTTP error 403: Forbidden - {...}" into a cause + next step, so the
     # model stops permuting arguments against a permissions problem.
     mcp.add_middleware(UpstreamErrorMiddleware())

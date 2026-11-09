@@ -285,6 +285,12 @@ More detail: `docs/ARCHITECTURE.md`.
   verify after a deploy.
 - **Secrets** live in `.env` (gitignored). `.env.example` holds placeholders only —
   never commit real keys.
+- **A value the API takes can be held back from a tool:** `naming.WITHHELD_VALUES`
+  (with `WITHHELD_FIELD_TEXT` for the field's description). `openapi_loader.withhold_values`
+  drops it from the advertised `enum`/`pattern` and `middleware.WithheldValuesMiddleware`
+  refuses a call that sends it. Used for `request_candidate_documents`
+  `source_field_id=form_national_id`: an AI assistant does not ask for a government ID
+  (OpenAI's plugin scan, 9 Nov 2026); the employer still can in the admin.
 - **Merchant scoping:** most API tools accept `merchant_id`. The UI picker is
   `jobmojito_configuration`; `list_my_merchants` is the non-UI fallback.
 

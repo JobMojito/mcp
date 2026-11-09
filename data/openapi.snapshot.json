@@ -12024,7 +12024,7 @@
           },
           "source_field_id": {
             "type": "string",
-            "description": "The position's file question it came from: form_cover_letter, form_national_id or custom_<name>."
+            "description": "The position's own file question it came from, as its form names it (form_cover_letter, a custom_<name> question or another of the form's file questions)."
           },
           "sequence_no": {
             "type": "integer",
@@ -12285,7 +12285,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 120,
-            "description": "What you ask for, as the candidate sees it (1 to 120 characters), e.g. \"Copy of your passport\"."
+            "description": "What you ask for, as the candidate sees it (1 to 120 characters), e.g. \"Signed reference letter\"."
           },
           "description": {
             "type": "string",
@@ -12300,7 +12300,7 @@
           "source_field_id": {
             "type": "string",
             "pattern": "^(form_cover_letter|form_national_id|custom_[A-Za-z0-9_]{1,60})$",
-            "description": "Optional: the position's file question this replaces: form_cover_letter, form_national_id or custom_<name>."
+            "description": "Optional: the position's own file question this replaces, as its form names it (form_cover_letter, a custom_<name> question or another of the form's file questions)."
           }
         },
         "required": [
@@ -24700,7 +24700,7 @@
           "Admin"
         ],
         "summary": "List the media library",
-        "description": "Lists the company's media library: images, MP4 video, audio and WOFF2 fonts for career pages. Use a file's `url` in page blocks, brand logos and font settings. A sub-company also sees its parent's files, marked `read_only`. Files still uploading are not listed. Images, video, audio and fonts already stored in the company's folder (logos, blog and cover images, earlier uploads) are added to the library on the first list.",
+        "description": "Lists the company's media library: images, MP4 video, audio and WOFF2 fonts for career pages. Use a file's `url` in page blocks, brand logos and font settings. A sub-company also sees its parent's files, marked `read_only`. Files still uploading are not listed. Listing changes nothing.",
         "security": [
           {
             "bearerAuth": []

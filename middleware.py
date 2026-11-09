@@ -370,6 +370,55 @@ class ArgumentShapeMiddleware(Middleware):
         return await call_next(context)
 
 
+def _values_at(node, segments: list[str]):
+    """Every value at a dotted body path ("documents[].source_field_id"); a JSON-string array is read too."""
+    if not segments:
+        yield node
+        return
+    head, rest = segments[0], segments[1:]
+    if not isinstance(node, dict) or head.removesuffix("[]") not in node:
+        return
+    child = node[head.removesuffix("[]")]
+    if head.endswith("[]"):
+        if isinstance(child, str):
+            try:
+                child = json.loads(child)
+            except ValueError:
+                return
+        for item in child if isinstance(child, list) else []:
+            yield from _values_at(item, rest)
+    else:
+        yield from _values_at(child, rest)
+
+
+class WithheldValuesMiddleware(Middleware):
+    """Refuse a call that sends a value ``naming.WITHHELD_VALUES`` holds back.
+
+    ``openapi_loader.withhold_values`` already leaves the value out of the tool's
+    schema, but a schema pattern is advisory: FastMCP sends what the model passes.
+    This makes it a rule of the server, before anything reaches the API.
+    """
+
+    def __init__(self, withheld: dict[str, dict[str, tuple[str, ...]]]) -> None:
+        self.withheld = withheld
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        message = getattr(context, "message", None)
+        name = getattr(message, "name", None) or ""
+        arguments = getattr(message, "arguments", None)
+        for field_path, values in self.withheld.get(name, {}).items():
+            if not isinstance(arguments, dict):
+                break
+            sent = [v for v in _values_at(arguments, field_path.split(".")) if v in values]
+            if sent:
+                raise ToolError(
+                    f"{field_path} {sent[0]} is not available through this server: {name} does not "
+                    "ask for a government identity document. The company can still request one in "
+                    "the JobMojito admin."
+                )
+        return await call_next(context)
+
+
 # ---------------------------------------------------------------------------
 # Response views
 # ---------------------------------------------------------------------------

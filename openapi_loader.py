@@ -31,6 +31,8 @@ from naming import (
     JSON_STRING_ARGS,
     TABLE_IDS,
     VIEW_PARAM_NAME,
+    WITHHELD_FIELD_TEXT,
+    WITHHELD_VALUES,
     endpoint_tool_names,
     meta_for,
     operation_id_for,
@@ -601,6 +603,66 @@ def prefer_json_request_bodies(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _resolved(spec: dict[str, Any], schema: Any) -> dict[str, Any]:
+    """A schema with a top-level ``$ref`` to a component replaced by that component."""
+    if isinstance(schema, dict) and isinstance(schema.get("$ref"), str):
+        name = schema["$ref"].rsplit("/", 1)[-1]
+        return spec.get("components", {}).get("schemas", {}).get(name, {})
+    return schema if isinstance(schema, dict) else {}
+
+
+def _body_field(spec: dict[str, Any], operation: dict[str, Any], path: str) -> dict[str, Any] | None:
+    """The schema at a dotted body path ("documents[].source_field_id"), or None."""
+    content = (operation.get("requestBody") or {}).get("content") or {}
+    node = _resolved(spec, (content.get("application/json") or {}).get("schema"))
+    for segment in path.split("."):
+        is_array = segment.endswith("[]")
+        node = _resolved(spec, (node.get("properties") or {}).get(segment.removesuffix("[]")))
+        if is_array:
+            node = _resolved(spec, node.get("items"))
+        if not node:
+            return None
+    return node
+
+
+def withhold_values(spec: dict[str, Any]) -> dict[str, Any]:
+    """Take the values in ``naming.WITHHELD_VALUES`` out of what a tool advertises.
+
+    A value is removed from the field's ``enum``, or as one alternative of its
+    ``pattern`` group (``^(a|b|c)$`` -> ``^(a|c)$``). The middleware refuses it at
+    call time too, so a model that sends it anyway is told so. A value the field
+    no longer lists is logged: the API changed, and this table should follow. Where
+    the API's own text names a value held back, ``WITHHELD_FIELD_TEXT`` restates it.
+    """
+    for (method, path), fields in WITHHELD_VALUES.items():
+        operation = (spec.get("paths", {}).get(path) or {}).get(method.lower())
+        if not isinstance(operation, dict):
+            continue
+        for field_path, values in fields.items():
+            field = _body_field(spec, operation, field_path)
+            if field is None:
+                logger.warning("withhold_values: %s %s has no body field %s", method, path, field_path)
+                continue
+            for value in values:
+                removed = False
+                if isinstance(field.get("enum"), list) and value in field["enum"]:
+                    field["enum"] = [v for v in field["enum"] if v != value]
+                    removed = True
+                pattern = field.get("pattern")
+                if isinstance(pattern, str):
+                    narrowed = re.sub(r"(?<=[(|])" + re.escape(value) + r"\|", "", pattern)
+                    narrowed = re.sub(r"\|" + re.escape(value) + r"(?=[)|])", "", narrowed)
+                    if narrowed != pattern:
+                        field["pattern"] = narrowed
+                        removed = True
+                if not removed:
+                    logger.warning("withhold_values: %s %s %s no longer lists %r", method, path, field_path, value)
+            text = WITHHELD_FIELD_TEXT.get((method, path), {}).get(field_path)
+            if text:
+                field["description"] = text
+    return spec
+
+
 def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     """Inject curated operationIds/defaults, relax response fields, keep input narrow.
 
@@ -614,13 +676,13 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
     enum would advertise a value that means nothing.
     """
     return relax_nullable_schemas(
-        apply_tool_names(
+        withhold_values(apply_tool_names(
             apply_description_fixes(
                 prefer_json_request_bodies(
                     inject_view_params(apply_param_defaults(inject_operation_ids(accept_json_objects(boolean_query_flags(fix_exclusive_bounds(spec))))))
                 )
             )
-        )
+        ))
     )
 
 

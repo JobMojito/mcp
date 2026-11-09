@@ -1827,6 +1827,31 @@ JSON_STRING_ARGS: dict[tuple[str, str], tuple[str, ...]] = {
 }
 
 
+# Values the API accepts that these tools do not offer, by endpoint: a dotted path
+# into the JSON body ("[]" = each item of an array) -> the values held back.
+# request_candidate_documents does not replace a position's national ID question:
+# an AI assistant does not ask a candidate for a government identity document. The
+# employer still can, in the admin app or through the API. (OpenAI's plugin scan held
+# the tool for it on 9 Nov 2026: "appears to solicit a government-issued identifier".)
+# openapi_loader.withhold_values takes them out of the advertised pattern, and
+# middleware.WithheldValuesMiddleware refuses a call that sends one anyway.
+WITHHELD_VALUES: dict[tuple[str, str], dict[str, tuple[str, ...]]] = {
+    ("POST", "/merchant-document-request-create"): {"documents[].source_field_id": ("form_national_id",)},
+}
+# The field's description where the values left differ from what the API's text lists.
+WITHHELD_FIELD_TEXT: dict[tuple[str, str], dict[str, str]] = {
+    ("POST", "/merchant-document-request-create"): {
+        "documents[].source_field_id": "Optional: the position's own file question this replaces, "
+        "as its form names it: form_cover_letter or a custom_<name> question.",
+    },
+}
+
+
+def withheld_tool_values() -> dict[str, dict[str, tuple[str, ...]]]:
+    """Tool name -> {body path: values held back} (WITHHELD_VALUES by tool)."""
+    return {TOOL_META[key].name: dict(paths) for key, paths in WITHHELD_VALUES.items() if key in TOOL_META}
+
+
 def json_string_tool_args() -> dict[str, set[str]]:
     """Tool name -> its JSON-string arguments (JSON_STRING_ARGS by tool)."""
     return {TOOL_META[key].name: set(names) for key, names in JSON_STRING_ARGS.items() if key in TOOL_META}
