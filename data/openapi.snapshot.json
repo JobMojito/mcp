@@ -371,7 +371,7 @@
               "coaching",
               "assessment"
             ],
-            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
+            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored as input for the reviewer's decision. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
             "example": "interview"
           },
           "visibility": {
@@ -1034,7 +1034,7 @@
               "coaching",
               "assessment"
             ],
-            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored and produce a hiring recommendation. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
+            "description": "Product type of the interview. Options — `interview`: Standard candidate interview for a role — answers are AI-scored as input for the reviewer's decision. | `coaching`: Practice/coaching session — candidate-facing feedback to help them improve; not a hiring evaluation. Only available on the coaching portal, NOT the interview portal. | `assessment`: Skills/knowledge assessment — evaluates competencies and is scored like an interview.",
             "example": "interview"
           },
           "visibility": {
@@ -2794,7 +2794,7 @@
               ]
             },
             "maxItems": 100,
-            "description": "The whole list of form fields (replaced, not merged), each with its own id: standard fields reuse the rule id (e.g. form_education, with mandatory), custom fields use custom_<timestamp> with title, field_type (text, file, radio), type (required, optional) and options."
+            "description": "The whole list of form fields (replaced, not merged), each with its own id: standard fields reuse the rule id (e.g. form_education, with mandatory), custom fields use custom_<timestamp> with title, field_type (text, file, radio), type (required, optional) and, for radio, options (a list of strings), e.g. {\"id\": \"custom_1731100000000\", \"title\": \"Do you have a work permit?\", \"field_type\": \"radio\", \"type\": \"required\", \"options\": [\"Yes\", \"No\"]}. A screening rule on it (assessment_rules) is optional."
           },
           "assessment_rules": {
             "type": "array",
@@ -4183,7 +4183,7 @@
           "interview_template_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Id of the interview template (avatar/voice) to use. An id from merchant-avatar-list. Also decides the modality — see list_avatars / merchant-avatar-list.",
+            "description": "Id of the interview template (avatar/voice) to use. An id from merchant-avatar-list. Also decides the modality: see merchant-avatar-list.",
             "example": "46b98d37-1557-4391-beca-03037ead19f2"
           },
           "knowledge_base_store_id": {
@@ -5744,7 +5744,7 @@
                   ]
                 },
                 "maxItems": 100,
-                "description": "The whole list of form fields (replaced, not merged), each with its own id: standard fields reuse the rule id (e.g. form_education, with mandatory), custom fields use custom_<timestamp> with title, field_type (text, file, radio), type (required, optional) and options."
+                "description": "The whole list of form fields (replaced, not merged), each with its own id: standard fields reuse the rule id (e.g. form_education, with mandatory), custom fields use custom_<timestamp> with title, field_type (text, file, radio), type (required, optional) and, for radio, options (a list of strings), e.g. {\"id\": \"custom_1731100000000\", \"title\": \"Do you have a work permit?\", \"field_type\": \"radio\", \"type\": \"required\", \"options\": [\"Yes\", \"No\"]}. A screening rule on it (assessment_rules) is optional."
               },
               "assessment_rules": {
                 "type": "array",

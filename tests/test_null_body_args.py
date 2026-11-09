@@ -276,7 +276,7 @@ async def test_the_tool_text_stops_saying_null_clears_any_nullable_field(tool):
     [
         (UPDATE_INTERVIEW, "recruiter_profile_id", "An empty string clears it."),
         (UPDATE_INTERVIEW, "knowledge_base_store_id", "An empty string unlinks it."),
-        (UPDATE_INTERVIEW, "interview_available_till", "An empty string keeps it always available."),
+        (UPDATE_INTERVIEW, "interview_available_till", "An empty string makes it always available."),
         (UPDATE_INTERVIEW, "country_availability", "An empty object {} = not used"),
         (UPDATE_INTERVIEW, "hiring_for_company", "An object with name null/blank means hiring for yourself"),
         (UPDATE_INTERVIEW, "candidate_video_introduction", "Send `hidden` to stop asking."),

@@ -372,11 +372,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "language, which the existing questions are already written in (no tool "
         "changes these: point the user to the admin). Use "
         "`tags` to place a coaching session into a catalogue directory. "
-        "MULTI-STAGE POSITIONS: some per-interview settings do not exist at "
-        "position level and are rejected with a 422 naming the field — "
-        "`candidate_expectations_json` is the one seen in practice. Read the "
-        "position with get_interview_definition, then update the individual "
-        "stage you mean instead of sending that field to the position. "
+        "MULTI-STAGE POSITIONS: the interview-only settings (recording, "
+        "knowledge_base_store_id, candidate_expectations_json and the like) do not exist "
+        "at position level and are refused with a 422 naming the field. Read the position "
+        "with get_interview_definition include=process and update its AI interview step's "
+        "interview (the step's interview_set_id) instead. "
         "A null argument counts as not sent and changes nothing, except on three "
         "fields where null is the only way to switch something off: "
         "`candidate_notification_channel` (no SMS / WhatsApp), "
@@ -401,7 +401,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
                 "pdf_export_auto_config.",
             ),
             # A blank string clears these (BLANK_IS_NULL in job-interview-update).
-            ("null keeps it always available.", "An empty string keeps it always available."),
+            ("null keeps it always available.", "An empty string makes it always available."),
             ("null clears it.", "An empty string clears it."),
             ("null unlinks it.", "An empty string unlinks it."),
             # The API stores {} as null (normalizeCountryAvailability).
@@ -534,7 +534,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "the product (interview, assessment, coaching); `interview_type` is the style of "
         "an interview (pre-screening, second-interview...); for invite-only hiring use "
         "visibility=merchant_invite. A position's pre-screening "
-        "STEP (resume and form) is something else, set with set_position_process. The "
+        "STEP (resume and form) is something else: added with set_position_process, "
+        "configured with update_position_step. The "
         "`interview_template_id` you pass "
         "also sets the modality (voice-only vs realtime/pre-recorded avatar): see "
         "`list_avatars`.",
@@ -1171,7 +1172,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "`external_assessment`, `interview`, `pre_screening`); only the keys you send change "
         "and null removes a key, but a list you send (pre_screening form_fields, "
         "assessment_rules) replaces the whole list: send every item you want to keep. "
-        "pre_screening id and status are read only. Read the step first with get_interview_definition "
+        "pre_screening id and status are read only. A new form field: {\"id\": "
+        "\"custom_<timestamp>\", \"title\", \"field_type\": text|file|radio, \"type\": "
+        "required|optional, \"options\": [\"Yes\", \"No\"] for radio}; append it to the "
+        "fields get_interview_definition include=process returns. pre_screening all_rules_fulfilled_auto_approve "
+        "approves a candidate who meets every rule without review; whether they then move "
+        "on by themselves is `advance` (auto), a separate setting. Read the step first with get_interview_definition "
         "include=process and send its `updated_at` back as expected_updated_at: a newer "
         "change is refused with 409. Settings are live: candidates already on the step get "
         "them at once. Use dry_run=true first: it shows the changed keys, the candidates on "

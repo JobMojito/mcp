@@ -75,6 +75,7 @@ OTHER_RECORD_FIELDS = {
     "list_languages": {"mojito_language_code"},  # what the create tools take
     "list_candidates": {"values", "within_days"},  # keys and operators inside a `rules` example
     "request_candidate_documents": {"form_national_id"},  # a value of documents[].source_field_id
+    "update_position_step": {"field_type"},  # a key of a pre-screening form field
 }
 
 

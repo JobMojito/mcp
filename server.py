@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.5.3"
+SERVER_VERSION = "2.5.4"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
