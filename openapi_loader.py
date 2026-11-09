@@ -273,16 +273,28 @@ def fix_exclusive_bounds(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def accept_json_objects(spec: dict[str, Any]) -> dict[str, Any]:
-    """A JSON-string query argument (naming.JSON_STRING_ARGS) also takes the object itself."""
+    """An argument in naming.JSON_STRING_ARGS takes both forms: a JSON-string query
+    argument also the object, a JSON body object also its JSON text."""
     for (method, path), names in JSON_STRING_ARGS.items():
         operation = (spec.get("paths", {}).get(path) or {}).get(method.lower())
-        for parameter in (operation or {}).get("parameters") or []:
+        if not isinstance(operation, dict):
+            continue
+        for parameter in operation.get("parameters") or []:
             schema = parameter.get("schema")
             if parameter.get("name") in names and isinstance(schema, dict) and "anyOf" not in schema:
-                text = {k: v for k, v in schema.items() if k in ("description", "x-mcp-description")}
-                rest = {k: v for k, v in schema.items() if k not in text}
-                parameter["schema"] = {**text, "anyOf": [rest, {"type": "object"}]}
+                parameter["schema"] = _either(schema, {"type": "object"})
+        properties = _json_body_schema(spec, operation).get("properties") or {}
+        for name in names:
+            if isinstance(properties.get(name), dict) and "anyOf" not in properties[name]:
+                properties[name] = _either(properties[name], {"type": "string"})
     return spec
+
+
+def _either(schema: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
+    """{description, anyOf: [the schema without its description, other]}."""
+    text = {k: v for k, v in schema.items() if k in ("description", "x-mcp-description")}
+    rest = {k: v for k, v in schema.items() if k not in text}
+    return {**text, "anyOf": [rest, other]}
 
 
 def tool_argument_names(spec: dict[str, Any]) -> dict[str, set[str]]:

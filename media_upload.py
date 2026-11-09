@@ -19,7 +19,7 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import httpx2
 from fastmcp.exceptions import ToolError
@@ -130,7 +130,10 @@ def register(mcp) -> None:
         file: Annotated[str, Field(description="The file's bytes, base64-encoded. At most 50 MB once decoded.")],
         file_name: Annotated[str, Field(description="Display name in the library, such as team-photo.jpg. No slashes.")],
         content_type: Annotated[
-            str,
+            Literal[
+                "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/svg+xml",
+                "video/mp4", "audio/mpeg", "audio/mp4", "audio/x-m4a", "font/woff2",
+            ],
             Field(
                 description=(
                     "image/jpeg, image/png, image/webp, image/gif, image/avif, image/svg+xml, video/mp4 "

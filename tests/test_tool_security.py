@@ -552,3 +552,12 @@ async def test_location_reaches_a_tool_that_calls_it_interview_location(upstream
     await _call("create_persona", {**_minimal_arguments(tool.parameters), "location": "Vienna"})
     sent = json.loads(upstream.requests[0].content)
     assert sent["interview_location"] == "Vienna" and "location" not in sent
+
+
+@pytest.mark.asyncio
+async def test_segment_rules_sent_as_an_object_or_a_string_reach_the_api_as_its_json_text(upstream):
+    rules = {"match": "any", "rules": [{"field": "tag", "op": "any", "values": ["t1"]}]}
+    for value in (rules, json.dumps(rules)):
+        await _call("manage_segment", {"action": "save", "name": "Nurses", "kind": "dynamic", "rules": value})
+    for request in upstream.requests:
+        assert json.loads(json.loads(request.content)["rules"]) == rules

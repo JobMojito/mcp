@@ -697,7 +697,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "upload_knowledge_base_document",
         "Upload knowledge base document",
         "Upload and process a knowledge base document (base64 file, `name` with its "
-        "extension) into a store from list_knowledge_base_stores. The optional "
+        "extension) into a store from list_knowledge_base_stores. An interview uses a store "
+        "once create_interview / update_interview set its knowledge_base_store_id: link "
+        "it before limiting a document with interview_ids. The optional "
         "interview_ids limits it to chosen interviews on the same knowledge base: "
         "leave it out for every interview, [] for none. Returns the limit it set.",
         "readOnlyHint=false / destructiveHint=true: stores a new document on the "
@@ -741,7 +743,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List interviews and positions",
         "List the merchant's interviews and positions, with lifecycle, category, tags, "
         "recruiter and step count; filter by lifecycle, recruiter_profile_id or "
-        "interview_category.",
+        "interview_category. type=interview (the default) also lists multi-stage positions.",
         _READ_WHY,
     ),
     ("GET", "/merchant-candidate-list"): _read(
@@ -791,7 +793,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "`offline_elai` and `offline_synthesia` are legacy integrations that may "
         "still appear here but cannot be used to create new interviews. Rows are "
         "large, so this returns 15 at a time; page with `offset` while "
-        "`pagination.has_more` is true, or narrow with `type`/`filter_text`.",
+        "`pagination.has_more` is true, or narrow with `type`/`filter_text`. The "
+        "company's own templates only unless include_public=true: no voice template here "
+        "does not mean there is none.",
         _READ_WHY,
         # Measured: ~2,700 chars of API JSON per row, ~4,900 on the wire once MCP
         # duplicates it into content + structuredContent. The spec's default of 50
@@ -1106,7 +1110,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "an unsaved `definition`, which is validated against list_report_fields and run "
         "without storing anything: check a definition this way before save_report, a wrong "
         "block comes back with ok=false and an error naming the field and the valid ids. "
-        "Report numbers are decision-support material for a human reviewer. The period "
+        "Report numbers are decision-support material for a human reviewer. Block types: "
+        "line needs a date dimension first (with a grain), kpi and funnel take no "
+        "dimensions. The period "
         "filters each dataset on its own date (its description in list_report_fields says "
         "which; a snapshot dataset ignores it); left out, the last 30 days.",
         "readOnlyHint=true: although the request is a POST (a definition is a JSON body), "
@@ -1183,7 +1189,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Moving, shortening or relocating a booked slot e-mails its candidates the change, "
         "and deleting one cancels their bookings and e-mails them. Use dry_run=true first: "
         "it lists the booked candidates who would be e-mailed. List slots with "
-        "get_interview_definition include=slots. start_at is ISO 8601 with a UTC offset "
+        "get_interview_definition include=slots. Creating a slot e-mails nobody. start_at "
+        "is ISO 8601 with a UTC offset "
         "(2026-11-20T14:00:00+01:00) and not in the past: ask the user's time zone when "
         "it is not clear.",
         "readOnlyHint=false / destructiveHint=true: changes or removes bookable time and can "
@@ -1302,7 +1309,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "manage_segment",
         "Create, change or delete a candidate segment",
         "action save (create without id, update with id; name, description, kind, and "
-        "rules as an OBJECT {match, rules} with the rules list_candidates takes as a "
+        "rules: the same {match, rules} list_candidates takes, as an object or a JSON "
         "string), delete, or add_members / remove_members of a static segment "
         "(candidate ids). Fields left out keep their value. Try the rules with "
         "list_candidates rules=... first. Sends nothing to candidates.",
@@ -1502,6 +1509,8 @@ TABLE_IDS: dict[str, tuple[str, str]] = {
 #: (``openapi_loader.accept_json_objects``) and ``ArgumentShapeMiddleware`` sends the string.
 JSON_STRING_ARGS: dict[tuple[str, str], tuple[str, ...]] = {
     ("GET", "/merchant-candidate-list"): ("rules",),
+    # the API reads a string too (merchant-segment-manage parses it)
+    ("POST", "/merchant-segment-manage"): ("rules",),
 }
 
 

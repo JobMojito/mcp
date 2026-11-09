@@ -366,3 +366,15 @@ def test_tool_argument_names_reads_query_and_json_body_names():
         "components": {"schemas": {"B": {"properties": {"name": {}, "position_id": {}}}}},
     }
     assert loader.tool_argument_names(spec) == {"list_a": {"q"}, "save_b": {"name", "position_id"}}
+
+
+def test_a_json_body_object_also_takes_its_json_text(monkeypatch):
+    monkeypatch.setattr(loader, "JSON_STRING_ARGS", {("POST", "/s"): ("rules",), ("POST", "/gone"): ("x",)})
+    spec = {
+        "paths": {"/s": {"post": {"requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/S"}}}}}}},
+        "components": {"schemas": {"S": {"properties": {"rules": {"$ref": "#/components/schemas/R", "description": "d"}, "name": {"type": "string"}}}}},
+    }
+    loader.accept_json_objects(spec)
+    props = spec["components"]["schemas"]["S"]["properties"]
+    assert props["rules"] == {"description": "d", "anyOf": [{"$ref": "#/components/schemas/R"}, {"type": "string"}]}
+    assert props["name"] == {"type": "string"}
