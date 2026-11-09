@@ -367,7 +367,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "send it back. Resending an unchanged array does nothing. Not updated by "
         "this tool at all: the welcome and thank-you messages and the "
         "instructional-video screen (stored as steps, not questions), and the "
-        "language, which the existing questions are already written in. Use "
+        "language, which the existing questions are already written in (no tool "
+        "changes these: point the user to the admin). Use "
         "`tags` to place a coaching session into a catalogue directory. "
         "MULTI-STAGE POSITIONS: some per-interview settings do not exist at "
         "position level and are rejected with a 422 naming the field — "
@@ -693,7 +694,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/knowledge-base-document-upload"): _write(
         "upload_knowledge_base_document",
         "Upload knowledge base document",
-        "Upload and process a knowledge base document (base64 file). The optional "
+        "Upload and process a knowledge base document (base64 file, `name` with its "
+        "extension) into a store from list_knowledge_base_stores. The optional "
         "interview_ids limits it to chosen interviews on the same knowledge base: "
         "leave it out for every interview, [] for none. Returns the limit it set.",
         "readOnlyHint=false / destructiveHint=true: stores a new document on the "
@@ -705,7 +707,6 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
                 "application/json (base64 `file`).",
                 "Send the file base64-encoded in `file`.",
             ),
-            (" Falls back to the uploaded file name for multipart.", ""),
             (
                 " With multipart/form-data, repeat the field or send one JSON array such as "
                 '`["<id>"]`, and write an empty list as `[]`.',
@@ -799,12 +800,32 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         # drops the duplicate copy. See PAGE_SIZE_WHY.
         param_defaults=(("limit", 15),),
     ),
+    ("GET", "/knowledge-base-store-list"): _read(
+        "list_knowledge_base_stores",
+        "List knowledge base stores",
+        "The company's knowledge base stores with their document counts: the "
+        "knowledge_base_store_id create_interview draws on and upload_knowledge_base_document "
+        "adds to. strict=true means the AI uses only these documents.",
+        _READ_WHY,
+    ),
+    ("POST", "/knowledge-base-store-save"): _write(
+        "save_knowledge_base_store",
+        "Create or change a knowledge base store",
+        "Without knowledge_base_store_id: a new store (name; strict true by default: the AI "
+        "uses only its documents). With it: rename it or change strict, which changes how "
+        "every interview on the store answers, so confirm with the user first. Add "
+        "documents with upload_knowledge_base_document.",
+        "readOnlyHint=false / destructiveHint=true: creates or changes a store that "
+        "interviews draw on. idempotentHint=false: each create makes another store. "
+        + _OPEN_WORLD,
+    ),
     ("GET", "/merchant-user-list"): _read(
         "list_users",
         "List the company's users",
         "The company's users (owners, recruiters, hiring managers, admins) with the "
         "profile_id other tools take: a task assignee, a mention, an interviewer, a "
-        "recruiter, a hiring team member. filter_text searches name and e-mail.",
+        "recruiter, a hiring team member. filter_text searches name and e-mail; role reader "
+        "is a hiring manager (read only).",
         _READ_WHY,
     ),
     ("GET", "/merchant-sub-merchant-list"): _read(
@@ -1083,7 +1104,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "an unsaved `definition`, which is validated against list_report_fields and run "
         "without storing anything: check a definition this way before save_report, a wrong "
         "block comes back with ok=false and an error naming the field and the valid ids. "
-        "Report numbers are decision-support material for a human reviewer.",
+        "Report numbers are decision-support material for a human reviewer. The period "
+        "filters each dataset on its own date (its description in list_report_fields says "
+        "which; a snapshot dataset ignores it); left out, the last 30 days.",
         "readOnlyHint=true: although the request is a POST (a definition is a JSON body), "
         "nothing is stored or changed; it only reads and aggregates existing records. "
         "idempotentHint=true: the same body returns the same data. " + _OPEN_WORLD,
@@ -1296,9 +1319,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "save_task",
         "Create or change a task",
         "Without task_id: create a task (title, notes, due date, assignee, about a candidate, "
-        "application or position). With task_id: change the fields you send, or the status "
-        "(done, cancelled; a cancelled task stays cancelled). Assigning a task to someone "
-        "else e-mails them (assignee_notified).",
+        "application or position: a new task needs one of candidate_id, application_id or "
+        "position_id). With task_id: change the fields you send, or the status (done, "
+        "cancelled; a cancelled task stays cancelled). Assigning a task to someone else "
+        "e-mails them (assignee_notified); assignee_profile_id comes from list_users. due_at "
+        "is a date and time with offset: ask the user's time zone. Hiring managers are read only.",
         "readOnlyHint=false / destructiveHint=true: stores a task and can e-mail its "
         "assignee. " + _OPEN_WORLD,
     ),
@@ -1468,6 +1493,19 @@ TABLE_IDS: dict[str, tuple[str, str]] = {
     # no article: the spec writes "not a profile.id", "(profile.id of a user of the company)"
     "profile": ("`profile_id` (list_users)", ""),
 }
+
+
+#: Query arguments the API reads as a JSON string that a model naturally sends as an
+#: object (the same rules manage_segment takes as one). The schema accepts both
+#: (``openapi_loader.accept_json_objects``) and ``ArgumentShapeMiddleware`` sends the string.
+JSON_STRING_ARGS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("GET", "/merchant-candidate-list"): ("rules",),
+}
+
+
+def json_string_tool_args() -> dict[str, set[str]]:
+    """Tool name -> its JSON-string arguments (JSON_STRING_ARGS by tool)."""
+    return {TOOL_META[key].name: set(names) for key, names in JSON_STRING_ARGS.items() if key in TOOL_META}
 
 
 def endpoint_tool_names() -> dict[str, str]:

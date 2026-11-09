@@ -233,7 +233,7 @@ def _assert_mapped_endpoint(request: httpx2.Request, method: str, path: str, whe
 
 
 def test_the_sweep_covers_every_generated_tool():
-    assert len(API_TOOLS) == 65
+    assert len(API_TOOLS) == 67
     assert {"merge_candidates", "get_candidate", "run_report", "manage_media_file"} <= {n for n, _, _ in API_TOOLS}
 
 
@@ -491,3 +491,55 @@ async def test_a_boolean_query_flag_reaches_the_api_as_the_string_it_reads(upstr
     assert tool.parameters["properties"]["extended"]["type"] == "boolean"
     await _call("list_interview_results", {"extended": value})
     assert upstream.requests[0].url.params["extended"] == ("true" if value else "false")
+
+
+@pytest.mark.asyncio
+async def test_the_other_id_name_reaches_the_api_under_the_name_the_tool_takes(upstream):
+    """position_id and interview_id name the same record on different endpoints."""
+    pid = "00000000-0000-4000-8000-0000000000aa"
+    result = await _call("set_interview_state", {"interview_id": pid, "status": "active"})
+    sent = json.loads(upstream.requests[0].content)
+    assert sent["position_id"] == pid and "interview_id" not in sent, (result, sent)
+    await _call("generate_interview_url", {"type": "interview-results-for-position", "position_id": pid})
+    sent = json.loads(upstream.requests[1].content)
+    assert sent["interview_id"] == pid and "position_id" not in sent
+
+
+@pytest.mark.asyncio
+async def test_rules_sent_as_an_object_reach_the_api_as_its_json_text(upstream):
+    rules = {"match": "all", "rules": [{"field": "tag", "op": "any", "values": ["t1"]}]}
+    await _call("list_candidates", {"rules": rules})
+    assert json.loads(upstream.requests[0].url.params["rules"]) == rules
+    await _call("list_candidates", {"rules": json.dumps(rules)})
+    assert json.loads(upstream.requests[1].url.params["rules"]) == rules
+
+
+@pytest.mark.asyncio
+async def test_argument_shape_leaves_what_it_does_not_own():
+    from middleware import ArgumentShapeMiddleware
+
+    seen = {}
+
+    async def call_next(context):
+        seen.update(context.message.arguments or {})
+        return "ok"
+
+    class Message:
+        def __init__(self, name, arguments):
+            self.name, self.arguments = name, arguments
+
+    class Context:
+        def __init__(self, message):
+            self.message = message
+
+    shape = ArgumentShapeMiddleware({"t": {"position_id", "status"}, "both": {"position_id", "interview_id"}}, {"t": {"rules"}})
+    # both names sent: neither is moved; a string stays a string
+    await shape.on_call_tool(Context(Message("t", {"interview_id": "i", "position_id": "p", "rules": "{}"})), call_next)
+    assert seen == {"interview_id": "i", "position_id": "p", "rules": "{}"}
+    seen.clear()
+    await shape.on_call_tool(Context(Message("both", {"interview_id": "i"})), call_next)
+    assert seen == {"interview_id": "i"}
+    seen.clear()
+    await shape.on_call_tool(Context(Message("t", {"rules": [1]})), call_next)
+    assert seen == {"rules": "[1]"}
+    assert await shape.on_call_tool(Context(Message("t", None)), call_next) == "ok"

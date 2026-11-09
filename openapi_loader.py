@@ -28,6 +28,7 @@ import httpx2
 from config import settings
 from naming import (
     VIEW_PARAM_MARKER,
+    JSON_STRING_ARGS,
     TABLE_IDS,
     VIEW_PARAM_NAME,
     endpoint_tool_names,
@@ -269,6 +270,42 @@ def fix_exclusive_bounds(spec: dict[str, Any]) -> dict[str, Any]:
     walk(spec.get("paths", {}))
     walk(spec.get("components", {}))
     return spec
+
+
+def accept_json_objects(spec: dict[str, Any]) -> dict[str, Any]:
+    """A JSON-string query argument (naming.JSON_STRING_ARGS) also takes the object itself."""
+    for (method, path), names in JSON_STRING_ARGS.items():
+        operation = (spec.get("paths", {}).get(path) or {}).get(method.lower())
+        for parameter in (operation or {}).get("parameters") or []:
+            schema = parameter.get("schema")
+            if parameter.get("name") in names and isinstance(schema, dict) and "anyOf" not in schema:
+                text = {k: v for k, v in schema.items() if k in ("description", "x-mcp-description")}
+                rest = {k: v for k, v in schema.items() if k not in text}
+                parameter["schema"] = {**text, "anyOf": [rest, {"type": "object"}]}
+    return spec
+
+
+def tool_argument_names(spec: dict[str, Any]) -> dict[str, set[str]]:
+    """operationId (the tool name) -> its query and JSON body argument names."""
+    out: dict[str, set[str]] = {}
+    for path_item in spec.get("paths", {}).values():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict) or not operation.get("operationId"):
+                continue
+            names = {p.get("name") for p in operation.get("parameters") or [] if isinstance(p, dict) and p.get("name")}
+            names |= {key for prop in [_json_body_schema(spec, operation)] for key in (prop.get("properties") or {})}
+            out[operation["operationId"]] = names
+    return out
+
+
+def _json_body_schema(spec: dict[str, Any], operation: dict[str, Any]) -> dict[str, Any]:
+    content = (operation.get("requestBody") or {}).get("content") or {}
+    schema = (content.get("application/json") or {}).get("schema") or {}
+    if "$ref" in schema:
+        schema = spec.get("components", {}).get("schemas", {}).get(schema["$ref"].rsplit("/", 1)[-1], {})
+    return schema if isinstance(schema, dict) else {}
 
 
 def boolean_query_flags(spec: dict[str, Any]) -> dict[str, Any]:
@@ -557,7 +594,7 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
         apply_tool_names(
             apply_description_fixes(
                 prefer_json_request_bodies(
-                    inject_view_params(apply_param_defaults(inject_operation_ids(boolean_query_flags(fix_exclusive_bounds(spec)))))
+                    inject_view_params(apply_param_defaults(inject_operation_ids(accept_json_objects(boolean_query_flags(fix_exclusive_bounds(spec))))))
                 )
             )
         )

@@ -338,3 +338,31 @@ def test_a_table_id_next_to_its_source_is_not_given_a_second_one():
         spec = {"paths": {"/x": {"post": {"description": before}}}}
         loader.apply_tool_names(spec)
         assert spec["paths"]["/x"]["post"]["description"] == after
+
+
+def test_a_json_string_query_argument_also_takes_the_object(monkeypatch):
+    monkeypatch.setattr(loader, "JSON_STRING_ARGS", {("GET", "/x"): ("rules",)})
+    spec = {"paths": {"/x": {"get": {"parameters": [
+        {"name": "rules", "in": "query", "schema": {"type": "string", "maxLength": 9, "description": "d"}},
+        {"name": "other", "in": "query", "schema": {"type": "string"}},
+    ]}}, "/missing": {}}}
+    loader.accept_json_objects(spec)
+    params = spec["paths"]["/x"]["get"]["parameters"]
+    assert params[0]["schema"] == {"description": "d", "anyOf": [{"type": "string", "maxLength": 9}, {"type": "object"}]}
+    assert params[1]["schema"] == {"type": "string"}
+    again = json.loads(json.dumps(spec))
+    assert loader.accept_json_objects(again) == spec  # prepared twice (the cache), the same
+
+
+def test_tool_argument_names_reads_query_and_json_body_names():
+    spec = {
+        "paths": {
+            "/odd": "not a path item",
+            "/a": {"get": {"operationId": "list_a", "parameters": [{"name": "q"}, "x", {"in": "query"}]}},
+            "/b": {"post": {"operationId": "save_b", "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/B"}}}}},
+                   "parameters": []},
+            "/c": {"post": {"requestBody": {}}},
+        },
+        "components": {"schemas": {"B": {"properties": {"name": {}, "position_id": {}}}}},
+    }
+    assert loader.tool_argument_names(spec) == {"list_a": {"q"}, "save_b": {"name", "position_id"}}

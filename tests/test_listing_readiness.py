@@ -65,6 +65,7 @@ EXPECTED_READ_ONLY = {
     "list_document_requests",
     "list_reasons",
     "list_users",
+    "list_knowledge_base_stores",
     "get_reason",
     "get_component_style_guide",
     "generate_component_styles",

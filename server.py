@@ -46,12 +46,13 @@ from naming import (
     IGNORED_PATHS,
     curated_defaults,
     fallback_meta,
+    json_string_tool_args,
     meta_for,
     read_only_tool_names,
     response_view_rules,
 )
 from null_body_args import KeepNullBodyArgs
-from openapi_loader import load_openapi_spec
+from openapi_loader import load_openapi_spec, tool_argument_names
 from upstream import build_api_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -59,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.4.0"
+SERVER_VERSION = "2.5.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -549,6 +550,7 @@ def build_server() -> FastMCP:
     # --- Middleware. Order matters: registration order is execution order, so the
     # logger wraps everything and records failures the guards raise. ---
     from middleware import (
+        ArgumentShapeMiddleware,
         CuratedDefaultsMiddleware,
         OutputValidationErrorMiddleware,
         ResponseViewMiddleware,
@@ -569,6 +571,9 @@ def build_server() -> FastMCP:
     # result limit on a plain call. Registered first so the logged arguments and
     # the size guard both see the values actually used.
     mcp.add_middleware(CuratedDefaultsMiddleware(curated_defaults()))
+    # interview_id / position_id on a tool that takes only the other, and a JSON-string
+    # argument sent as an object (naming.JSON_STRING_ARGS)
+    mcp.add_middleware(ArgumentShapeMiddleware(tool_argument_names(spec), json_string_tool_args()))
     # Turns raw "HTTP error 403: Forbidden - {...}" into a cause + next step, so the
     # model stops permuting arguments against a permissions problem.
     mcp.add_middleware(UpstreamErrorMiddleware())

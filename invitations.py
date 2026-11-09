@@ -216,7 +216,8 @@ def register(mcp) -> None:
 
         With send_email=false NOTHING is e-mailed: each candidate is registered and
         their personal interview_url comes back for you to share. The result's
-        email_sent says which happened. send_email=false does not use the invitation
+        email_sent says which happened. send_email=false sends nothing now or later: no
+        invitation, no reminders, no SMS or WhatsApp, and it does not use the invitation
         budget.
 
         A draft interview is not refused, but candidates can use their links only once

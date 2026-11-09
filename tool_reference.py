@@ -145,8 +145,23 @@ def _option_gist(entry: str) -> str | None:
     same = label.lower().replace("-", " ") == name.lower().replace("-", " ").replace("_", " ")
     if dash and (same or len(label.split()) <= 3):
         gist = rest
-    gist = gist.rstrip(". ")
+    gist = _first_clause(gist.rstrip(". "))
     return f"`{name}`{' ' + qualifier if qualifier else ''}: {gist}"
+
+
+_CLAUSE_END = re.compile(r" — |; |: | \(")
+_GIST_WORDS = 10
+
+
+def _first_clause(text: str) -> str:
+    """A long option meaning cut at its first clause break after a few words: enough to
+    choose by; get_tool_reference has the rest."""
+    if len(text.split()) <= _GIST_WORDS:
+        return text
+    for m in _CLAUSE_END.finditer(text):
+        if len(text[: m.start()].split()) >= 3:
+            return text[: m.start()]
+    return text
 
 
 def brief(text: str, *, options: bool = False) -> str:

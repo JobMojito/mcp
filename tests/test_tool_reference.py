@@ -407,3 +407,13 @@ def test_an_argument_without_text_borrows_it_from_its_part_or_its_definition():
     assert p["own"]["description"] == "Its own."
     # the definitions themselves are nested: trimmed as before
     assert "description" not in schema["$defs"]["Features"]
+
+
+def test_a_long_option_meaning_is_cut_at_its_first_clause():
+    from tool_reference import _first_clause
+
+    assert _first_clause("short meaning") == "short meaning"
+    long = "Audio + video cheating detection on every answer — the candidate is recorded for all answers"
+    assert _first_clause(long) == "Audio + video cheating detection on every answer"
+    assert _first_clause("a b c d e f g h i j k l m n") == "a b c d e f g h i j k l m n"  # no break: kept whole
+    assert _first_clause("x; then a long tail of words that goes on and on and on") == "x; then a long tail of words that goes on and on and on"

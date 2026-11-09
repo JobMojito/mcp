@@ -334,6 +334,37 @@ class CuratedDefaultsMiddleware(Middleware):
         return await call_next(context)
 
 
+class ArgumentShapeMiddleware(Middleware):
+    """Accept the two id names and the object form a model naturally sends.
+
+    The API calls the same interview or position `position_id` on some endpoints and
+    `interview_id` on others. A tool that takes only one of them gets the other
+    renamed, so a model that reused the name it saw last still reaches the right
+    record. And a JSON-string argument (naming.JSON_STRING_ARGS) sent as an object
+    is sent as its JSON text, which is what the API reads.
+    """
+
+    ALIASES = (("interview_id", "position_id"), ("position_id", "interview_id"))
+
+    def __init__(self, argument_names: dict[str, set[str]], json_args: dict[str, set[str]]) -> None:
+        self.argument_names = argument_names
+        self.json_args = json_args
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        message = getattr(context, "message", None)
+        name = getattr(message, "name", None) or ""
+        arguments = getattr(message, "arguments", None)
+        if isinstance(arguments, dict):
+            known = self.argument_names.get(name, set())
+            for sent, wanted in self.ALIASES:
+                if sent in arguments and wanted in known and sent not in known and wanted not in arguments:
+                    arguments[wanted] = arguments.pop(sent)
+            for key in self.json_args.get(name, set()):
+                if isinstance(arguments.get(key), (dict, list)):
+                    arguments[key] = json.dumps(arguments[key], ensure_ascii=False)
+        return await call_next(context)
+
+
 # ---------------------------------------------------------------------------
 # Response views
 # ---------------------------------------------------------------------------

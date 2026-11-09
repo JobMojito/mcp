@@ -478,6 +478,7 @@
             "type": "string",
             "nullable": true,
             "enum": [
+              "hidden",
               "optional",
               "required"
             ],
@@ -2474,6 +2475,7 @@
             "type": "string",
             "nullable": true,
             "enum": [
+              "hidden",
               "optional",
               "required"
             ],
@@ -2723,7 +2725,7 @@
                 "type": "string",
                 "nullable": true,
                 "format": "uuid",
-                "description": "The meeting form (merchant_taxonomy.id, type meeting_form, of this company); required for mode form."
+                "description": "A meeting form of this company, made in the admin (the current one is in job-interview-get include=process); required for mode form."
               }
             },
             "required": [
@@ -3930,7 +3932,7 @@
               "preparing",
               "completed"
             ],
-            "description": "New publication status, applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position: its status follows the position.",
+            "description": "New publication status (preparing and completed are normally set by the platform), applied exactly as job-interview-set-state applies it (that endpoint also manages the iframe embed key and the vacancy lifecycle of a position). Refused (422) for the AI interview step of a multi-stage position: its status follows the position.",
             "example": "active"
           },
           "visibility": {
@@ -4595,7 +4597,7 @@
             "properties": {
               "embed_id": {
                 "type": "string",
-                "description": "Embed id (interview_embed.id)."
+                "description": "The embed id, used in the embed link (embed?embed_id=...)."
               },
               "embed_signing_key": {
                 "type": "string",
@@ -4699,7 +4701,7 @@
               "completed"
             ],
             "description": "New publication status: draft, active, archived, deleted, preparing, completed. For a position it cascades to its steps. Refused (422) for the AI interview step of a position, which follows its position. Activating a position whose required custom fields are empty is refused with 422 (name custom_fields). Archiving an active position sends the position-closed e-mail to candidates with open applications when the company has that notice switched on.",
-            "x-mcp-description": "New publication status. Refused (422) for the AI interview step of a position, which follows its position, and for activating a position whose required custom fields are empty. Archiving an active position can e-mail its candidates with open applications (the position-closed notice, when switched on). Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated."
+            "x-mcp-description": "New publication status. Refused (422) for the AI interview step of a position, which follows its position, and for activating a position whose required custom fields are empty. Archiving an active position can e-mail its candidates with open applications (the position-closed notice, when switched on). Prefer `archived` to `deleted`: a deleted interview can no longer be read or updated. preparing (a draft still being prepared) and completed (finished, read as closed) are normally set by the platform; to fill or close a position use lifecycle."
           },
           "lifecycle": {
             "type": "string",
@@ -4712,7 +4714,7 @@
               "closed"
             ],
             "description": "Multi-stage positions only (422 for an interview): the vacancy lifecycle to move to (needs the position_lifecycle feature, else 403). Allowed moves: draft to open or cancelled; open, applications_closed and on_hold to each other and to filled, cancelled or closed; filled, cancelled and closed back to open (else 422). on_hold and cancelled need a reason_id. The publication status follows (open, applications_closed, on_hold = active; filled, cancelled, closed = archived). Moving an open position to filled, cancelled or closed archives it: when the company has the position-closed notice switched on, every candidate with an open application then gets the position-closed e-mail (at once or on the company's e-mail schedule). Send either status or lifecycle, not both.",
-            "x-mcp-description": "Multi-stage positions only: the vacancy lifecycle to move to. draft goes to open or cancelled; open, applications_closed and on_hold go to each other or to filled, cancelled or closed; those three go back to open. on_hold and cancelled need reason_id. filled, cancelled and closed archive the position and can e-mail every candidate with an open application (the position-closed notice, when switched on).",
+            "x-mcp-description": "Multi-stage positions only: the vacancy lifecycle to move to. draft goes to open or cancelled; open, applications_closed and on_hold go to each other or to filled, cancelled or closed; those three go back to open. on_hold and cancelled need reason_id. filled, cancelled and closed archive the position and can e-mail every candidate with an open application (the position-closed notice, when switched on). Needs the position_lifecycle feature (403 otherwise). Send either status or lifecycle, not both.",
             "example": "on_hold"
           },
           "reason_id": {
@@ -4727,7 +4729,8 @@
           },
           "dry_run": {
             "type": "boolean",
-            "description": "true: change nothing; answer the publication status before and after, and whether the position-closed e-mail would go out and to how many candidates with an open application. It does not check whether the move is allowed (the real call can still refuse it), and leaves the embed key alone."
+            "description": "true: change nothing; answer the publication status before and after, and whether the position-closed e-mail would go out and to how many candidates with an open application. It does not check whether the move is allowed (the real call can still refuse it), and leaves the embed key alone.",
+            "x-mcp-description": "true: change nothing; answer the status before and after and whether the position-closed e-mail would go out, to how many candidates. It does not check whether the move is allowed: the real call can still refuse it."
           },
           "is_embedded": {
             "type": "boolean",
@@ -4774,16 +4777,9 @@
             "type": "string",
             "description": "The interview result (interview_result.id), a uuid. Required for interview-result-candidate and interview-result-talent-seeker."
           },
-          "hide_menu": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "boolean"
-              }
-            ],
-            "description": "false (or the string 'false') shows the navigation menu; anything else, or leaving it out, hides it."
+          "show_menu": {
+            "type": "boolean",
+            "description": "true shows the navigation menu on the page the link opens; false or left out hides it."
           }
         },
         "required": [
@@ -7167,7 +7163,7 @@
           "decision_reason_id": {
             "type": "string",
             "nullable": true,
-            "description": "Decision reason (merchant_taxonomy.id of a decision reason). For a multi-stage interview, the application's. Company staff and the service key only."
+            "description": "Decision reason (an id from merchant-reason-list). For a multi-stage interview, the application's. Company staff and the service key only."
           },
           "decision_reason_label": {
             "type": "string",
@@ -7349,7 +7345,7 @@
                 "question_original_id": {
                   "type": "string",
                   "nullable": true,
-                  "description": "Source interview_def_question id (null for generated follow-ups)."
+                  "description": "Source question id: the `id` of a question in job-interview-get (null for generated follow-ups)."
                 },
                 "question_original": {
                   "type": "string",
@@ -8140,7 +8136,7 @@
                 "decision_reason_id": {
                   "type": "string",
                   "nullable": true,
-                  "description": "extended: decision reason (merchant_taxonomy.id of a decision reason)."
+                  "description": "extended: decision reason (an id from merchant-reason-list)."
                 },
                 "decision_reason_label": {
                   "type": "string",
@@ -8822,7 +8818,7 @@
                 "additionalProperties": false
               }
             ],
-            "description": "Either a preset, or from and to dates (YYYY-MM-DD, both inclusive, UTC). Default: last_30_days.",
+            "description": "Either a preset, or from and to dates (YYYY-MM-DD, both inclusive, UTC). Default: last_30_days. Each dataset is filtered on its own date, named in its description (report-catalog); a snapshot dataset ignores the period.",
             "example": {
               "preset": "last_30_days"
             }
@@ -9092,7 +9088,7 @@
           "blocks"
         ],
         "additionalProperties": false,
-        "description": "The report to check and run. Required unless report_id is sent.",
+        "description": "A custom report: report-wide filters and up to 12 blocks. Read report-catalog first for the dataset, field and measure ids (every block needs an id and a type; measures are measure ids as strings, at least one). Format, rules and examples: https://developer.jobmojito.com/api-reference/reports/create-a-custom-report.md",
         "example": {
           "schema": "jobmojito.report/v1",
           "title": "Weekly hiring pulse",
@@ -9282,14 +9278,7 @@
             "description": "Optional merchant to act on. Admins and sub-merchant operators only; other callers always use their token's merchant."
           },
           "definition": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReportDefinition"
-              },
-              {
-                "description": "A custom report: report-wide filters and up to 12 blocks. Read report-catalog first for the dataset, field and measure ids (every block needs an id and a type; measures are measure ids as strings, at least one). Format, rules and examples: https://developer.jobmojito.com/api-reference/reports/create-a-custom-report.md"
-              }
-            ]
+            "$ref": "#/components/schemas/ReportDefinition"
           },
           "report_id": {
             "type": "string",
@@ -9615,7 +9604,7 @@
           },
           "decision_reason_id": {
             "type": "string",
-            "description": "Decision reason id (merchant_taxonomy.id)."
+            "description": "Decision reason id (from merchant-reason-list)."
           },
           "skipped_at": {
             "type": "string",
@@ -9671,7 +9660,7 @@
           },
           "decision_reason_id": {
             "type": "string",
-            "description": "Decision reason id (merchant_taxonomy.id)."
+            "description": "Decision reason id (from merchant-reason-list)."
           },
           "decision_reason_note": {
             "type": "string",
@@ -9755,7 +9744,7 @@
           },
           "decision_reason_id": {
             "type": "string",
-            "description": "Decision reason id (merchant_taxonomy.id)."
+            "description": "Decision reason id (from merchant-reason-list)."
           },
           "is_test": {
             "type": "boolean",
@@ -10807,7 +10796,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "description": "Decision reason id (merchant_taxonomy.id)."
+                  "description": "Decision reason id (from merchant-reason-list)."
                 },
                 "kind": {
                   "type": "string",
@@ -12405,7 +12394,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Reason id (merchant_taxonomy.id): reason_id of save_reason, of a decision and of job-interview-set-state."
+            "description": "Reason id: reason_id of merchant-reason-save, of a decision and of job-interview-set-state."
           },
           "type": {
             "type": "string",
@@ -12663,7 +12652,8 @@
           },
           "name": {
             "type": "string",
-            "description": "Document name with its extension, which decides how the file is read: .doc, .docx, .rtf, .odt, .pdf, .pages or .pptx; any other is refused with 422 (name). Falls back to the uploaded file name for multipart."
+            "minLength": 1,
+            "description": "Document name with its extension, which decides how the file is read: .doc, .docx, .rtf, .odt, .pdf, .pages or .pptx; any other is refused with 422 (name)."
           },
           "merchant_id": {
             "type": "string",
@@ -12689,6 +12679,7 @@
         },
         "required": [
           "knowledge_base_store_id",
+          "name",
           "file"
         ]
       },
@@ -12824,6 +12815,93 @@
           "knowledge_base_id",
           "interview_ids"
         ]
+      },
+      "KnowledgeBaseStore": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The store: knowledge_base_store_id of create_interview, upload_knowledge_base_document and list_knowledge_base_documents."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the store."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "true: the AI uses only these documents; false: it uses them alongside its general knowledge."
+          },
+          "document_count": {
+            "type": "integer",
+            "description": "How many documents the store holds."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "strict",
+          "document_count"
+        ]
+      },
+      "KnowledgeBaseStoreList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeBaseStore"
+            },
+            "description": "The stores, by name."
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "KnowledgeBaseStoreSaveResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/KnowledgeBaseStore"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "boolean",
+                "description": "True when a new store was created."
+              }
+            },
+            "required": [
+              "created"
+            ]
+          }
+        ]
+      },
+      "KnowledgeBaseStoreSave": {
+        "type": "object",
+        "properties": {
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional company to act on. Admins and sub-merchant operators only; other callers always use their token's company."
+          },
+          "knowledge_base_store_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The store to change (from knowledge-base-store-list). Left out: a new store is created."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of the store, 1 to 200 characters. Required for a new store; left out on a change, it stays."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "true (the default for a new store): the AI uses only these documents. false: it uses them alongside its general knowledge. Left out on a change, it stays."
+          }
+        }
       },
       "PreScreeningCreateResponse": {
         "type": "object",
@@ -17138,7 +17216,7 @@
                 "preparing",
                 "completed"
               ],
-              "description": "Filter by publication status. Omit to include all statuses.",
+              "description": "Filter by publication status (preparing: a draft still being prepared; completed: finished, read as closed). Omit to include all statuses.",
               "example": "active"
             },
             "required": false,
@@ -21423,14 +21501,28 @@
                     "description": "save: dynamic (members are the candidates matching the rules at any time) or static (a fixed list). Required when creating; cannot change."
                   },
                   "rules": {
-                    "allOf": [
-                      {
-                        "$ref": "#/components/schemas/SegmentRules"
+                    "type": "object",
+                    "properties": {
+                      "match": {
+                        "type": "string",
+                        "enum": [
+                          "all",
+                          "any"
+                        ],
+                        "description": "all: a candidate matches every rule; any: at least one."
                       },
-                      {
-                        "description": "save: the rules of a dynamic segment, checked by the database (the candidate search of merchant-candidate-list takes the same rules: try them there first). When creating a static segment without candidate_ids, the candidates matching these rules now become its members (at most 5000)."
+                      "rules": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "nullable": true
+                          }
+                        },
+                        "description": "Up to 20 rules, each { field, op, values | value | days | from | to }, as merchant-candidate-list (rules) accepts them; for example { \"field\": \"tag\", \"op\": \"any\", \"values\": [\"<tag id>\"] }."
                       }
-                    ]
+                    },
+                    "description": "save: the rules of a dynamic segment (an object, or the same JSON as a string), checked by the database (the candidate search of merchant-candidate-list takes the same rules: try them there first). When creating a static segment without candidate_ids, the candidates matching these rules now become its members (at most 5000)."
                   },
                   "candidate_ids": {
                     "type": "array",
@@ -22822,6 +22914,173 @@
           }
         },
         "operationId": "set_knowledge_base_document_interviews"
+      }
+    },
+    "/knowledge-base-store-list": {
+      "get": {
+        "tags": [
+          "Knowledge base"
+        ],
+        "summary": "List knowledge base stores",
+        "description": "The company's knowledge base stores, with how many documents each holds: the knowledge_base_store_id an interview draws on and a document is uploaded to. Owners, recruiters and admins; a hiring manager gets an empty list. Read only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stores.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeBaseStoreList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not company staff, or another company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error; the message (and name, when given) says which field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_knowledge_base_stores"
+      }
+    },
+    "/knowledge-base-store-save": {
+      "post": {
+        "tags": [
+          "Knowledge base"
+        ],
+        "summary": "Create or change a knowledge base store",
+        "description": "Creates a knowledge base store, or renames one or changes whether the AI uses only its documents (strict). Documents are added with knowledge-base-document-upload. Changing strict changes how every interview on the store answers. Owners, recruiters and admins; nothing is sent to candidates.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeBaseStoreSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The store after the call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeBaseStoreSaveResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A hiring manager (read only), not company staff, or another company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No store with this id in this company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A new store without a name, a name of more than 200 characters, or nothing to change (name says which field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "save_knowledge_base_store"
       }
     },
     "/pre-screening-create": {
