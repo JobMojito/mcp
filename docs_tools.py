@@ -268,17 +268,15 @@ def register(mcp) -> None:
         """Search ALL JobMojito documentation. This is the single entry point.
 
         One call searches both documentation sources in parallel and returns a
-        merged, source-labeled list — you do not need to choose a source or call
-        a separate tool:
+        merged, source-labeled list:
           • "developer" — developer.jobmojito.com: API reference, request/response
             schemas, tables, webhooks, code examples, integration guides.
           • "help" — help.jobmojito.com: recruiter, candidate, and administrator
             product guides (how the platform behaves for end users).
 
-        Use this whenever you need to understand how a feature, endpoint, field,
-        or workflow works — including before calling an action tool you're unsure
-        about. Then call `get_documentation(url)` with a returned URL to read the
-        full page.
+        For how a feature, endpoint, field or workflow works, including what an
+        action tool will do. `get_documentation(url)` reads a returned page in
+        full.
 
         Args:
             query: Natural-language search query or keywords.

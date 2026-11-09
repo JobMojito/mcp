@@ -227,7 +227,8 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
     """Anthropic's compliance step attests no tool description instructs the model.
 
     The merchant tools read "ALWAYS call this", "Do NOT use this", "STOP and wait"
-    until 2.6.1. Saying when a tool applies is fine; ordering the model is not.
+    until 2.6.1, and eleven hints "Call this first", "tell the user", "ask the user"
+    until 2.6.3. Saying when a tool applies is fine; ordering the model is not.
     """
     import asyncio
 
@@ -235,7 +236,9 @@ def test_tool_descriptions_state_facts_rather_than_command_the_model():
 
     pattern = re.compile(
         r"\bALWAYS\b|\bDo NOT\b|\bSTOP\b|\bMUST call\b|\bcall .{0,30} FIRST\b"
-        r"|\bdo not call it\b",
+        r"|\bdo not call it\b"
+        r"|(?i:\btell the user\b|\bask the user\b|\bcall (?:this|it) (?:first|before)\b"
+        r"|\bread it before\b|\bnever give\b|\byou do not need to\b|\bbefore calling\b)",
     )
     tools = asyncio.run(server.mcp.list_tools())
     offenders = {

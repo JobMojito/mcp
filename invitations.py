@@ -221,9 +221,9 @@ def register(mcp) -> None:
         budget.
 
         A draft interview is not refused, but candidates can use their links only once
-        it is active: ask the user before activating it with set_interview_state.
+        it is active, and activating it (set_interview_state) is the user's decision.
         is_test=true (with send_email=false) gives test links that also work on a draft,
-        for trying the interview yourself; never give them to candidates, whose results
+        for trying the interview yourself; they are not for candidates, whose results
         would be marked as tests.
         """
         if send_email:

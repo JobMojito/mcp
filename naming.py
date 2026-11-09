@@ -923,8 +923,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Publish a brand stylesheet",
         "Build one brand's stylesheet from its style settings and CSS files and put it live "
         "at once. Leave out brand_id for the main brand. Write the drafts first with "
-        "update_portal_configuration. Only when the user asked to publish. Returns warnings: "
-        "tell the user about them, especially rules outside .jm-site.",
+        "update_portal_configuration. Only when the user asked to publish. Returns warnings "
+        "for the user, notably rules outside .jm-site.",
         "readOnlyHint=false / destructiveHint=true: changes the live look of the company's "
         "portal for every visitor. An earlier build stays in storage, but this tool cannot "
         "return to it. idempotentHint=false: each call records a new build. " + _OPEN_WORLD,
@@ -950,9 +950,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "The page editor then offers it on every block of that type. Start every selector "
         "from the guide's root plus the style class. To apply it set styleName on blocks with "
         "update_portal_configuration; it goes live only with publish_portal_stylesheet "
-        "(files: [file_id]), when the user asks. remove: true deletes a style's file: first "
-        "tell the user which pages use it (the guide lists them); their blocks go back to the "
-        "standard look once the stylesheet is published.",
+        "(files: [file_id]), when the user asks. remove: true deletes a style's file; the guide "
+        "lists which pages use it, and their blocks go back to the standard look once the "
+        "stylesheet is published.",
         "readOnlyHint=false / destructiveHint=true: replaces or deletes a style's draft file, "
         "which the editor offers at once. Nothing goes live until the stylesheet is published. "
         "idempotentHint=true: the same call again leaves the file as it is. " + _OPEN_WORLD,
@@ -1041,8 +1041,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "drafts move at once (drafts_updated). With action delete and only media_id: delete "
         "the file for good, once the user has confirmed it. Refused while a page, brand, CSS "
         "file, style setting, company logo or branding, interview, position, blog post, avatar "
-        "or coaching catalogue uses it: the error lists what does, so tell the user rather "
-        "than removing those uses yourself.",
+        "or coaching catalogue uses it: the error lists what does, and changing those uses "
+        "is the user's call.",
         "readOnlyHint=false / destructiveHint=true: overwrites the file's description in "
         "place, a folder change gives the file a new address and rewrites page drafts, and "
         "delete removes the file and its resized copies for good. idempotentHint=false: a "
@@ -1055,7 +1055,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Delete a file from the media library for good, once the user has confirmed it. "
         "Refused while a page, brand, CSS file, style setting, company logo or branding, "
         "interview, position, blog post, avatar or coaching catalogue uses it: the error lists "
-        "what does, so tell the user rather than removing those uses yourself.",
+        "what does, and changing those uses is the user's call.",
         "readOnlyHint=false / destructiveHint=true: removes the file and its resized copies "
         "and cannot be undone. idempotentHint=false: a second call answers that the file "
         "does not exist. " + _OPEN_WORLD,
@@ -1068,11 +1068,11 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List what a custom report can use on this account: datasets (interview "
         "results, invitations, position pipeline, ATS pipeline, credits, coaching "
         "sessions - only those the account and your role include), their dimensions "
-        "(group by / conditions, with allowed values) and measures. Call this first: "
-        "a report definition may only use ids listed here. Custom reports are "
+        "(group by / conditions, with allowed values) and measures. A report definition "
+        "may only use ids listed here. Custom reports are "
         "switched on per account by JobMojito; while they are off, every report "
         "tool is refused with 403 'Custom reports are not enabled for this account.' "
-        "Tell the user to contact JobMojito rather than retrying.",
+        "Retrying does not change that; JobMojito switches them on.",
         _READ_WHY,
     ),
     ("GET", "/report-list"): _read(
@@ -1089,8 +1089,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "get_report",
         "Get custom report",
         "Get a custom report's JSON definition, visibility, your access and its "
-        "version. Read it before save_report with report_id: the definition is replaced whole "
-        "and the version must match.",
+        "version. save_report with report_id replaces the definition whole and needs this "
+        "version.",
         _READ_WHY,
     ),
     # Kept for the record only: GET /report-run is hidden (IGNORED_PATHS); run_report
@@ -1128,7 +1128,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "save_report",
         "Save a custom report",
         "Without report_id: save a new custom report from a definition (schema "
-        "jobmojito.report/v1); it is created as Only me, tell the user they can share it "
+        "jobmojito.report/v1); it is created as Only me and is shared "
         "from the returned admin_url. With report_id and the version from get_report: "
         "replace that report's whole definition; on a report shared with other people the "
         "change is saved as a draft that the owner publishes in the admin, a private report "
@@ -1201,9 +1201,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "bookings and e-mails them and the interviewers. Use dry_run=true first: "
         "it lists the booked candidates who would be e-mailed. List slots with "
         "get_interview_definition include=slots. Creating a slot e-mails nobody. start_at "
-        "is ISO 8601 with a UTC offset "
-        "(2026-11-20T14:00:00+01:00) and not in the past: ask the user's time zone when "
-        "it is not clear.",
+        "is ISO 8601 with the UTC offset of the user's time zone "
+        "(2026-11-20T14:00:00+01:00) and not in the past.",
         "readOnlyHint=false / destructiveHint=true: changes or removes bookable time and can "
         "cancel candidates' bookings, e-mailing them; a cancellation cannot be undone. "
         + _OPEN_WORLD,
@@ -1277,8 +1276,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Every rule field and operator list_candidates accepts in `rules`, and every value "
         "with its id: tags with counts, automatic tags, positions with their steps, "
         "interviews, countries, sources, statuses, history, and where switched on decision "
-        "reasons, job categories, skills, seniority and custom fields. Call it before "
-        "building rules or tagging, so no id is guessed.",
+        "reasons, job categories, skills, seniority and custom fields. Rules and tags "
+        "use these ids.",
         _READ_WHY,
     ),
     ("GET", "/merchant-candidate-merge-preview"): _read(
@@ -1343,7 +1342,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "position_id). With task_id: change the fields you send, or the status (done, "
         "cancelled; a cancelled task stays cancelled). Assigning a task to someone else "
         "e-mails them (assignee_notified); assignee_profile_id comes from list_users. due_at "
-        "is a date and time with offset: ask the user's time zone. Hiring managers are read only.",
+        "is a date and time with the offset of the user's time zone. Hiring managers are read only.",
         "readOnlyHint=false / destructiveHint=true: stores a task and can e-mail its "
         "assignee. " + _OPEN_WORLD,
     ),
