@@ -4464,7 +4464,7 @@
               "persuasive",
               "exact"
             ],
-            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to default to relaxed. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script.",
+            "description": "Tone — configures the AI avatar's speaking style and the follow-up questions it generates. Stored in creation_parameters; existing questions are NOT regenerated. Case-insensitive; omit to keep the current tone. Options — `relaxed`: Friendly and conversational tone that helps candidates feel at ease. | `simple`: Plain language at CEFR A2 level — short sentences and simple words. | `professional`: Formal and business-like approach suitable for senior roles. | `persuasive`: Engaging style that encourages candidates to elaborate. | `exact`: Asks the questions exactly as provided, without rephrasing — for interviews built from your own questions where the wording is a script.",
             "example": "professional"
           },
           "seniority_level": {
@@ -4478,7 +4478,7 @@
               "director",
               "executive"
             ],
-            "description": "Target seniority level for the role; auto-detected from the job description when omitted. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role.",
+            "description": "Target seniority level for the role; omit to keep the current one. Options — `entry-level`: Early-career or graduate roles. | `intermediate`: Some experience required. | `senior`: Experienced professional. | `managerial`: Team or department lead. | `director`: Director-level responsibility. | `executive`: C-suite or executive role.",
             "example": "senior"
           },
           "hiring_for_company": {
@@ -4609,9 +4609,73 @@
               "embed_id",
               "embed_signing_key"
             ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "dry_run": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": "Nothing was changed."
+              },
+              "status_from": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "archived",
+                  "deleted",
+                  "preparing",
+                  "completed"
+                ],
+                "description": "The publication status now."
+              },
+              "status_to": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "archived",
+                  "deleted",
+                  "preparing",
+                  "completed"
+                ],
+                "description": "The publication status the call would set."
+              },
+              "close_notice": {
+                "type": "object",
+                "properties": {
+                  "sent": {
+                    "type": "boolean",
+                    "description": "True when the position-closed e-mail would go out: a multi-stage position archived from active or completed, with the notice switched on."
+                  },
+                  "candidates": {
+                    "type": "integer",
+                    "description": "How many candidates with an open application would get it (0 when it is not sent)."
+                  },
+                  "schedule_mode": {
+                    "type": "string",
+                    "description": "When it goes out: immediate, or the company's e-mail schedule (only for a position that would close)."
+                  }
+                },
+                "required": [
+                  "sent",
+                  "candidates"
+                ],
+                "description": "The position-closed e-mail the change would send."
+              }
+            },
+            "required": [
+              "dry_run",
+              "status_from",
+              "status_to",
+              "close_notice"
+            ]
           }
         ],
-        "description": "Returns `{ embed_id, embed_signing_key }` when an embed key was created/returned (is_embedded=true), otherwise `{ success: true }`; either carries `lifecycle` when lifecycle was sent."
+        "description": "Returns `{ embed_id, embed_signing_key }` when an embed key was created/returned (is_embedded=true), otherwise `{ success: true }`; either carries `lifecycle` when lifecycle was sent. With dry_run: `{ dry_run, status_from, status_to, close_notice }` and nothing is changed."
       },
       "JobInterviewSetStateRequest": {
         "type": "object",
@@ -4660,6 +4724,10 @@
             "type": "string",
             "maxLength": 1000,
             "description": "With lifecycle: a note kept in the position's status history (at most 1000 characters)."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: change nothing; answer the publication status before and after, and whether the position-closed e-mail would go out and to how many candidates with an open application. It does not check whether the move is allowed (the real call can still refuse it), and leaves the embed key alone."
           },
           "is_embedded": {
             "type": "boolean",
@@ -7493,7 +7561,7 @@
           "modern",
           "one_pager"
         ],
-        "description": "Report layout for a saved auto-export configuration (an interview's pdf_export_auto_config). In a report request use the top-level `template`, which wins when both are given.",
+        "description": "Report layout. `classic` is the original card-based report; `modern` is the full report on a white page with hairline rules, matching the recruiter result page; `one_pager` is a single summary page with a status rail (no transcript or analytics; uploaded documents still follow as extra pages). Omit to use the merchant's default from Branding & Configuration (modern when none is set).",
         "example": "modern"
       },
       "InterviewPdfExportFeatures": {
@@ -7597,7 +7665,7 @@
             "$ref": "#/components/schemas/ReportTemplate"
           }
         },
-        "description": "Which sections the report includes (contact details, AI assessment, transcript, scores...). Left out: contact details, AI assessment, analytics, transcript and files are included; recordings, the rubric and the candidate packet are not."
+        "description": "Which sections the report includes (contact details, AI assessment, transcript, scores...); its template is for a saved auto-export configuration (the top-level template wins). Left out: contact details, AI assessment, analytics, transcript and files are included; recordings, the rubric and the candidate packet are not."
       },
       "JobInterviewPdfRequest": {
         "type": "object",
@@ -11205,7 +11273,7 @@
           "match",
           "rules"
         ],
-        "description": "With segment_id only: the rules of a dynamic segment (static segments have none)."
+        "description": "The rules of a dynamic segment: { match, rules } as merchant-candidate-list takes them (static segments have none). A list answers them only with segment_id."
       },
       "SegmentAnalytics": {
         "type": "object",
@@ -13853,6 +13921,78 @@
         "required": [
           "data",
           "pagination"
+        ]
+      },
+      "CompanyUser": {
+        "type": "object",
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The user (profile.id): assignee_profile_id, mention_profile_ids, interviewer_profile_id, recruiter_profile_id, a team member."
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name, when set."
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "E-mail address."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "recruiter",
+              "reader",
+              "admin"
+            ],
+            "description": "owner, recruiter, reader (a hiring manager: read only) or admin (JobMojito)."
+          },
+          "status": {
+            "type": "string",
+            "description": "active, or with include_inactive also invited / disabled."
+          },
+          "is_own_staff": {
+            "type": "boolean",
+            "description": "False for a user of another company with access here (a parent company or a granted user)."
+          },
+          "is_api_account": {
+            "type": "boolean",
+            "description": "True for an API account rather than a person."
+          },
+          "home_company_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "For a user who is not own staff: the company they belong to."
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "email",
+          "role",
+          "status",
+          "is_own_staff",
+          "is_api_account",
+          "home_company_name"
+        ]
+      },
+      "CompanyUserList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyUser"
+            },
+            "description": "The users, by name (at most 2000)."
+          }
+        },
+        "required": [
+          "data"
         ]
       },
       "MerchantAvatarListResponse": {
@@ -20830,7 +20970,7 @@
                   "preview_token": {
                     "type": "string",
                     "maxLength": 200,
-                    "description": "Required: the preview_token of merchant-candidate-merge-preview for the same pair. Missing, or no longer matching the records, answers 409: preview the merge again."
+                    "description": "Send the preview_token of merchant-candidate-merge-preview for the same pair. Without it, or when the records changed since, the merge is refused with 409: preview it again."
                   },
                   "field_choices": {
                     "type": "object",
@@ -23158,6 +23298,126 @@
           }
         },
         "operationId": "list_sub_merchants"
+      }
+    },
+    "/merchant-user-list": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List the company's users",
+        "description": "The company's users (owners, recruiters, hiring managers and JobMojito admins with access), with the profile id other endpoints take for an assignee, a mention, an interviewer, a recruiter or a hiring team member. Every staff role may read. Read only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Optional merchant to scope to. Admins and sub-merchant operators only; other callers always use their token's merchant.",
+              "example": "28106cba-1c27-4e53-b149-32113e5e8e31"
+            },
+            "required": false,
+            "name": "merchant_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Only users whose name or e-mail contains this text."
+            },
+            "required": false,
+            "name": "filter_text",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "recruiter",
+                "reader",
+                "admin"
+              ],
+              "description": "Only users with this role."
+            },
+            "required": false,
+            "name": "role",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false",
+              "description": "true: also invited and disabled users (deleted ones never).",
+              "example": "false"
+            },
+            "required": false,
+            "name": "include_inactive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The users.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyUserList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or invalid access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not company staff, or another company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error; the message (and name, when given) says which field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "list_users"
       }
     },
     "/merchant-avatar-list": {

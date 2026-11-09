@@ -300,7 +300,7 @@ def test_table_name_ids_become_where_to_get_them():
     loader.apply_tool_names(spec)
     assert spec["paths"]["/x"]["post"]["description"] == (
         "Candidate id (the `id` of a list_candidates row); its tag (a tag `id` from list_candidate_filters); "
-        "a user (profile.id); the company (a company `id` from list_my_merchants); a task (a task `id` from list_tasks)."
+        "a user (`profile_id` (list_users)); the company (a company `id` from list_my_merchants); a task (a task `id` from list_tasks)."
     )
 
 
@@ -326,3 +326,15 @@ def test_string_flags_in_the_query_become_booleans():
     params = spec["paths"]["/x"]["get"]["parameters"]
     assert params[0]["schema"] == {"type": "boolean", "default": False, "example": True, "description": "d"}
     assert params[1]["schema"]["enum"] == ["a", "b"] and params[2]["schema"]["type"] == "string"
+
+
+def test_a_table_id_next_to_its_source_is_not_given_a_second_one():
+    texts = {
+        "The step (position_def_step.id, from get_interview_definition with include=process).": "The step (a step `id`, from get_interview_definition with include=process).",
+        "The step of the application (position_result_step id).": "The step of the application (an application step `id` from get_candidate (or a multi-stage list_interview_results row)).",
+        "Not a profile.id; a profile id stays.": "Not a `profile_id` (list_users); a profile id stays.",
+    }
+    for before, after in texts.items():
+        spec = {"paths": {"/x": {"post": {"description": before}}}}
+        loader.apply_tool_names(spec)
+        assert spec["paths"]["/x"]["post"]["description"] == after

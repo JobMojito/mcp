@@ -175,7 +175,7 @@ def register(mcp) -> None:
     async def invite_candidates(
         interview_id: Annotated[
             str,
-            Field(description="The interview (interview_def_set) or position (position_def_set) id, from list_interviews."),
+            Field(description="The interview or position: its `id` from list_interviews, or the interview_def_set_id create_interview returned."),
         ],
         candidates: Annotated[
             list[CandidateToInvite],

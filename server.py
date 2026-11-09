@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.3.2"
+SERVER_VERSION = "2.4.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -133,9 +133,9 @@ an application is a candidate on a position, moving through the position's steps
 `list_candidates` with `rules` searches like the admin's segment builder (tags,
 positions, steps, status, dates, countries, skills...): call `list_candidate_filters`
 first for the fields and ids. Changes that reach candidates or cannot be undone
-(`merge_candidates`, slot changes, document requests, step settings) take
-`dry_run` or a preview first: show the user what would happen, then run it. A
-change with neither (`set_interview_state`, `invite_candidates`, `update_interview`,
+(`merge_candidates`, slot changes, document requests, step settings,
+`set_interview_state`) take `dry_run` or a preview first: show the user what would
+happen, then run it. A change with neither (`invite_candidates`, `update_interview`,
 `request_another_interview_attempt`) needs the user's go-ahead first.
 Some tools and fields belong to company features that JobMojito switches on per
 company (prospects, meeting_panels...): a 403 naming one means it is off for this
@@ -228,7 +228,8 @@ TOOLS BY TASK (a description's [label] is the API section it comes from, which c
 • Knowledge base: upload_knowledge_base_document, list_knowledge_base_documents, set_knowledge_base_document_interviews
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_status,
-  list_languages
+  list_languages, list_users (the company's users: the profile_id of an assignee,
+  a mention, an interviewer, a recruiter)
 • Feedback to JobMojito: submit_feature_request, report_technical_issue (only when
   the user asks)
 • Portal configuration: get_portal_configuration, update_portal_configuration

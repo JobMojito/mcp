@@ -315,12 +315,21 @@ def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
     pattern = re.compile(
         r"(?<![\w/.-])(" + "|".join(re.escape(s) for s in sorted(names, key=len, reverse=True)) + r")(?![\w-])"
     )
+    ordered = sorted(TABLE_IDS, key=len, reverse=True)
     tables = re.compile(
-        r"(?<![\w.])(" + "|".join(re.escape(s) for s in sorted(TABLE_IDS, key=len, reverse=True)) + r")\.id\b"
+        # "position_def_step.id", or "position_result_step id" for a table name with an underscore
+        r"(?<![\w.])(?:(" + "|".join(re.escape(s) for s in ordered) + r")\.id"
+        r"|(" + "|".join(re.escape(s) for s in ordered if "_" in s) + r") id)\b"
+        r"(?=(,? from |[^.;)]* from )?)"
     )
 
+    def table_id(m: re.Match) -> str:
+        what, source = TABLE_IDS[m.group(1) or m.group(2)]
+        # the text names the source itself: "(position_def_step.id, from get_interview_definition ...)"
+        return what if (m.group(3) is not None or not source) else f"{what} {source}"
+
     def rewrite(text: str) -> str:
-        return tables.sub(lambda m: TABLE_IDS[m.group(1)], pattern.sub(lambda m: names[m.group(1)], text))
+        return tables.sub(table_id, pattern.sub(lambda m: names[m.group(1)], text))
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):

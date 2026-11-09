@@ -23,7 +23,7 @@ os.environ.setdefault("DEVELOPER_DOCS_MCP_URL", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_ID", "")
 os.environ.setdefault("DEVELOPER_DOCS_MCP_CLIENT_SECRET", "")
 
-# Every tool generated from the API (64): curated in naming.TOOL_META, not ignored.
+# Every tool generated from the API (65): curated in naming.TOOL_META, not ignored.
 EXPECTED_API_TOOLS = {
     # interviews and positions
     "create_interview", "create_persona", "get_interview_definition", "update_interview",
@@ -32,6 +32,7 @@ EXPECTED_API_TOOLS = {
     "manage_meeting_slot", "duplicate_position",
     # the company's decision and position status reasons
     "list_reasons", "get_reason", "save_reason",
+    "list_users",
     # results and reports
     "list_interview_results", "get_interview_result_details", "generate_interview_report",
     "set_assessment_result", "list_report_fields", "list_reports", "get_report", "run_report",
@@ -96,7 +97,7 @@ async def test_all_tools_present():
     names = await _tool_names(server.mcp)
     missing = (EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS) - names
     assert not missing, f"missing tools: {missing}"
-    assert len(EXPECTED_API_TOOLS) == 64
+    assert len(EXPECTED_API_TOOLS) == 65
     # the whole list, so a tool that appears without being curated fails here too
     assert names == EXPECTED_API_TOOLS | EXPECTED_DOC_TOOLS | EXPECTED_SERVER_TOOLS
     # Ignored endpoints must not be exposed.

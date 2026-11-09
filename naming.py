@@ -441,7 +441,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "company has the position-closed notice on. on_hold and cancelled need a reason_id: one of the "
         "company's position status reasons from list_reasons type=position_status, "
         "whose applies_to has the lifecycle. "
-        "It has no preview: confirm the change with the user first. Prefer `archived` "
+        "dry_run=true answers the status change and whether the position-closed e-mail "
+        "would go out, to how many candidates: run it first and confirm with the user. "
+        "Prefer `archived` "
         "to `deleted`: a deleted interview can no longer be read or updated. This is the "
         "tool for status changes.",
         "readOnlyHint=false / destructiveHint=true: this mutates a live interview. "
@@ -527,7 +529,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "rapport question is added first unless include_rapport_question=false (3 sent "
         "are 4 asked), and the candidate expectations are generated from them. `type` is "
         "the product (interview, assessment, coaching); `interview_type` is the style of "
-        "an interview (pre-screening, second-interview...): a position's pre-screening "
+        "an interview (pre-screening, second-interview...); for invite-only hiring use "
+        "visibility=merchant_invite. A position's pre-screening "
         "STEP (resume and form) is something else, set with set_position_process. The "
         "`interview_template_id` you pass "
         "also sets the modality (voice-only vs realtime/pre-recorded avatar): see "
@@ -745,7 +748,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "owner, prospect or applicant. To search like the admin's segment builder (tags, "
         "positions, steps, status, dates, countries, skills, custom fields...) pass `rules` "
         "as a JSON STRING '{\"match\": \"all\", \"rules\": [...]}', field ids and values "
-        "from list_candidate_filters; or `segment_id` for a segment's members.",
+        "from list_candidate_filters, e.g. '{\"match\":\"all\",\"rules\":[{\"field\":"
+        "\"tag\",\"op\":\"any\",\"values\":[\"<tag id>\"]},{\"field\":\"applied\","
+        "\"op\":\"within_days\",\"value\":30}]}' (list operators take `values`, the "
+        "others `value`); or `segment_id` for a segment's members.",
         _READ_WHY,
     ),
     ("GET", "/merchant-result-list"): _read(
@@ -755,7 +761,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "scores and recruiter risk flags, so this returns 20 at a time; page "
         "with `offset` while `pagination.has_more` is true, or narrow with "
         "`tab`/`interview_id`/`filter_text`/`owner`/`position_def_step_id`. "
-        "extended=true adds the owner, time on the step, outcome and decision reason.",
+        "extended=true adds the owner, time on the step, outcome and decision reason. "
+        "tab=shortlist is the shortlisted state of an application, not a candidate tag "
+        "named Shortlist (find tagged candidates with list_candidates rules).",
         _READ_WHY,
         # Measured in production (PostHog $mcp_tool_call, Aug-Sep 2026): three
         # default 50-row calls came back at 124,120 / 149,276 / 263,118 chars on
@@ -790,6 +798,14 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         # a page that comfortably fits beats one that only fits after the guard
         # drops the duplicate copy. See PAGE_SIZE_WHY.
         param_defaults=(("limit", 15),),
+    ),
+    ("GET", "/merchant-user-list"): _read(
+        "list_users",
+        "List the company's users",
+        "The company's users (owners, recruiters, hiring managers, admins) with the "
+        "profile_id other tools take: a task assignee, a mention, an interviewer, a "
+        "recruiter, a hiring team member. filter_text searches name and e-mail.",
+        _READ_WHY,
     ),
     ("GET", "/merchant-sub-merchant-list"): _read(
         "list_sub_merchants",
@@ -1299,7 +1315,9 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "Ask a candidate for up to 10 documents (certificate, ID, reference...) with a "
         "message and due date. With notify (the default) the candidate is e-mailed. Use "
         "dry_run=true first: it shows whether the e-mail would go out (will_send, "
-        "not_requested, no_valid_email, suppressed) and stores nothing.",
+        "not_requested, no_valid_email, suppressed) and stores nothing. Leave "
+        "documents[].source_field_id out for a plain upload: it only replaces one of the "
+        "position's own file questions (form_national_id...).",
         "readOnlyHint=false / destructiveHint=true: e-mails the candidate, which cannot be "
         "undone. idempotentHint=false. " + _OPEN_WORLD,
     ),
@@ -1430,19 +1448,25 @@ MERGED_ENDPOINTS: dict[str, str] = {
 #: Table-name ids in the spec's prose ("Candidate id (profile_interview.id)") as where a
 #: model gets that id. Rewritten by ``openapi_loader.apply_tool_names``; ids of other
 #: tables (a user's profile.id, a taxonomy row) keep their table name.
-TABLE_IDS: dict[str, str] = {
-    "profile_interview": "the `id` of a list_candidates row",
-    "position_def_set": "a position `id` from list_interviews",
-    "interview_def_set": "an interview `id` from list_interviews",
-    "position_def_step": "a step `id` from get_interview_definition include=process",
-    "position_result": "an application `id` from get_candidate",
-    "interview_result": "a result id from list_interview_results",
-    "profile_interview_tag": "a tag `id` from list_candidate_filters",
-    "profile_interview_segment": "a segment `id` from list_segments",
-    "profile_interview_document_request": "a request `id` from list_document_requests",
-    "merchant_task": "a task `id` from list_tasks",
-    "position_meeting_slot": "a slot `id` from get_interview_definition include=slots",
-    "merchant": "a company `id` from list_my_merchants",
+TABLE_IDS: dict[str, tuple[str, str]] = {
+    # table: (what it is, where a model gets it); the source is left out where the text
+    # already names one (", from ...")
+    "profile_interview": ("the `id` of a list_candidates row", ""),
+    "position_def_set": ("a position `id`", "from list_interviews"),
+    "interview_def_set": ("an interview `id`", "from list_interviews"),
+    "position_def_step": ("a step `id`", "from get_interview_definition include=process"),
+    "position_result": ("an application `id`", "from get_candidate"),
+    "position_result_step": ("an application step `id`", "from get_candidate (or a multi-stage list_interview_results row)"),
+    "interview_result": ("a result id", "from list_interview_results"),
+    "profile_interview_tag": ("a tag `id`", "from list_candidate_filters"),
+    "profile_interview_segment": ("a segment `id`", "from list_segments"),
+    "profile_interview_document_request": ("a request `id`", "from list_document_requests"),
+    "profile_interview_duplicate": ("a duplicate pair `id`", "from get_candidate include=duplicates"),
+    "merchant_task": ("a task `id`", "from list_tasks"),
+    "position_meeting_slot": ("a slot `id`", "from get_interview_definition include=slots"),
+    "merchant": ("a company `id`", "from list_my_merchants"),
+    # no article: the spec writes "not a profile.id", "(profile.id of a user of the company)"
+    "profile": ("`profile_id` (list_users)", ""),
 }
 
 

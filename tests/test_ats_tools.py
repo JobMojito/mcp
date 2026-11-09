@@ -73,6 +73,8 @@ OTHER_RECORD_FIELDS = {
     "save_catalogue_directory": {"tags"},  # a coaching session's own tags
     "list_avatars": {"interview_template_id"},  # what create_interview / create_persona take
     "list_languages": {"mojito_language_code"},  # what the create tools take
+    "list_candidates": {"values", "within_days"},  # keys and operators inside a `rules` example
+    "request_candidate_documents": {"form_national_id"},  # a value of documents[].source_field_id
 }
 
 
