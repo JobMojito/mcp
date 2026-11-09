@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.5.4"
+SERVER_VERSION = "2.6.0"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -233,7 +233,8 @@ TOOLS BY TASK (a description's [label] is the API section it comes from, which c
 • Merchant lists (read-only): list_interviews, list_candidates,
   list_interview_results, list_avatars, list_sub_merchants, get_merchant_status,
   list_languages, list_users (the company's users: the profile_id of an assignee,
-  a mention, an interviewer, a recruiter)
+  a mention, an interviewer, a recruiter; with position_id, who holds which role on
+  that position)
 • Feedback to JobMojito: submit_feature_request, report_technical_issue (only when
   the user asks)
 • Portal configuration: get_portal_configuration, update_portal_configuration

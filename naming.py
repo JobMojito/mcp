@@ -831,8 +831,10 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List the company's users",
         "The company's users (owners, recruiters, hiring managers, admins) with the "
         "profile_id other tools take: a task assignee, a mention, an interviewer, a "
-        "recruiter, a hiring team member. filter_text searches name and e-mail; role reader "
-        "is a hiring manager (read only).",
+        "recruiter, a hiring team member. filter_text searches name and e-mail. role is the "
+        "company-wide access level (reader = a hiring manager, read only); for who does what "
+        "on one position pass position_id: only the people on it, each with position_roles "
+        "(owning_recruiter, and the hiring team roles recruiter, hiring_manager, interviewer...).",
         _READ_WHY,
     ),
     ("GET", "/merchant-sub-merchant-list"): _read(

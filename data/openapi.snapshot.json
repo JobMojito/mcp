@@ -14081,6 +14081,22 @@
             "type": "string",
             "nullable": true,
             "description": "For a user who is not own staff: the company they belong to."
+          },
+          "position_roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "owning_recruiter",
+                "recruiter",
+                "sourcer",
+                "coordinator",
+                "hiring_manager",
+                "interviewer",
+                "viewer"
+              ]
+            },
+            "description": "With position_id: the user's roles on that position. owning_recruiter is the position's own recruiter; the others are hiring team roles, held directly or through a group."
           }
         },
         "required": [
@@ -23602,7 +23618,7 @@
           "Admin"
         ],
         "summary": "List the company's users",
-        "description": "The company's users (owners, recruiters, hiring managers and JobMojito admins with access), with the profile id other endpoints take for an assignee, a mention, an interviewer, a recruiter or a hiring team member. Every staff role may read. Read only.",
+        "description": "The company's users (owners, recruiters, hiring managers and JobMojito admins with access), with the profile id other endpoints take for an assignee, a mention, an interviewer, a recruiter or a hiring team member. role is the company-wide access level; with position_id the list is the people on that position, each with position_roles (its own recruiter and the hiring team). Every staff role may read. Read only.",
         "security": [
           {
             "bearerAuth": []
@@ -23659,6 +23675,16 @@
             "required": false,
             "name": "include_inactive",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Only the users with a role on this multi-stage position (from merchant-interview-list), each with position_roles. A team role held through a group counts when you may see the group's members."
+            },
+            "required": false,
+            "name": "position_id",
+            "in": "query"
           }
         ],
         "responses": {
@@ -23684,6 +23710,16 @@
           },
           "403": {
             "description": "Not company staff, or another company.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "position_id: no such position in this company, or not visible to you.",
             "content": {
               "application/json": {
                 "schema": {
