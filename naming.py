@@ -987,8 +987,7 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "List media library files",
         "List the company's media library: images, MP4 video, audio and WOFF2 fonts, "
         "newest first. A file's `url` is what page blocks, brand logos and font "
-        "settings take. Images, video, audio and fonts the company stored before are "
-        "added to the library on the first list. Filter by `folder` (\"\" is the top). "
+        "settings take. Filter by `folder` (\"\" is the top). "
         "include_folders=true adds every folder (empty ones included) with how many "
         "files each holds; a folder name is the `folder` value here, in "
         "start_media_upload and in manage_media_file. A sub-company also sees its "
@@ -1378,12 +1377,13 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/merchant-document-request-create"): _write(
         "request_candidate_documents",
         "Ask a candidate for documents",
-        "Ask a candidate for up to 10 documents (certificate, ID, reference...) with "
+        "Ask a candidate for up to 10 documents (certificate, reference letter, work sample...) with "
         "a message and due date. With notify (the default) the candidate is "
         "e-mailed. dry_run=true shows whether the e-mail would go out (will_send, "
         "not_requested, no_valid_email, suppressed) and stores nothing. "
         "documents[].source_field_id replaces one of the position's own file "
-        "questions (form_national_id...); without it the request is a plain upload.",
+        "questions, as its form names it (form_cover_letter, custom_<name>...); without "
+        "it the request is a plain upload.",
         "readOnlyHint=false / destructiveHint=true: e-mails the candidate, which cannot be "
         "undone. idempotentHint=false. " + _OPEN_WORLD,
     ),
@@ -1403,8 +1403,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "kind reject / withdraw) and position status reasons (the reason_id "
         "set_interview_state needs for on_hold and cancelled, with the lifecycles "
         "each applies_to). type narrows to one; include_archived=true adds the "
-        "archived ones. The first read of position status reasons gives the company "
-        "the six default ones.",
+        "archived ones. A company has six default position status reasons from the "
+        "moment the position lifecycle is on.",
         _READ_WHY,
     ),
     ("GET", "/merchant-reason-get"): _read(

@@ -60,7 +60,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.6.6"
+SERVER_VERSION = "2.6.7"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -176,8 +176,7 @@ HOW TO USE THIS SERVER:
    its exact format or an example, `get_tool_reference(tool)` returns that tool in
    full (part=result: the fields it returns). The others are complete as listed.
 3. The read-only tools (`list_*`, `get_*`) are the safe way to look things up
-   before creating or changing anything (list_reasons and list_media_files also set
-   up defaults on their first read).
+   before creating or changing anything: they change nothing.
 4. Merchant selection: many tools accept a `merchant_id`. When one is needed and
    none has been selected — or the user wants to switch merchants —
    `jobmojito_configuration` renders an interactive searchable picker, which is a
