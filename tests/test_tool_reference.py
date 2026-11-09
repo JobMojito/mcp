@@ -115,7 +115,10 @@ async def test_trimming_removes_prose_only_never_structure():
         advertised = _resolved(_without_analytics(listed[name].input_schema))
         assert strip_annotations(advertised) == strip_annotations(_resolved(full["input_schema"])), name
         if full["output_schema"]:
-            assert strip_annotations(_resolved(listed[name].output_schema)) == strip_annotations(
+            # tools/list keeps FastMCP's own x-fastmcp-* markers (FastMCP reads them); the
+            # reference drops them
+            advertised_out = tool_reference._without_overrides(copy.deepcopy(listed[name].output_schema))
+            assert strip_annotations(_resolved(advertised_out)) == strip_annotations(
                 _resolved(full["output_schema"])
             ), name
 
@@ -313,7 +316,7 @@ async def test_result_tools_say_which_list_row_id_is_the_result():
     for name in ("get_interview_result_details", "generate_interview_report", "request_another_interview_attempt"):
         assert "a single-stage row's `id`" in listed[name].description, name
     assert "NOT the result row's `id`" not in server.INSTRUCTIONS
-    assert "a single-stage row's" in server.INSTRUCTIONS
+    assert "on a single-stage row" in server.INSTRUCTIONS
 
 
 def test_the_specs_own_short_text_wins_and_never_leaks():
@@ -346,3 +349,12 @@ async def test_no_override_key_reaches_a_client():
 
 
 OVERRIDE_KEY = "x-mcp-description"
+
+
+@pytest.mark.asyncio
+async def test_score_max_1_is_allowed_and_references_carry_no_fastmcp_markers():
+    listed = await _listed()
+    score_max = listed["set_assessment_result"].input_schema["properties"]["score_max"]
+    assert score_max.get("exclusiveMinimum") == 0 and "minimum" not in score_max, score_max
+    for name in tool_reference.FULL:
+        assert "x-fastmcp" not in json.dumps(await _reference(name, "all")), name

@@ -453,10 +453,12 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
     ("POST", "/job-interview-result-request-another-attempt"): _write(
         "request_another_interview_attempt",
         "Re-open interview for another attempt",
-        "Re-open a submitted interview result so the candidate can retry: the result goes "
-        "back to draft and the recruiter's decision on it is cleared. Nothing is e-mailed: "
-        "tell the candidate yourself. Company owners, recruiters and platform admins only. "
-        + _RESULT_ID,
+        "Re-open a submitted interview result so the candidate can take it again: the "
+        "attempt is marked failed, the same result goes back to draft and the recruiter's "
+        "decision on it is cleared. There is no preview and nothing is e-mailed: confirm "
+        "with the user first, then tell the candidate. To allow more attempts on the whole "
+        "interview instead, raise interview_attempts with update_interview. Company "
+        "owners, recruiters and platform admins only. " + _RESULT_ID,
         "readOnlyHint=false / destructiveHint=true: re-opening a submitted result "
         "changes the candidate's recorded outcome and can invalidate a completed "
         "assessment. " + _OPEN_WORLD,
@@ -479,7 +481,8 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "results (interview_profile_id); interview-result-candidate = one result for the "
         "candidate, interview-result-talent-seeker = one result for a reviewer "
         "(interview_result_id); interview-results-for-position = every result of an "
-        "active interview or position for a reviewer (interview_id). There is no "
+        "active interview or position for a reviewer (interview_id). "
+        "interview_profile_id is the candidate's `id` from list_candidates. There is no "
         "anonymous link to an interview: to invite people use invite_candidates.",
         "readOnlyHint=false / destructiveHint=true: this mints a signed credential "
         "that grants anyone holding it access to the interview, so it should not "
@@ -684,6 +687,20 @@ TOOL_META: dict[tuple[str, str], ToolMeta] = {
         "leave it out for every interview, [] for none. Returns the limit it set.",
         "readOnlyHint=false / destructiveHint=true: stores a new document on the "
         "account and triggers processing that consumes credits. " + _OPEN_WORLD,
+        # This tool sends JSON only; the multipart form is the HTTP API's other option.
+        description_fixes=(
+            (
+                "Accepts the file either as multipart/form-data (binary `file`) or as "
+                "application/json (base64 `file`).",
+                "Send the file base64-encoded in `file`.",
+            ),
+            (" Falls back to the uploaded file name for multipart.", ""),
+            (
+                " With multipart/form-data, repeat the field or send one JSON array such as "
+                '`["<id>"]`, and write an empty list as `[]`.',
+                "",
+            ),
+        ),
     ),
     ("GET", "/knowledge-base-document-list"): _read(
         "list_knowledge_base_documents",

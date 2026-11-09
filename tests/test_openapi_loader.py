@@ -226,3 +226,49 @@ def test_every_endpoint_name_maps_to_a_real_tool_name():
     for slug, text in names.items():
         assert "-" not in text.split()[0], (slug, text)
         assert text.split()[0] in tools | {"invite_candidates"}, (slug, text)
+
+
+# ---- fix_exclusive_bounds ---------------------------------------------------------------------
+
+
+def test_a_boolean_exclusive_bound_becomes_the_3_1_number():
+    """{"minimum": 0, "exclusiveMinimum": true} is more than 0; read as 3.1 it was more than 1."""
+    spec = {
+        "components": {
+            "schemas": {
+                "S": {
+                    "properties": {
+                        "score_max": {"type": "number", "minimum": 0, "exclusiveMinimum": True},
+                        "width": {"type": "integer", "maximum": 10, "exclusiveMaximum": False},
+                        "kept": {"type": "number", "exclusiveMinimum": 5},
+                        "exclusiveMinimum": {"type": "boolean"},
+                    }
+                }
+            }
+        }
+    }
+    loader.fix_exclusive_bounds(spec)
+    props = spec["components"]["schemas"]["S"]["properties"]
+    assert props["score_max"] == {"type": "number", "exclusiveMinimum": 0}
+    assert props["width"] == {"type": "integer", "maximum": 10}
+    assert props["kept"] == {"type": "number", "exclusiveMinimum": 5}
+    assert props["exclusiveMinimum"] == {"type": "boolean"}
+
+
+def test_no_advertised_schema_carries_a_boolean_or_a_shifted_exclusive_bound():
+    spec = loader.load_openapi_spec()
+    found = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            for key in ("exclusiveMinimum", "exclusiveMaximum"):
+                if isinstance(node.get(key), bool):
+                    found.append(path)
+            for k, v in node.items():
+                walk(v, f"{path}/{k}")
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, path)
+
+    walk(spec, "")
+    assert not found, found

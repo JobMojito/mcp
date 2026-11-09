@@ -240,6 +240,36 @@ def apply_description_fixes(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def fix_exclusive_bounds(spec: dict[str, Any]) -> dict[str, Any]:
+    """OpenAPI 3.0's boolean ``exclusiveMinimum`` / ``exclusiveMaximum`` in 3.1 form.
+
+    The spec is tagged 3.1 but zod writes ``{"minimum": 0, "exclusiveMinimum": true}``
+    (more than 0). Read as 3.1, ``true`` became the number 1, so the tool schema
+    asked for more than 1 and refused score_max=1 or a 1-pixel image. In 3.1 the
+    bound itself is the number: ``{"exclusiveMinimum": 0}``. A ``false`` means the
+    plain inclusive bound and is dropped.
+    """
+    pairs = (("exclusiveMinimum", "minimum"), ("exclusiveMaximum", "maximum"))
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for exclusive, bound in pairs:
+                flag = node.get(exclusive)
+                if isinstance(flag, bool):  # bool before number: True is also 1
+                    del node[exclusive]
+                    if flag and bound in node:
+                        node[exclusive] = node.pop(bound)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(spec.get("paths", {}))
+    walk(spec.get("components", {}))
+    return spec
+
+
 def apply_tool_names(spec: dict[str, Any]) -> dict[str, Any]:
     """Name tools, not endpoints, in every description a model reads.
 
@@ -482,7 +512,7 @@ def _prepare(spec: dict[str, Any]) -> dict[str, Any]:
         apply_tool_names(
             apply_description_fixes(
                 prefer_json_request_bodies(
-                    inject_view_params(apply_param_defaults(inject_operation_ids(spec)))
+                    inject_view_params(apply_param_defaults(inject_operation_ids(fix_exclusive_bounds(spec))))
                 )
             )
         )

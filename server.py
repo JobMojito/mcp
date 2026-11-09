@@ -59,7 +59,7 @@ logger = logging.getLogger("jobmojito_mcp")
 
 #: Kept in sync with ``pyproject.toml`` and ``server.json``. Directories treat the
 #: version as the release identity, so bump all three together.
-SERVER_VERSION = "2.2.2"
+SERVER_VERSION = "2.2.3"
 
 #: <=100 characters — the hard cap on ``description`` in the official MCP Registry
 #: server.json schema, and the tightest length constraint of any listing surface.
@@ -135,8 +135,11 @@ positions, steps, status, dates, countries, skills...): call `list_candidate_fil
 first for the fields and ids. Changes that reach candidates or cannot be undone
 (`merge_candidates`, slot changes, document requests, step settings) take
 `dry_run` or a preview first: show the user what would happen, then run it. A
-change with neither (`set_interview_state`, `invite_candidates`) needs the user's
-go-ahead first.
+change with neither (`set_interview_state`, `invite_candidates`,
+`request_another_interview_attempt`) needs the user's go-ahead first.
+Some tools and fields belong to company features that JobMojito switches on per
+company (prospects, meeting_panels...): a 403 naming one means it is off for this
+company, so tell the user instead of retrying.
 
 RESPONSIBLE USE (applies to every result this server returns):
 JobMojito produces assistive output for hiring workflows. Interview scores,
@@ -177,10 +180,13 @@ HOW TO USE THIS SERVER:
    for the user's own account.
 
 IDENTIFIERS & ADMIN LINKS:
-Ids are easy to mix up — the same interview is `interview_def_set_id` (on create),
-`position_id` (get/set-state), and `interview_id` (register/token). A result's
-`interview_result_id`, from a list_interview_results row: a single-stage row's
-`id` (its interview_result_id is null), a multi-stage row's `interview_result_id`.
+Ids are easy to mix up. The same interview is `interview_def_set_id` (returned by
+create_interview), `position_id` (get_interview_definition, set_interview_state)
+and `interview_id` (invite_candidates, generate_interview_url). One candidate is
+`candidate_id`, `interview_profile_id` and `profile_interview_id`: all the `id` of a
+list_candidates row. To get a result's `interview_result_id` from a
+list_interview_results row, take the row's `id` on a single-stage row (its
+interview_result_id is null) and its `interview_result_id` on a multi-stage row.
 Enum values are exact strings, sent as listed even when they look misspelt
 (`name_accending`); some flags are the strings "true"/"false", not booleans.
 There is no link-building tool.
@@ -193,10 +199,11 @@ TOOLS BY CATEGORY (tool descriptions are prefixed with these labels):
   list_my_merchants (text equivalent, supports a `search` filter)
 • Interview (create/manage): create_interview, get_interview_definition (add
   include=process,slots,team,lifecycle,publishing for a position), update_interview,
-  set_interview_state (publication status, vacancy lifecycle), duplicate_interview,
+  set_interview_state (publication status, vacancy lifecycle),
   request_another_interview_attempt
 • Positions: set_position_process (steps of a draft), update_position_step (one
-  step's settings), manage_meeting_slot, duplicate_position
+  step's settings), manage_meeting_slot, duplicate_position, duplicate_interview
+  (copies a stand-alone interview)
 • Candidates: list_candidates, get_candidate, list_candidate_filters,
   add_candidate_note, set_candidate_tags, manage_candidate_tag; duplicates:
   preview_candidate_merge, merge_candidates, dismiss_candidate_duplicate;

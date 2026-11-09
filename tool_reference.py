@@ -71,10 +71,13 @@ def capture(name: str, *, title: str | None, description: str, input_schema: dic
 
 
 def _without_overrides(schema: dict) -> dict:
-    """The full definition has the full texts: the short ones are tools/list's."""
+    """The full definition has the full texts: the short ones are tools/list's. FastMCP's
+    own markers (x-fastmcp-top-level-schema) mean nothing to a model either."""
 
     def walk(node: dict) -> None:
         node.pop(OVERRIDE, None)
+        for key in [k for k in node if isinstance(k, str) and k.startswith("x-fastmcp")]:
+            del node[key]
         for key in ("$defs", "definitions"):
             for child in (node.get(key) or {}).values():
                 if isinstance(child, dict):
