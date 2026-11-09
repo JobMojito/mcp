@@ -873,3 +873,48 @@ def test_server_card_states_an_explicit_ttl(monkeypatch):
 
     response = asyncio.run(captured["/.well-known/mcp/server-card.json"](None))
     assert "max-age" in response.headers.get("cache-control", "")
+
+
+def test_server_card_annotations_use_the_wire_names():
+    """Crawlers read readOnlyHint/destructiveHint, as tools/list sends them.
+
+    SDK 2 models dump snake_case field names unless asked for the aliases, and the
+    card shipped `read_only_hint` from 2.1.0 to 2.6.0.
+    """
+    import asyncio
+
+    from mcp.types import ToolAnnotations
+
+    import wellknown
+
+    captured: dict = {}
+
+    class _Tool:
+        name = "list_things"
+        title = "List things"
+        description = "Lists things."
+        annotations = ToolAnnotations(
+            title="List things", readOnlyHint=True, destructiveHint=False, openWorldHint=True
+        )
+
+    class _FakeMCP:
+        def custom_route(self, path, methods, include_in_schema=True):
+            def decorator(fn):
+                captured[path] = fn
+                return fn
+
+            return decorator
+
+        async def list_tools(self):
+            return [_Tool()]
+
+    wellknown.register(_FakeMCP(), version="9.9.9", description="d")
+
+    response = asyncio.run(captured["/.well-known/mcp/server-card.json"](None))
+    card = json.loads(response.body)
+    assert card["tools"][0]["annotations"] == {
+        "title": "List things",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "openWorldHint": True,
+    }

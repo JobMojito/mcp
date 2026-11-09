@@ -163,5 +163,7 @@ def _annotations_dict(tool) -> dict | None:
         return annotations
     dump = getattr(annotations, "model_dump", None)
     if callable(dump):
-        return dump(exclude_none=True)
+        # MCP SDK 2 models store snake_case fields; the wire names
+        # (readOnlyHint, destructiveHint...) are the aliases.
+        return dump(by_alias=True, exclude_none=True)
     return None
